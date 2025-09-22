@@ -1,0 +1,27 @@
+#tinyartist-logo {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: sans-serif;
+    display: flex;
+    align-items: center;
+}
+#tinyartist-logo > img {
+    width: 40px;
+    height: 35px;
+    padding-right: 5px;
+}
+#tinyartist-logo > span {}
+
+.default-container.vertical-toolbar-layout #toolbar.vertical #tinyartist-logo {
+    order: -1;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.default-container.vertical-toolbar-layout #toolbar.vertical #tinyartist-logo > img {
+    padding-right: 0;
+}

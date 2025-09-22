@@ -34,7 +34,8 @@ module.exports = {
         './lib/notification.js',
         './lib/animation.js',
         './lib/frames.js',
-        './lib/style.css'
+        './lib/style.css',
+        './lib/style-custom.css'
     ],
     output: {
         filename: 'fabricjs-image-editor-origin.js',
