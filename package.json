@@ -8,6 +8,7 @@
     },
     "scripts": {
         "watch": "webpack --watch",
-        "build": "webpack --mode production"
+        "build": "node scripts/build-react-bundle.js",
+        "build:native": "npm run build && node scripts/build-inline-html.js"
     }
 }
