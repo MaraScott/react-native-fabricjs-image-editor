@@ -32,10 +32,9 @@ module.exports = {
         './lib/ruler.js',
         './lib/fullscreen.js',
         './lib/notification.js',
+        './lib/confirmation.js',
         './lib/animation.js',
-        './lib/frames.js',
-        './lib/style.css',
-        './lib/style-custom.css'
+        './lib/frames.js'
     ],
     output: {
         filename: 'fabricjs-image-editor-origin.js',

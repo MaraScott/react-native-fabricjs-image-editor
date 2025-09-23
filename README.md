@@ -147,7 +147,7 @@ The eyedropper functionality allows selecting colors from anywhere on the screen
 
 This directory shows how to package the Fabric.js image editor inside an Expo
 application by treating the browser editor as a local WebView bundle. The
-`FabricImageEditor` component in `src/FabricImageEditor.tsx` is a drop-in React
+`Editor` component in `components/editor/Editor.tsx` is a drop-in React
 Native wrapper that talks to the editor running inside `assets/editor/index.html`.
 
 ## Project structure
@@ -164,8 +164,8 @@ tinyartist-editor/
 │           ├── lib/                  # Editor styles and templates
 │           └── vendor/               # Third-party helpers used by the editor UI
 └── components/
-    └── editor/
-        └── FabricImageEditor.tsx     # React Native wrapper component
+    └── web/
+        └── Editor.tsx     # React Native wrapper component
 ```
 
 Copy this folder into your Expo project (for example under `./examples/editor`)
@@ -208,22 +208,22 @@ working.
 
 4. **Reference the component**
 
-   Copy `examples/expo/src/FabricImageEditor.tsx` into your project (for
+   Copy `examples/expo/src/Editor.tsx` into your project (for
    example under `src/components`). Import it and render it anywhere inside your
    React Native tree:
 
    ```tsx
    import React, { useRef } from 'react';
-   import FabricImageEditor, {
-     FabricImageEditorHandle,
+   import Editor, {
+     EditorHandle,
      FabricExportFormat
-   } from './components/FabricImageEditor';
+   } from '@components/native/Editor';
 
    export default function EditorScreen() {
-     const editorRef = useRef<FabricImageEditorHandle>(null);
+     const editorRef = useRef<EditorHandle>(null);
 
      return (
-       <FabricImageEditor
+       <Editor
          ref={editorRef}
          initialDesign={null}
          onReady={() => console.log('Editor ready')}
@@ -238,7 +238,7 @@ working.
 
 ## Component API
 
-`<FabricImageEditor />` renders a `react-native-webview` that loads
+`<Editor />` renders a `react-native-webview` that loads
 `assets/editor/index.html`. Props map directly to the editor configuration
 options from `script.js`:
 
