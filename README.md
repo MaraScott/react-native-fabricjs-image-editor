@@ -1,6 +1,6 @@
 # Fabric.js React Image Editor
 
-This repository contains a Fabric.js powered canvas editor rendered with a lightweight React runtime. The browser build ships with an `index.html` entry point, and the same UI can be embedded inside a React Native application through a `WebView` wrapper that exchanges state over `postMessage`.
+This repository contains a Fabric.js powered canvas editor rendered with a lightweight React runtime. The browser build ships with an `index.html` entry point, and the same UI can be embedded inside a React Native application through a `WebView` wrapper that exchanges state over `postMessage`. For the native embed we inline the original vanilla JavaScript implementation instead of the React bundle so that the generated HTML relies purely on classic scripts.
 
 ![Editor UI](screenshots/editor.jpg)
 
@@ -16,7 +16,7 @@ This repository contains a Fabric.js powered canvas editor rendered with a light
    ```
 3. Open `index.html` in a modern browser. The page loads `dist/react-app.bundle.js`, which contains Fabric.js, the runtime, and all React components.
 
-The `npm run build` step produces `dist/react-app.bundle.js`. Running `npm run build:native` additionally emits `dist/editor-inline.html`, a fully inline document that is also re-exported as `react-native/editorHtml.js` for the WebView wrapper.
+The `npm run build` step produces `dist/react-app.bundle.js`. Running `npm run build:native` additionally emits `dist/editor-inline.html`, a fully inline document built from the legacy `dist/fabricjs-image-editor-origin.js` stack and vendor scripts. That HTML payload is also re-exported as `react-native/editorHtml.js` for the WebView wrapper.
 
 ## Feature parity with the original library build
 
@@ -27,7 +27,7 @@ The React rewrite covers every tool shipped in the legacy `lib/` implementation:
 - **State management:** undo/redo history, autosave to localStorage, JSON import/export, PNG export, and React Native bridge events for selection, history, and document changes.
 - **Feedback utilities:** keyboard shortcuts, confirmation/notification toasts, toolbar readouts, and persisted settings.
 
-Everything formerly coordinated by the vendor scripts (`context-menu`, `undo-redo-stack`, etc.) now lives in `lib/react-app.js`, ensuring the React UI exposes the same feature surface as the original Fabric.js editor.
+Everything formerly coordinated by the vendor scripts (`context-menu`, `undo-redo-stack`, etc.) now lives in `lib/react-app.js`, ensuring the React UI exposes the same feature surface as the original Fabric.js editor for the browser build. The React Native payload continues to reuse the legacy bundle so that its inline script is pure JavaScript.
 
 ## React Native integration
 
@@ -110,7 +110,7 @@ Any additional props passed to `FabricImageEditor` are forwarded to the underlyi
 
 ## Regenerating the embedded HTML
 
-Whenever you edit `lib/react-app.js`, `lib/react-lite.js`, `lib/react-app.css`, or `vendor/fabric.min.js`, run the build script to refresh the bundle and inline assets:
+Whenever you edit the React sources (`lib/react-app.js`, `lib/react-lite.js`, `lib/react-app.css`) or the legacy stack (`bootstrap.js`, `lib/style*.css`, `dist/fabricjs-image-editor-origin.js`, files inside `vendor/`), run the build script to refresh the bundle and inline assets:
 
 ```bash
 npm run build:native
@@ -119,7 +119,7 @@ npm run build:native
 This command updates:
 
 - `dist/react-app.bundle.js` – concatenated Fabric.js + runtime + React UI for the browser entry point
-- `dist/editor-inline.html` – the self-contained HTML document
+- `dist/editor-inline.html` – the self-contained HTML document generated from the vanilla JS editor
 - `react-native/editorHtml.js` – the inline string consumed by the React Native wrapper
 
 ## Repository structure

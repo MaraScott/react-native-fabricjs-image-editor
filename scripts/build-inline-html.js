@@ -17,18 +17,23 @@ function escapeScriptContent(source) {
   return source.replace(/<\/(script)/gi, '<\\/$1');
 }
 
-function buildHtml({ css, bundle }) {
+function buildHtml({ cssBlocks, scripts }) {
+  const styles = cssBlocks.join('\n');
+  const scriptTags = scripts
+    .map((content) => `<script>${escapeScriptContent(content)}</script>`)
+    .join('\n');
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Fabric.js React Image Editor</title>
-<style>${css}</style>
+<title>Fabric.js Image Editor</title>
+<style>${styles}</style>
 </head>
 <body>
 <div id="image-editor-container"></div>
-<script>${escapeScriptContent(bundle)}</script>
+${scriptTags}
 </body>
 </html>
 `;
@@ -46,15 +51,48 @@ function writeReactNativeModule(targetPath, html) {
 
 function main() {
   const root = path.resolve(__dirname, '..');
-  const css = readFile(path.join(root, 'lib', 'react-app.css'));
-  const bundlePath = path.join(root, 'dist', 'react-app.bundle.js');
-  if (!fs.existsSync(bundlePath)) {
-    throw new Error('Missing dist/react-app.bundle.js. Run npm run build first.');
-  }
 
-  const bundle = readFile(bundlePath);
+  const cssFiles = [
+    path.join(root, 'vendor', 'spectrum.min.css'),
+    path.join(root, 'vendor', 'grapick.min.css'),
+    path.join(root, 'lib', 'style.css'),
+    path.join(root, 'lib', 'style-custom.css')
+  ];
 
-  const html = buildHtml({ css, bundle });
+  const jsEntries = [
+    { type: 'file', path: path.join(root, 'vendor', 'jquery-3.5.1.min.js') },
+    {
+      type: 'inline',
+      content: `;(function(){\n  if (typeof jQuery !== 'undefined') {\n    jQuery.fn.outerHTML = function () {\n      return jQuery('<div />').append(this.eq(0).clone()).html();\n    };\n  }\n  Number.prototype.countDecimals = function () {\n    if (Math.floor(this.valueOf()) === this.valueOf()) return 0;\n    const parts = this.toString().split('.');\n    return parts[1] ? parts[1].length : 0;\n  };\n})();`
+    },
+    { type: 'file', path: path.join(root, 'vendor', 'fabric.min.js') },
+    { type: 'file', path: path.join(root, 'vendor', 'spectrum.min.js') },
+    { type: 'file', path: path.join(root, 'vendor', 'lodash.min.js') },
+    { type: 'file', path: path.join(root, 'vendor', 'grapick.min.js') },
+    { type: 'file', path: path.join(root, 'vendor', 'undo-redo-stack.js') },
+    { type: 'file', path: path.join(root, 'vendor', 'context-menu.js') },
+    { type: 'file', path: path.join(root, 'dist', 'fabricjs-image-editor-origin.js') },
+    { type: 'file', path: path.join(root, 'bootstrap.js') }
+  ];
+
+  cssFiles.forEach((filePath) => {
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`Missing CSS dependency: ${path.relative(root, filePath)}`);
+    }
+  });
+
+  jsEntries.forEach((entry) => {
+    if (entry.type === 'file' && !fs.existsSync(entry.path)) {
+      throw new Error(`Missing JS dependency: ${path.relative(root, entry.path)}`);
+    }
+  });
+
+  const cssBlocks = cssFiles.map(readFile);
+  const scripts = jsEntries.map((entry) =>
+    entry.type === 'inline' ? entry.content : readFile(entry.path)
+  );
+
+  const html = buildHtml({ cssBlocks, scripts });
 
   const distDir = path.join(root, 'dist');
   ensureDir(distDir);

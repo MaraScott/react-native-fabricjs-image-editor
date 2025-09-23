@@ -52,55 +52,97 @@ const FabricImageEditor = forwardRef(function FabricImageEditor(
     pendingMessagesRef.current = [];
   }, []);
 
-  const sendCommand = useCallback((type, payload) => {
-    const message = stringifyMessage(type, payload);
-    if (readyRef.current && webViewRef.current) {
-      webViewRef.current.postMessage(message);
-    } else {
-      pendingMessagesRef.current.push(message);
-    }
+  const dispatchMessages = useCallback((commands) => {
+    const list = Array.isArray(commands) ? commands : [commands];
+    list.forEach((command) => {
+      if (!command || typeof command.type !== 'string') {
+        return;
+      }
+      const message = stringifyMessage(command.type, command.payload);
+      if (readyRef.current && webViewRef.current) {
+        webViewRef.current.postMessage(message);
+      } else {
+        pendingMessagesRef.current.push(message);
+      }
+    });
   }, []);
 
   useImperativeHandle(ref, () => ({
     undo() {
-      sendCommand('undo');
+      dispatchMessages({ type: 'undo' });
     },
     redo() {
-      sendCommand('redo');
+      dispatchMessages({ type: 'redo' });
     },
     clear() {
-      sendCommand('clear');
+      dispatchMessages([
+        { type: 'clear' },
+        { type: 'focus-tool', payload: { tool: 'clear' } }
+      ]);
     },
     load(json) {
       if (typeof json === 'string' && json.trim()) {
-        sendCommand('load', { json });
+        dispatchMessages([
+          { type: 'load', payload: { json } },
+          { type: 'set-design', payload: { json } }
+        ]);
       }
     },
     export(format = 'png') {
-      sendCommand('export', { format });
+      const normalized = format === 'json' ? 'json' : format;
+      if (normalized === 'json') {
+        dispatchMessages([
+          { type: 'export', payload: { format: 'json' } },
+          { type: 'request-json' }
+        ]);
+      } else {
+        dispatchMessages([
+          { type: 'export', payload: { format: normalized } },
+          { type: 'request-export', payload: { format: normalized } }
+        ]);
+      }
     },
     exportPNG() {
-      sendCommand('export', { format: 'png' });
+      dispatchMessages([
+        { type: 'export', payload: { format: 'png' } },
+        { type: 'request-export', payload: { format: 'png' } }
+      ]);
     },
     exportJSON() {
-      sendCommand('export', { format: 'json' });
+      dispatchMessages([
+        { type: 'export', payload: { format: 'json' } },
+        { type: 'request-json' }
+      ]);
     },
     setDimensions(nextDimensions) {
       if (nextDimensions && (nextDimensions.width || nextDimensions.height)) {
-        sendCommand('setDimensions', nextDimensions);
+        const dims = {
+          ...(nextDimensions.width != null ? { width: nextDimensions.width } : {}),
+          ...(nextDimensions.height != null ? { height: nextDimensions.height } : {})
+        };
+        dispatchMessages([
+          { type: 'setDimensions', payload: dims },
+          { type: 'configure', payload: { options: { dimensions: dims } } }
+        ]);
       }
     },
     setBackgroundColor(color) {
       if (typeof color === 'string') {
-        sendCommand('setBackgroundColor', { color });
+        dispatchMessages([
+          { type: 'setBackgroundColor', payload: { color } },
+          { type: 'focus-tool', payload: { tool: 'background' } }
+        ]);
       }
     },
     insertImage(src) {
       if (typeof src === 'string' && src.trim()) {
-        sendCommand('insertImage', { src });
+        dispatchMessages([
+          { type: 'insertImage', payload: { src } },
+          { type: 'focus-tool', payload: { tool: 'images' } }
+        ]);
       }
     }
-  }), [sendCommand]);
+  }), [dispatchMessages]);
 
   const handleMessage = useCallback(
     (event) => {
@@ -124,7 +166,10 @@ const FabricImageEditor = forwardRef(function FabricImageEditor(
           readyRef.current = true;
           flushPendingMessages();
           if (initialDocumentRef.current) {
-            sendCommand('load', { json: initialDocumentRef.current });
+            dispatchMessages([
+              { type: 'load', payload: { json: initialDocumentRef.current } },
+              { type: 'set-design', payload: { json: initialDocumentRef.current } }
+            ]);
             initialDocumentRef.current = null;
           }
           if (onReady) {
@@ -132,6 +177,11 @@ const FabricImageEditor = forwardRef(function FabricImageEditor(
           }
           break;
         }
+        case 'change':
+          if (onChange) {
+            onChange(payload ? payload.json || null : null);
+          }
+          break;
         case 'document':
           if (onChange) {
             onChange(payload ? payload.json || null : null);
@@ -162,16 +212,31 @@ const FabricImageEditor = forwardRef(function FabricImageEditor(
             onExport(payload || null);
           }
           break;
+        case 'save':
+          if (onExport) {
+            onExport({ ...(payload || {}), format: 'json' });
+          }
+          break;
         case 'download':
           if (onDownloadRequest) {
             onDownloadRequest(payload || null);
+          }
+          break;
+        case 'log':
+          if (payload && payload.message) {
+            console.log('[FabricImageEditor]', payload.message);
+          }
+          break;
+        case 'error':
+          if (payload && payload.message) {
+            console.warn('[FabricImageEditor]', payload.message);
           }
           break;
         default:
           break;
       }
     },
-    [flushPendingMessages, onBackgroundChange, onChange, onDimensionsChange, onDownloadRequest, onExport, onHistoryChange, onReady, onSelectionChange, sendCommand]
+    [dispatchMessages, flushPendingMessages, onBackgroundChange, onChange, onDimensionsChange, onDownloadRequest, onExport, onHistoryChange, onReady, onSelectionChange]
   );
 
   return (
