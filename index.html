@@ -1,54 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
+  <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Fabric.js Image Editor</title>
-    <link rel="stylesheet" type="text/css" href="./vendor/spectrum.min.css" />
-    <link rel="stylesheet" href="./vendor/grapick.min.css" />
-    <link rel="stylesheet" href="./lib/style.css" />
-    <link rel="stylesheet" href="./lib/style-custom.css" />
+    <title>Konva Image Editor</title>
     <style>
-        html,
-        body {
-            height: 100%;
-            width: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: #121212;
-            color: #fff;
-            font-family: sans-serif;
-        }
+      html,
+      body {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #0f1115;
+        color: #f5f5f5;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
 
-        #image-editor-container {
-            height: 100%;
-            width: 100%;
-        }
+      #image-editor-root {
+        height: 100%;
+        width: 100%;
+      }
     </style>
-</head>
-
-<body>
-    <div id="image-editor-container"></div>
-    <script src="./vendor/jquery-3.5.1.min.js"></script>
-    <script>
-        jQuery.fn.outerHTML = function () {
-            return jQuery('<div />').append(this.eq(0).clone()).html();
-        };
-        Number.prototype.countDecimals = function () {
-            if (Math.floor(this.valueOf()) === this.valueOf()) return 0;
-            return this.toString().split('.')[1].length || 0;
-        };
-    </script>
-    <script src="./vendor/fabric.min.js"></script>
-    <script src="./vendor/spectrum.min.js"></script>
-    <script src="./vendor/lodash.min.js"></script>
-    <script src="./vendor/grapick.min.js"></script>
-    <script src="./vendor/undo-redo-stack.js"></script>
-    <script src="./vendor/context-menu.js"></script>
-    <script src="./dist/fabricjs-image-editor-origin.js"></script>
-    <script src="./bootstrap.js"></script>
-</body>
-
+  </head>
+  <body>
+    <div id="image-editor-root"></div>
+    <script src="./dist/editor.bundle.js"></script>
+  </body>
 </html>
