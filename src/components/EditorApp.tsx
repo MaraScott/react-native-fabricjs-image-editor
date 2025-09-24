@@ -157,22 +157,24 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
   const { postMessage } = useBridge();
 
   const selectedElement = useMemo(
-    () => elements.find((element) => element.id === selectedId) ?? null,
+    () => elements.find((element: EditorElement) => element.id === selectedId) ?? null,
     [elements, selectedId],
   );
 
   const updateElement = useCallback(
-    (id: string, attributes: Partial<EditorElement>) => {
-      setElements(
-        elements.map((element) => (element.id === id ? ({ ...element, ...attributes } as EditorElement) : element)),
-      );
-    },
-    [elements, setElements],
-  );
+      (id: string, attributes: Partial<EditorElement>) => {
+        setElements(
+          elements.map((element: EditorElement) =>
+            element.id === id ? ({ ...element, ...attributes } as EditorElement) : element,
+          ),
+        );
+      },
+      [elements, setElements],
+    );
 
   const removeElement = useCallback(() => {
     if (!selectedId) return;
-    setElements(elements.filter((element) => element.id !== selectedId));
+    setElements(elements.filter((element: EditorElement) => element.id !== selectedId));
     setSelectedId(null);
   }, [elements, selectedId, setElements]);
 
@@ -365,7 +367,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
               onTouchStart={handleStagePointerDown}
             >
               <Layer>
-                {elements.map((element) => {
+                {elements.map((element: EditorElement) => {
                   switch (element.type) {
                     case 'rect':
                       return (
@@ -374,7 +376,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                           shape={element}
                           isSelected={selectedId === element.id}
                           onSelect={() => setSelectedId(element.id)}
-                          onChange={(attrs) => updateElement(element.id, attrs)}
+                          onChange={(attrs: Partial<EditorElement>) => updateElement(element.id, attrs)}
                         />
                       );
                     case 'circle':
@@ -384,7 +386,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                           shape={element}
                           isSelected={selectedId === element.id}
                           onSelect={() => setSelectedId(element.id)}
-                          onChange={(attrs) => updateElement(element.id, attrs)}
+                          onChange={(attrs: Partial<EditorElement>) => updateElement(element.id, attrs)}
                         />
                       );
                     case 'text':
@@ -394,7 +396,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                           shape={element}
                           isSelected={selectedId === element.id}
                           onSelect={() => setSelectedId(element.id)}
-                          onChange={(attrs) => updateElement(element.id, attrs)}
+                          onChange={(attrs: Partial<EditorElement>) => updateElement(element.id, attrs)}
                         />
                       );
                     case 'image':
@@ -404,7 +406,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                           shape={element}
                           isSelected={selectedId === element.id}
                           onSelect={() => setSelectedId(element.id)}
-                          onChange={(attrs) => updateElement(element.id, attrs)}
+                          onChange={(attrs: Partial<EditorElement>) => updateElement(element.id, attrs)}
                         />
                       );
                     default:

@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
-import { Circle as CircleShape, Image as ImageShape, Rect as RectShape, Text as TextShape, Transformer as TransformerShape } from 'react-konva';
+import {
+  Circle as CircleShape,
+  Image as ImageShape,
+  Rect as RectShape,
+  Text as TextShape,
+  Transformer as TransformerShape,
+} from 'react-konva';
+import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
-import type { Circle as KonvaCircle } from 'konva/lib/shapes/Circle';
-import type { Image as KonvaImage } from 'konva/lib/shapes/Image';
-import type { Rect as KonvaRect } from 'konva/lib/shapes/Rect';
-import type { Text as KonvaText } from 'konva/lib/shapes/Text';
-import type { Transformer as KonvaTransformer } from 'konva/lib/shapes/Transformer';
 import useImage from 'use-image';
 import type {
   CircleElement,
@@ -22,8 +24,8 @@ interface NodeProps<T> {
 }
 
 export function RectNode({ shape, isSelected, onSelect, onChange }: NodeProps<RectElement>) {
-  const shapeRef = useRef<KonvaRect | null>(null);
-  const trRef = useRef<KonvaTransformer | null>(null);
+  const shapeRef = useRef<Konva.Rect | null>(null);
+  const trRef = useRef<Konva.Transformer | null>(null);
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
@@ -81,8 +83,8 @@ export function RectNode({ shape, isSelected, onSelect, onChange }: NodeProps<Re
 }
 
 export function CircleNode({ shape, isSelected, onSelect, onChange }: NodeProps<CircleElement>) {
-  const shapeRef = useRef<KonvaCircle | null>(null);
-  const trRef = useRef<KonvaTransformer | null>(null);
+  const shapeRef = useRef<Konva.Circle | null>(null);
+  const trRef = useRef<Konva.Transformer | null>(null);
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
@@ -139,8 +141,8 @@ export function CircleNode({ shape, isSelected, onSelect, onChange }: NodeProps<
 }
 
 export function TextNode({ shape, isSelected, onSelect, onChange }: NodeProps<TextElement>) {
-  const shapeRef = useRef<KonvaText | null>(null);
-  const trRef = useRef<KonvaTransformer | null>(null);
+  const shapeRef = useRef<Konva.Text | null>(null);
+  const trRef = useRef<Konva.Transformer | null>(null);
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
@@ -196,8 +198,8 @@ export function TextNode({ shape, isSelected, onSelect, onChange }: NodeProps<Te
 }
 
 export function ImageNode({ shape, isSelected, onSelect, onChange }: NodeProps<ImageElement>) {
-  const shapeRef = useRef<KonvaImage | null>(null);
-  const trRef = useRef<KonvaTransformer | null>(null);
+  const shapeRef = useRef<Konva.Image | null>(null);
+  const trRef = useRef<Konva.Transformer | null>(null);
   const [image] = useImage(shape.src, 'anonymous');
 
   useEffect(() => {

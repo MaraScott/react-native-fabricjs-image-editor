@@ -9,6 +9,9 @@ module.exports = {
   },
   resolve: {
     extensions: ['.ts', '.tsx', '.js', '.jsx'],
+    alias: {
+      'its-fine': path.resolve(__dirname, 'src/shims/itsFine.ts'),
+    },
   },
   module: {
     rules: [
