@@ -13,7 +13,7 @@ const DEFAULT_OPTIONS: EditorOptions = {
   snapToGrid: true,
   snapToGuides: true,
   showGuides: true,
-  showRulers: true,
+  showRulers: false,
   zoom: 1,
   fixedCanvas: false,
   canvasSizeLocked: false,
