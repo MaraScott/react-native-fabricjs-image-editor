@@ -1,7 +1,7 @@
 const path = require('path');
 
 module.exports = {
-  entry: './src/index.tsx',
+  entry: './index.tsx',
   output: {
     filename: 'editor.bundle.js',
     path: path.resolve(__dirname, 'dist'),
@@ -10,7 +10,7 @@ module.exports = {
   resolve: {
     extensions: ['.ts', '.tsx', '.js', '.jsx'],
     alias: {
-      'its-fine': path.resolve(__dirname, 'src/shims/itsFine.ts'),
+      'its-fine': path.resolve(__dirname, 'shims/itsFine.ts'),
     },
   },
   module: {

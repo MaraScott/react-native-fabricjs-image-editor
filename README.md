@@ -25,15 +25,14 @@ The build command produces `dist/editor.bundle.js`, which is loaded by `index.ht
 
 ```
 ├── index.html              # Minimal host page for the editor
-├── src/
-│   ├── components/
-│   │   ├── EditorApp.tsx   # Main application shell + toolbar/bridge
-│   │   ├── KonvaNodes.tsx  # Rect/Circle/Text/Image renderers with transformers
-│   │   └── PropertiesPanel.tsx
-│   ├── hooks/useHistory.ts # Simple undo/redo state helper
-│   ├── types/              # Editor model + React/konva shims
-│   ├── utils/design.ts     # JSON serialisation helpers
-│   └── index.tsx           # Entrypoint rendered by webpack
+├── components/
+│  ├── EditorApp.tsx   # Main application shell + toolbar/bridge
+│  ├── KonvaNodes.tsx  # Rect/Circle/Text/Image renderers with transformers
+│  └── PropertiesPanel.tsx
+├── hooks/useHistory.ts # Simple undo/redo state helper
+├── types/              # Editor model + React/konva shims
+├── utils/design.ts     # JSON serialisation helpers
+├── index.tsx           # Entrypoint rendered by webpack
 ├── tsconfig.json
 └── webpack.config.js
 ```

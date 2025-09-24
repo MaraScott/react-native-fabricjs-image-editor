@@ -13,6 +13,6 @@
     "noEmitOnError": false,
     "types": ["react", "react-dom", "konva"]
   },
-  "include": ["src"],
+  "include": [".", "utils", "hooks", "components", "global.d.ts", "index.tsx"],
   "exclude": ["node_modules", "dist"]
 }
