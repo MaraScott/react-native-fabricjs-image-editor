@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Layer, Stage } from 'react-konva/compat';
+import { Layer, Stage } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { Stage as StageType } from 'konva/lib/Stage';
 import PropertiesPanel from './PropertiesPanel';
