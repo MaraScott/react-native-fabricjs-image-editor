@@ -105,6 +105,32 @@ const useTransitionImpl: UseTransitionType =
         return [false, start] as const;
       });
 
+type ContextBridgeComponent = React.ComponentType<{ children?: React.ReactNode }>;
+
+const FiberContext = React.createContext<unknown>(null);
+
+function useContextBridgeImpl(...contexts: Array<React.Context<unknown>>): ContextBridgeComponent {
+  const values = contexts.map((context) => React.useContext(context));
+  const valuesRef = React.useRef(values);
+  valuesRef.current = values;
+
+  const contextsRef = React.useRef(contexts);
+  contextsRef.current = contexts;
+
+  return React.useCallback(
+    function ContextBridge({ children }: { children?: React.ReactNode }) {
+      return contextsRef.current.reduceRight<React.ReactNode>(
+        (acc, Context, index) =>
+          React.createElement(Context.Provider, { value: valuesRef.current[index] }, acc),
+        children ?? null,
+      );
+    },
+    [],
+  );
+}
+
+export const FiberProvider = FiberContext.Provider;
+
 export { startTransition, useInsertionEffect, use, useSyncExternalStoreImpl as useSyncExternalStore };
 export { useDeferredValueImpl as useDeferredValue, useIdImpl as useId, useTransitionImpl as useTransition };
 export const useEffect = React.useEffect.bind(React);
@@ -117,6 +143,7 @@ export const useReducer = React.useReducer.bind(React);
 export const useImperativeHandle = React.useImperativeHandle.bind(React);
 export const useContext = React.useContext.bind(React);
 export const useDebugValue = React.useDebugValue.bind(React);
+export const useContextBridge = useContextBridgeImpl;
 
 export default {
   startTransition,
@@ -136,4 +163,6 @@ export default {
   useImperativeHandle: React.useImperativeHandle.bind(React),
   useContext: React.useContext.bind(React),
   useDebugValue: React.useDebugValue.bind(React),
+  FiberProvider,
+  useContextBridge: useContextBridgeImpl,
 };
