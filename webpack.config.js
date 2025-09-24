@@ -12,13 +12,13 @@ module.exports = {
     alias: {
       'its-fine': path.resolve(__dirname, 'shims/itsFine.ts'),
       'react/jsx-runtime': path.resolve(__dirname, 'shims/jsxRuntime.ts'),
+      'react-konva': path.resolve(__dirname, 'shims/reactKonva.tsx'),
     },
   },
   externals: {
     react: 'React',
     'react-dom': 'ReactDOM',
     'react-dom/client': 'ReactDOM',
-    'react-konva': 'ReactKonva',
     konva: 'Konva',
   },
   module: {

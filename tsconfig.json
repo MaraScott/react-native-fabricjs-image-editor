@@ -11,7 +11,12 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "noEmitOnError": false,
-    "types": ["react", "react-dom"]
+    "types": ["react", "react-dom"],
+    "paths": {
+      "react-konva": ["shims/reactKonva"],
+      "react/jsx-runtime": ["shims/jsxRuntime"],
+      "its-fine": ["shims/itsFine"]
+    }
   },
   "include": [".", "utils", "hooks", "components", "global.d.ts", "index.tsx"],
   "exclude": ["node_modules", "dist"]

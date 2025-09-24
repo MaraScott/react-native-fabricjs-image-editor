@@ -3,24 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "watch": "webpack --watch",
-    "build": "webpack --mode production"
+    "build": "node scripts/build.js"
   },
-  "dependencies": {
-    "konva": "^10.0.2",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-konva": "^18.2.14",
-    "use-image": "^1.0.1"
-  },
-  "devDependencies": {
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
-    "css-loader": "^7.1.2",
-    "style-loader": "^4.0.0",
-    "ts-loader": "^9.5.1",
-    "typescript": "^5.4.5",
-    "webpack": "^5.92.1",
-    "webpack-cli": "^5.1.4"
-  }
+  "dependencies": {},
+  "devDependencies": {}
 }
