@@ -19,21 +19,43 @@ body,
 }
 
 .editor-shell {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  gap: 12px;
-  padding: 12px;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    gap: 12px;
+    padding: 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
 }
 
+.editor-shell-layout {
+    align-items: flex-start;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    gap: 12px;
+    padding: 0;
+    flex-direction: column;
+    flex-wrap: wrap;
+}
+
+.editor-navbar,
 .editor-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
-  align-items: center;
+  align-items: flex-start;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.editor-navbar {
+  flex-wrap: wrap;
+  width: 100vw;
+  background-color: #111317;
+  border-radius: 8px;
 }
 
+.editor-navbar .toolbar-group,
 .editor-toolbar .toolbar-group {
   display: flex;
   gap: 6px;
@@ -42,12 +64,21 @@ body,
   background: rgba(15, 23, 42, 0.6);
   border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 8px;
+  flex-direction: column;
+}
+.editor-navbar .toolbar-group {
+  flex-direction: row;
+}
+.editor-toolbar .toolbar-group {
+  width: 100%;
 }
 
+.editor-navbar .toolbar-spacer,
 .editor-toolbar .toolbar-spacer {
   flex: 1 1 auto;
 }
 
+.editor-navbar button,
 .editor-toolbar button {
   background: #1f2633;
   border: 1px solid #283345;
@@ -59,17 +90,20 @@ body,
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
+.editor-navbar button.active,
 .editor-toolbar button.active {
   background: #2563eb;
   border-color: #3b82f6;
   color: #f8fafc;
 }
 
+.editor-navbar button:hover,
 .editor-toolbar button:hover {
   background: #273044;
   border-color: #3b4961;
 }
 
+.editor-navbar button:disabled,
 .editor-toolbar button:disabled {
   opacity: 0.45;
   cursor: not-allowed;

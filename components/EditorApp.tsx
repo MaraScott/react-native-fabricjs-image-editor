@@ -815,7 +815,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
   const contentElements = useMemo(() => elements.filter((element) => element.type !== 'guide'), [elements]);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [activeTool, setActiveTool] = useState<Tool>('select');
+  const [activeTool, setActiveTool] = useState<Tool>('draw');
   const [drawingState, setDrawingState] = useState<DrawingState | null>(null);
   const [clipboard, setClipboard] = useState<EditorElement[] | null>(null);
   const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
@@ -1370,6 +1370,19 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
   return (
     <div className="editor-shell">
+      <div className="editor-navbar">
+        <div className="toolbar-group">
+          <img 
+            src="https://uat.marascott.ai/wp-content/uploads/mascotte-remotedsi-tinyartistgradient-square-150x150.png" 
+            width="40"
+            height="40"
+          />
+          <span>
+            TinyArtist Editor
+          </span>
+        </div>
+      </div>
+      <div className="editor-shell-layout">
       <div className="editor-toolbar">
         <div className="toolbar-group">
           <button type="button" className={activeTool === 'select' ? 'active' : ''} onClick={() => setActiveTool('select')}>
@@ -1455,172 +1468,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
           </button>
         </div>
       </div>
-
-      <div className="editor-layout">
-        <div className="editor-canvas">
-          <div className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={{ width: zoomedWidth, height: zoomedHeight }}>
-            {options.showRulers && <div className="stage-ruler stage-ruler-horizontal" style={{ width: zoomedWidth }} />}
-            {options.showRulers && <div className="stage-ruler stage-ruler-vertical" style={{ height: zoomedHeight }} />}
-            <div className="stage-canvas" style={{ width: zoomedWidth, height: zoomedHeight, ...gridBackground }}>
-              <Stage
-                ref={stageRef}
-                width={options.width}
-                height={options.height}
-                scaleX={options.zoom}
-                scaleY={options.zoom}
-                onMouseDown={handleStagePointerDown}
-                onTouchStart={handleStagePointerDown}
-                onMouseMove={handleStagePointerMove}
-                onTouchMove={handleStagePointerMove}
-                onMouseUp={handleStagePointerUp}
-                onTouchEnd={handleStagePointerUp}
-              >
-                <Layer>
-                  {options.showGuides &&
-                    guides.map((guide) => (
-                      <GuideNode
-                        key={guide.id}
-                        shape={guide}
-                        isSelected={selectedIds.includes(guide.id)}
-                        selectionEnabled={activeTool === 'select'}
-                        onSelect={() => handleSelectElement(guide.id)}
-                        onChange={(attributes) => updateElement(guide.id, attributes)}
-                      />
-                    ))}
-                  {contentElements.map((element) => {
-                    const isSelected = selectedIds.includes(element.id);
-                    const selectionEnabled = activeTool === 'select';
-                    const dragBound = dragBoundFactory(element);
-
-                    switch (element.type) {
-                      case 'rect':
-                        return (
-                          <RectNode
-                            key={element.id}
-                            shape={element}
-                            isSelected={isSelected}
-                            selectionEnabled={selectionEnabled}
-                            onSelect={() => handleSelectElement(element.id)}
-                            onChange={(attributes) => updateElement(element.id, attributes)}
-                            dragBoundFunc={dragBound}
-                          />
-                        );
-                      case 'frame':
-                        return (
-                          <FrameNode
-                            key={element.id}
-                            shape={element}
-                            isSelected={isSelected}
-                            selectionEnabled={selectionEnabled}
-                            onSelect={() => handleSelectElement(element.id)}
-                            onChange={(attributes) => updateElement(element.id, attributes)}
-                            dragBoundFunc={dragBound}
-                          />
-                        );
-                      case 'circle':
-                        return (
-                          <CircleNode
-                            key={element.id}
-                            shape={element}
-                            isSelected={isSelected}
-                            selectionEnabled={selectionEnabled}
-                            onSelect={() => handleSelectElement(element.id)}
-                            onChange={(attributes) => updateElement(element.id, attributes)}
-                            dragBoundFunc={dragBound}
-                          />
-                        );
-                      case 'ellipse':
-                        return (
-                          <EllipseNode
-                            key={element.id}
-                            shape={element}
-                            isSelected={isSelected}
-                            selectionEnabled={selectionEnabled}
-                            onSelect={() => handleSelectElement(element.id)}
-                            onChange={(attributes) => updateElement(element.id, attributes)}
-                            dragBoundFunc={dragBound}
-                          />
-                        );
-                      case 'triangle':
-                        return (
-                          <TriangleNode
-                            key={element.id}
-                            shape={element}
-                            isSelected={isSelected}
-                            selectionEnabled={selectionEnabled}
-                            onSelect={() => handleSelectElement(element.id)}
-                            onChange={(attributes) => updateElement(element.id, attributes)}
-                            dragBoundFunc={dragBound}
-                          />
-                        );
-                      case 'line':
-                        return (
-                          <LineNode
-                            key={element.id}
-                            shape={element}
-                            isSelected={isSelected}
-                            selectionEnabled={selectionEnabled}
-                            onSelect={() => handleSelectElement(element.id)}
-                            onChange={(attributes) => updateElement(element.id, attributes)}
-                            dragBoundFunc={dragBound}
-                          />
-                        );
-                      case 'path':
-                        return (
-                          <PathNode
-                            key={element.id}
-                            shape={element}
-                            isSelected={isSelected}
-                            selectionEnabled={selectionEnabled}
-                            onSelect={() => handleSelectElement(element.id)}
-                            onChange={(attributes) => updateElement(element.id, attributes)}
-                            dragBoundFunc={dragBound}
-                          />
-                        );
-                      case 'pencil':
-                        return (
-                          <PencilNode
-                            key={element.id}
-                            shape={element}
-                            isSelected={isSelected}
-                            selectionEnabled={selectionEnabled}
-                            onSelect={() => handleSelectElement(element.id)}
-                            onChange={(attributes) => updateElement(element.id, attributes)}
-                          />
-                        );
-                      case 'text':
-                        return (
-                          <TextNode
-                            key={element.id}
-                            shape={element}
-                            isSelected={isSelected}
-                            selectionEnabled={selectionEnabled}
-                            onSelect={() => handleSelectElement(element.id)}
-                            onChange={(attributes) => updateElement(element.id, attributes)}
-                            dragBoundFunc={dragBound}
-                          />
-                        );
-                      case 'image':
-                        return (
-                          <ImageNode
-                            key={element.id}
-                            shape={element}
-                            isSelected={isSelected}
-                            selectionEnabled={selectionEnabled}
-                            onSelect={() => handleSelectElement(element.id)}
-                            onChange={(attributes) => updateElement(element.id, attributes)}
-                            dragBoundFunc={dragBound}
-                          />
-                        );
-                      default:
-                        return null;
-                    }
-                  })}
-                </Layer>
-              </Stage>
-            </div>
-          </div>
-        </div>
 
         <aside className="editor-sidebar">
           <h2>Canvas</h2>
@@ -1849,6 +1696,175 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             <p className="empty-selection">Select an element to edit its properties.</p>
           )}
         </aside>
+
+      <div className="editor-layout">
+
+        <div className="editor-canvas">
+          <div className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={{ width: zoomedWidth, height: zoomedHeight }}>
+            {options.showRulers && <div className="stage-ruler stage-ruler-horizontal" style={{ width: zoomedWidth }} />}
+            {options.showRulers && <div className="stage-ruler stage-ruler-vertical" style={{ height: zoomedHeight }} />}
+            <div className="stage-canvas" style={{ width: zoomedWidth, height: zoomedHeight, ...gridBackground }}>
+              <Stage
+                ref={stageRef}
+                width={options.width}
+                height={options.height}
+                scaleX={options.zoom}
+                scaleY={options.zoom}
+                onMouseDown={handleStagePointerDown}
+                onTouchStart={handleStagePointerDown}
+                onMouseMove={handleStagePointerMove}
+                onTouchMove={handleStagePointerMove}
+                onMouseUp={handleStagePointerUp}
+                onTouchEnd={handleStagePointerUp}
+              >
+                <Layer>
+                  {options.showGuides &&
+                    guides.map((guide) => (
+                      <GuideNode
+                        key={guide.id}
+                        shape={guide}
+                        isSelected={selectedIds.includes(guide.id)}
+                        selectionEnabled={activeTool === 'select'}
+                        onSelect={() => handleSelectElement(guide.id)}
+                        onChange={(attributes) => updateElement(guide.id, attributes)}
+                      />
+                    ))}
+                  {contentElements.map((element) => {
+                    const isSelected = selectedIds.includes(element.id);
+                    const selectionEnabled = activeTool === 'select';
+                    const dragBound = dragBoundFactory(element);
+
+                    switch (element.type) {
+                      case 'rect':
+                        return (
+                          <RectNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'frame':
+                        return (
+                          <FrameNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'circle':
+                        return (
+                          <CircleNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'ellipse':
+                        return (
+                          <EllipseNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'triangle':
+                        return (
+                          <TriangleNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'line':
+                        return (
+                          <LineNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'path':
+                        return (
+                          <PathNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'pencil':
+                        return (
+                          <PencilNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                          />
+                        );
+                      case 'text':
+                        return (
+                          <TextNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'image':
+                        return (
+                          <ImageNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      default:
+                        return null;
+                    }
+                  })}
+                </Layer>
+              </Stage>
+            </div>
+          </div>
+        </div>
+
+      </div>
       </div>
 
       <input
