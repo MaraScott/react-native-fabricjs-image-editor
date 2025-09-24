@@ -807,10 +807,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const initialDocument = useMemo(() => initialDesign ?? createEmptyDesign(), [initialDesign]);
-  const { value: document, set: setDocument, reset: resetDocument, undo, redo, canUndo, canRedo } =
+  const { value: design, set: setDesign, reset: resetDesign, undo, redo, canUndo, canRedo } =
     useHistory<EditorDocument>(initialDocument);
 
-  const elements = document.elements;
+  const elements = design.elements;
   const guides = useMemo(() => elements.filter((element) => element.type === 'guide') as GuideElement[], [elements]);
   const contentElements = useMemo(() => elements.filter((element) => element.type !== 'guide'), [elements]);
 
@@ -835,9 +835,9 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
   const updateElements = useCallback(
     (updater: (elements: EditorElement[]) => EditorElement[]) => {
-      setDocument((current) => ({ ...current, elements: updater(current.elements) }));
+      setDesign((current) => ({ ...current, elements: updater(current.elements) }));
     },
-    [setDocument],
+    [setDesign],
   );
 
   const addElement = useCallback(
@@ -915,13 +915,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
   const handleApplyTemplate = useCallback(
     (template: TemplateDefinition) => {
       const result = template.apply();
-      resetDocument(cloneDocument(result.design));
+      resetDesign(cloneDocument(result.design));
       setSelectedIds([]);
       if (result.options) {
         setOptions((current) => ({ ...current, ...result.options }));
       }
     },
-    [resetDocument],
+    [resetDesign],
   );
 
   const handleAddImage = useCallback(
@@ -1140,18 +1140,18 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
   }, [drawingState]);
 
   const handleSave = useCallback(() => {
-    postMessage('save', { json: stringifyDesign(document) });
+    postMessage('save', { json: stringifyDesign(design) });
     try {
-      window.localStorage.setItem(STORAGE_KEY, stringifyDesign(document));
+      window.localStorage.setItem(STORAGE_KEY, stringifyDesign(design));
     } catch (error) {
       console.warn('Unable to save design locally', error);
     }
-  }, [document, postMessage]);
+  }, [design, postMessage]);
 
   const handleExport = useCallback(
     (format: 'png' | 'jpeg' | 'json' | 'svg') => {
       if (format === 'json') {
-        postMessage('export', { format: 'json', json: stringifyDesign(document) });
+        postMessage('export', { format: 'json', json: stringifyDesign(design) });
         return;
       }
       const stage = stageRef.current;
@@ -1165,7 +1165,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
       const dataUrl = stage.toDataURL({ mimeType, quality: format === 'jpeg' ? 0.92 : undefined });
       postMessage('export', { format, dataUrl });
     },
-    [document, postMessage],
+    [design, postMessage],
   );
 
   const handleLoadFromBrowser = useCallback(() => {
@@ -1174,13 +1174,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
       if (!stored) return;
       const parsed = parseDesign(stored);
       if (parsed) {
-        resetDocument(parsed);
+        resetDesign(parsed);
         setSelectedIds([]);
       }
     } catch (error) {
       console.warn('Unable to load design from local storage', error);
     }
-  }, [resetDocument]);
+  }, [resetDesign]);
 
   const handleZoomChange = useCallback((value: number) => {
     setOptions((current) => ({ ...current, zoom: value }));
@@ -1192,7 +1192,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     if (!initialDesign && stored) {
       const parsed = parseDesign(stored);
       if (parsed) {
-        resetDocument(parsed);
+        resetDesign(parsed);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1200,10 +1200,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
-      postMessage('change', { json: stringifyDesign(document) });
+      postMessage('change', { json: stringifyDesign(design) });
     }, 250);
     return () => window.clearTimeout(handle);
-  }, [document, postMessage]);
+  }, [design, postMessage]);
 
   useEffect(() => {
     postMessage('options', { options });
@@ -1276,7 +1276,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
           const designValue = message.payload?.json ?? message.payload ?? null;
           const parsed = parseDesign(designValue);
           if (parsed) {
-            resetDocument(parsed);
+            resetDesign(parsed);
             setSelectedIds([]);
           }
           break;
@@ -1330,7 +1330,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         }
         case 'requestJSON':
         case 'requestCanvasJSON': {
-          postMessage('change', { json: stringifyDesign(document) });
+          postMessage('change', { json: stringifyDesign(design) });
           break;
         }
         default:
@@ -1339,12 +1339,17 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     };
 
     window.addEventListener('message', listener);
-    document.addEventListener('message', listener as any);
+    const globalDocument = typeof document !== 'undefined' ? document : null;
+    if (globalDocument && typeof globalDocument.addEventListener === 'function') {
+      globalDocument.addEventListener('message', listener as any);
+    }
     return () => {
       window.removeEventListener('message', listener);
-      document.removeEventListener('message', listener as any);
+      if (globalDocument && typeof globalDocument.removeEventListener === 'function') {
+        globalDocument.removeEventListener('message', listener as any);
+      }
     };
-  }, [document, handleAddImage, handleClear, handleExport, postMessage, redo, resetDocument, undo]);
+  }, [design, handleAddImage, handleClear, handleExport, postMessage, redo, resetDesign, undo]);
 
   const gridBackground = useMemo(() => {
     if (!options.showGrid) {

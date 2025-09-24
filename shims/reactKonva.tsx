@@ -131,19 +131,20 @@ type StageProps = PropsWithChildren<Record<string, any>> & {
   className?: string;
 };
 
-export const Stage = forwardRef<Konva.Stage, StageProps>((props, forwardedRef) => {
+export const Stage = forwardRef<Konva.Stage | null, StageProps>((props, forwardedRef) => {
   const { children, style, className, ...rest } = props;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
   const prevPropsRef = useRef<Record<string, any>>({});
   const [ready, setReady] = useState(false);
 
-  useImperativeHandle(forwardedRef, () => {
-    if (!stageRef.current) {
-      throw new Error('Stage is not ready yet');
-    }
-    return stageRef.current;
-  }, [ready]);
+  useImperativeHandle(
+    forwardedRef,
+    () => {
+      return stageRef.current;
+    },
+    [ready],
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -194,18 +195,19 @@ Stage.displayName = 'Stage';
 
 type LayerProps = PropsWithChildren<Record<string, any>>;
 
-export const Layer = forwardRef<Konva.Layer, LayerProps>(({ children, ...rest }, forwardedRef) => {
+export const Layer = forwardRef<Konva.Layer | null, LayerProps>(({ children, ...rest }, forwardedRef) => {
   const parent = useKonvaParent();
   const layerRef: MutableRefObject<Konva.Layer | null> = useRef<Konva.Layer | null>(null);
   const prevPropsRef = useRef<Record<string, any>>({});
   const [ready, setReady] = useState(false);
 
-  useImperativeHandle(forwardedRef, () => {
-    if (!layerRef.current) {
-      throw new Error('Layer is not ready yet');
-    }
-    return layerRef.current;
-  }, [ready]);
+  useImperativeHandle(
+    forwardedRef,
+    () => {
+      return layerRef.current;
+    },
+    [ready],
+  );
 
   useEffect(() => {
     const layer = new Konva.Layer(filterConfig(rest));
@@ -247,18 +249,19 @@ type NodeProps = Record<string, any>;
 type NodeFactory<T extends Konva.Node> = () => T;
 
 function createKonvaComponent<T extends Konva.Node>(factory: NodeFactory<T>) {
-  const Component = forwardRef<T, NodeProps>((props, forwardedRef) => {
+  const Component = forwardRef<T | null, NodeProps>((props, forwardedRef) => {
     const parent = useKonvaParent();
     const nodeRef: MutableRefObject<T | null> = useRef<T | null>(null);
     const prevPropsRef = useRef<Record<string, any>>({});
     const [ready, setReady] = useState(false);
 
-    useImperativeHandle(forwardedRef, () => {
-      if (!nodeRef.current) {
-        throw new Error('Konva node is not ready yet');
-      }
-      return nodeRef.current;
-    }, [ready]);
+    useImperativeHandle(
+      forwardedRef,
+      () => {
+        return nodeRef.current;
+      },
+      [ready],
+    );
 
     useEffect(() => {
       const node = factory();
