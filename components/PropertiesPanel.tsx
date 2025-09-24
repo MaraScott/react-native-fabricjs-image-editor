@@ -1,6 +1,16 @@
 import { useMemo } from 'react';
 import type { ChangeEvent } from 'react';
-import type { EditorElement, TextElement } from '../types/editor';
+import type {
+  EditorElement,
+  GuideElement,
+  ImageElement,
+  LineElement,
+  PathElement,
+  PencilElement,
+  RectElement,
+  TextElement,
+  TriangleElement,
+} from '../types/editor';
 
 interface PropertiesPanelProps {
   element: EditorElement;
@@ -23,6 +33,30 @@ export default function PropertiesPanel({ element, onChange, onRemove }: Propert
   const baseFields = useMemo(
     () => (
       <>
+        <label className="full-width">
+          Name
+          <input
+            type="text"
+            value={element.name}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ name: event.target.value })}
+          />
+        </label>
+        <label>
+          Visible
+          <input
+            type="checkbox"
+            checked={element.visible}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ visible: event.target.checked })}
+          />
+        </label>
+        <label>
+          Locked
+          <input
+            type="checkbox"
+            checked={element.locked}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ locked: event.target.checked })}
+          />
+        </label>
         <label>
           X
           <input
@@ -74,6 +108,8 @@ export default function PropertiesPanel({ element, onChange, onRemove }: Propert
   const specificFields = useMemo(() => {
     switch (element.type) {
       case 'rect':
+      case 'frame': {
+        const rect = element as RectElement;
         return (
           <>
             <label>
@@ -81,9 +117,9 @@ export default function PropertiesPanel({ element, onChange, onRemove }: Propert
               <input
                 type="number"
                 min={8}
-                value={Math.round(element.width)}
+                value={Math.round(rect.width)}
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  onChange({ width: Math.max(8, toNumber(event.target.value, element.width)) })
+                  onChange({ width: Math.max(8, toNumber(event.target.value, rect.width)) })
                 }
               />
             </label>
@@ -92,36 +128,9 @@ export default function PropertiesPanel({ element, onChange, onRemove }: Propert
               <input
                 type="number"
                 min={8}
-                value={Math.round(element.height)}
+                value={Math.round(rect.height)}
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  onChange({ height: Math.max(8, toNumber(event.target.value, element.height)) })
-                }
-              />
-            </label>
-            <label>
-              Fill
-              <input
-                type="color"
-                value={element.fill}
-                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ fill: event.target.value })}
-              />
-            </label>
-            <label>
-              Stroke
-              <input
-                type="color"
-                value={element.stroke}
-                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ stroke: event.target.value })}
-              />
-            </label>
-            <label>
-              Stroke width
-              <input
-                type="number"
-                min={0}
-                value={Number(element.strokeWidth.toFixed(1))}
-                onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  onChange({ strokeWidth: Math.max(0, toNumber(event.target.value, element.strokeWidth)) })
+                  onChange({ height: Math.max(8, toNumber(event.target.value, rect.height)) })
                 }
               />
             </label>
@@ -130,14 +139,43 @@ export default function PropertiesPanel({ element, onChange, onRemove }: Propert
               <input
                 type="number"
                 min={0}
-                value={Math.round(element.cornerRadius)}
+                value={Number(rect.cornerRadius.toFixed(1))}
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  onChange({ cornerRadius: Math.max(0, toNumber(event.target.value, element.cornerRadius)) })
+                  onChange({ cornerRadius: Math.max(0, toNumber(event.target.value, rect.cornerRadius)) })
+                }
+              />
+            </label>
+            <label>
+              Fill
+              <input
+                type="color"
+                value={rect.fill}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ fill: event.target.value })}
+                disabled={element.type === 'frame'}
+              />
+            </label>
+            <label>
+              Stroke
+              <input
+                type="color"
+                value={rect.stroke}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ stroke: event.target.value })}
+              />
+            </label>
+            <label>
+              Stroke width
+              <input
+                type="number"
+                min={0}
+                value={Number(rect.strokeWidth.toFixed(1))}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange({ strokeWidth: Math.max(0, toNumber(event.target.value, rect.strokeWidth)) })
                 }
               />
             </label>
           </>
         );
+      }
       case 'circle':
         return (
           <>
@@ -181,16 +219,179 @@ export default function PropertiesPanel({ element, onChange, onRemove }: Propert
             </label>
           </>
         );
-      case 'text':
+      case 'ellipse':
+        return (
+          <>
+            <label>
+              Radius X
+              <input
+                type="number"
+                min={5}
+                value={Math.round(element.radiusX)}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange({ radiusX: Math.max(5, toNumber(event.target.value, element.radiusX)) })
+                }
+              />
+            </label>
+            <label>
+              Radius Y
+              <input
+                type="number"
+                min={5}
+                value={Math.round(element.radiusY)}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange({ radiusY: Math.max(5, toNumber(event.target.value, element.radiusY)) })
+                }
+              />
+            </label>
+            <label>
+              Fill
+              <input
+                type="color"
+                value={element.fill}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ fill: event.target.value })}
+              />
+            </label>
+            <label>
+              Stroke
+              <input
+                type="color"
+                value={element.stroke}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ stroke: event.target.value })}
+              />
+            </label>
+            <label>
+              Stroke width
+              <input
+                type="number"
+                min={0}
+                value={Number(element.strokeWidth.toFixed(1))}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange({ strokeWidth: Math.max(0, toNumber(event.target.value, element.strokeWidth)) })
+                }
+              />
+            </label>
+          </>
+        );
+      case 'triangle': {
+        const triangle = element as TriangleElement;
+        return (
+          <>
+            <label>
+              Width
+              <input
+                type="number"
+                min={8}
+                value={Math.round(triangle.width)}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange({ width: Math.max(8, toNumber(event.target.value, triangle.width)) })
+                }
+              />
+            </label>
+            <label>
+              Height
+              <input
+                type="number"
+                min={8}
+                value={Math.round(triangle.height)}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange({ height: Math.max(8, toNumber(event.target.value, triangle.height)) })
+                }
+              />
+            </label>
+            <label>
+              Fill
+              <input
+                type="color"
+                value={triangle.fill}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ fill: event.target.value })}
+              />
+            </label>
+            <label>
+              Stroke
+              <input
+                type="color"
+                value={triangle.stroke}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ stroke: event.target.value })}
+              />
+            </label>
+            <label>
+              Stroke width
+              <input
+                type="number"
+                min={0}
+                value={Number(triangle.strokeWidth.toFixed(1))}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange({ strokeWidth: Math.max(0, toNumber(event.target.value, triangle.strokeWidth)) })
+                }
+              />
+            </label>
+          </>
+        );
+      }
+      case 'line':
+      case 'path':
+      case 'pencil': {
+        const line = element as LineElement | PathElement | PencilElement;
+        return (
+          <>
+            <label className="full-width">
+              Stroke
+              <input
+                type="color"
+                value={line.stroke}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ stroke: event.target.value })}
+              />
+            </label>
+            <label>
+              Stroke width
+              <input
+                type="number"
+                min={1}
+                value={Number(line.strokeWidth.toFixed(1))}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange({ strokeWidth: Math.max(1, toNumber(event.target.value, line.strokeWidth)) })
+                }
+              />
+            </label>
+            {line.type !== 'pencil' && (
+              <label>
+                Dashed pattern (comma separated)
+                <input
+                  type="text"
+                  value={Array.isArray(line.dash) ? line.dash.join(', ') : ''}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                    const dash = event.target.value
+                      .split(',')
+                      .map((item) => Number(item.trim()))
+                      .filter((value) => Number.isFinite(value) && value >= 0);
+                    onChange({ dash: dash.length ? dash : undefined });
+                  }}
+                />
+              </label>
+            )}
+            {'closed' in line && (
+              <label>
+                Closed path
+                <input
+                  type="checkbox"
+                  checked={Boolean(line.closed)}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ closed: event.target.checked })}
+                />
+              </label>
+            )}
+          </>
+        );
+      }
+      case 'text': {
+        const text = element as TextElement;
         return (
           <>
             <label className="full-width">
               Content
               <textarea
-                value={element.text}
-                onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-                  onChange({ text: event.target.value })
-                }
+                value={text.text}
+                onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onChange({ text: event.target.value })}
               />
             </label>
             <label>
@@ -198,9 +399,9 @@ export default function PropertiesPanel({ element, onChange, onRemove }: Propert
               <input
                 type="number"
                 min={32}
-                value={Math.round(element.width)}
+                value={Math.round(text.width)}
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  onChange({ width: Math.max(32, toNumber(event.target.value, element.width)) })
+                  onChange({ width: Math.max(32, toNumber(event.target.value, text.width)) })
                 }
               />
             </label>
@@ -209,9 +410,9 @@ export default function PropertiesPanel({ element, onChange, onRemove }: Propert
               <input
                 type="number"
                 min={8}
-                value={Math.round(element.fontSize)}
+                value={Math.round(text.fontSize)}
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  onChange({ fontSize: Math.max(8, toNumber(event.target.value, element.fontSize)) })
+                  onChange({ fontSize: Math.max(8, toNumber(event.target.value, text.fontSize)) })
                 }
               />
             </label>
@@ -219,16 +420,29 @@ export default function PropertiesPanel({ element, onChange, onRemove }: Propert
               Font family
               <input
                 type="text"
-                value={element.fontFamily}
-                onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  onChange({ fontFamily: event.target.value })
-                }
+                value={text.fontFamily}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ fontFamily: event.target.value })}
               />
+            </label>
+            <label>
+              Font style
+              <select
+                value={`${text.fontWeight}-${text.fontStyle}`}
+                onChange={(event: ChangeEvent<HTMLSelectElement>) => {
+                  const [weight, style] = event.target.value.split('-');
+                  onChange({ fontWeight: weight as TextElement['fontWeight'], fontStyle: style as TextElement['fontStyle'] });
+                }}
+              >
+                <option value="normal-normal">Normal</option>
+                <option value="bold-normal">Bold</option>
+                <option value="normal-italic">Italic</option>
+                <option value="bold-italic">Bold italic</option>
+              </select>
             </label>
             <label>
               Align
               <select
-                value={element.align}
+                value={text.align}
                 onChange={(event: ChangeEvent<HTMLSelectElement>) =>
                   onChange({ align: event.target.value as TextElement['align'] })
                 }
@@ -239,34 +453,89 @@ export default function PropertiesPanel({ element, onChange, onRemove }: Propert
               </select>
             </label>
             <label>
+              Line height
+              <input
+                type="number"
+                step={0.05}
+                min={0.2}
+                value={Number(text.lineHeight.toFixed(2))}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange({ lineHeight: Math.max(0.2, toNumber(event.target.value, text.lineHeight)) })
+                }
+              />
+            </label>
+            <label>
+              Letter spacing
+              <input
+                type="number"
+                step={0.5}
+                value={Number(text.letterSpacing.toFixed(1))}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange({ letterSpacing: toNumber(event.target.value, text.letterSpacing) })
+                }
+              />
+            </label>
+            <label>
               Fill
               <input
                 type="color"
-                value={element.fill}
+                value={text.fill}
                 onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ fill: event.target.value })}
+              />
+            </label>
+            <label>
+              Stroke
+              <input
+                type="color"
+                value={text.stroke}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ stroke: event.target.value })}
+              />
+            </label>
+            <label>
+              Stroke width
+              <input
+                type="number"
+                min={0}
+                value={Number(text.strokeWidth.toFixed(1))}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange({ strokeWidth: Math.max(0, toNumber(event.target.value, text.strokeWidth)) })
+                }
+              />
+            </label>
+            <label>
+              Background
+              <input
+                type="color"
+                value={text.backgroundColor}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ backgroundColor: event.target.value })}
+              />
+            </label>
+            <label>
+              Padding
+              <input
+                type="number"
+                min={0}
+                value={Math.round(text.padding)}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange({ padding: Math.max(0, toNumber(event.target.value, text.padding)) })
+                }
               />
             </label>
           </>
         );
-      case 'image':
+      }
+      case 'image': {
+        const image = element as ImageElement;
         return (
           <>
-            <label className="full-width">
-              Source URL
-              <input
-                type="text"
-                value={element.src}
-                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ src: event.target.value })}
-              />
-            </label>
             <label>
               Width
               <input
                 type="number"
                 min={16}
-                value={Math.round(element.width)}
+                value={Math.round(image.width)}
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  onChange({ width: Math.max(16, toNumber(event.target.value, element.width)) })
+                  onChange({ width: Math.max(16, toNumber(event.target.value, image.width)) })
                 }
               />
             </label>
@@ -275,14 +544,95 @@ export default function PropertiesPanel({ element, onChange, onRemove }: Propert
               <input
                 type="number"
                 min={16}
-                value={Math.round(element.height)}
+                value={Math.round(image.height)}
                 onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  onChange({ height: Math.max(16, toNumber(event.target.value, element.height)) })
+                  onChange({ height: Math.max(16, toNumber(event.target.value, image.height)) })
                 }
+                disabled={image.keepRatio}
+              />
+            </label>
+            <label className="full-width">
+              Source URL
+              <input
+                type="text"
+                value={image.src}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ src: event.target.value })}
+              />
+            </label>
+            <label>
+              Corner radius
+              <input
+                type="number"
+                min={0}
+                value={Number(image.cornerRadius.toFixed(1))}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange({ cornerRadius: Math.max(0, toNumber(event.target.value, image.cornerRadius)) })
+                }
+              />
+            </label>
+            <label>
+              Preserve ratio
+              <input
+                type="checkbox"
+                checked={image.keepRatio}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ keepRatio: event.target.checked })}
               />
             </label>
           </>
         );
+      }
+      case 'guide': {
+        const guide = element as GuideElement;
+        return (
+          <>
+            <label>
+              Orientation
+              <select
+                value={guide.orientation}
+                onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                  onChange({ orientation: event.target.value as GuideElement['orientation'] })
+                }
+              >
+                <option value="horizontal">Horizontal</option>
+                <option value="vertical">Vertical</option>
+              </select>
+            </label>
+            <label>
+              Position
+              <input
+                type="number"
+                value={guide.orientation === 'horizontal' ? Math.round(guide.y) : Math.round(guide.x)}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange(
+                    guide.orientation === 'horizontal'
+                      ? { y: toNumber(event.target.value, guide.y) }
+                      : { x: toNumber(event.target.value, guide.x) },
+                  )
+                }
+              />
+            </label>
+            <label>
+              Length
+              <input
+                type="number"
+                min={0}
+                value={Math.round(guide.length)}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onChange({ length: Math.max(0, toNumber(event.target.value, guide.length)) })
+                }
+              />
+            </label>
+            <label>
+              Colour
+              <input
+                type="color"
+                value={guide.stroke}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ stroke: event.target.value })}
+              />
+            </label>
+          </>
+        );
+      }
       default:
         return null;
     }

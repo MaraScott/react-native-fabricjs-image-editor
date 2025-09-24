@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import EditorApp from './components/EditorApp';
-import type { EditorDesign, EditorOptions } from './types/editor';
+import type { EditorDocument, EditorOptions } from './types/editor';
 import { createEmptyDesign, parseDesign } from './utils/design';
 import './styles.css';
 
@@ -9,9 +9,17 @@ const DEFAULT_OPTIONS: EditorOptions = {
   height: 540,
   backgroundColor: '#ffffff',
   showGrid: true,
+  gridSize: 32,
+  snapToGrid: true,
+  snapToGuides: true,
+  showGuides: true,
+  showRulers: true,
+  zoom: 1,
+  fixedCanvas: false,
+  canvasSizeLocked: false,
 };
 
-function resolveInitialDesign(): EditorDesign {
+function resolveInitialDesign(): EditorDocument {
   const bootstrap = window.__EDITOR_BOOTSTRAP__;
   if (!bootstrap || !bootstrap.initialDesign) {
     return createEmptyDesign();

@@ -1,107 +1,750 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Layer, Stage } from 'react-konva';
-import type { KonvaEventObject } from 'konva/lib/Node';
-import type { Stage as StageType } from 'konva/lib/Stage';
+import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
+import LayersPanel from './LayersPanel';
 import PropertiesPanel from './PropertiesPanel';
-import { CircleNode, ImageNode, RectNode, TextNode } from './KonvaNodes';
+import {
+  CircleNode,
+  EllipseNode,
+  FrameNode,
+  GuideNode,
+  ImageNode,
+  LineNode,
+  PathNode,
+  PencilNode,
+  RectNode,
+  TextNode,
+  TriangleNode,
+} from './KonvaNodes';
 import { useHistory } from '../hooks/useHistory';
 import type {
-  CircleElement,
-  EditorDesign,
+  EditorDocument,
   EditorElement,
   EditorOptions,
+  FrameElement,
+  GuideElement,
   ImageElement,
+  LineElement,
+  PathElement,
+  PencilElement,
   RectElement,
   TextElement,
 } from '../types/editor';
-import { parseDesign, stringifyDesign } from '../utils/design';
+import { createEmptyDesign, parseDesign, stringifyDesign } from '../utils/design';
 
-const DEFAULT_OPTIONS: EditorOptions = {
-  width: 960,
-  height: 540,
-  backgroundColor: '#ffffff',
-  showGrid: true,
+type Tool = 'select' | 'draw' | 'path';
+
+type DrawingState = {
+  id: string;
+  type: 'pencil' | 'path';
+  origin: { x: number; y: number };
 };
+
+type TemplateDefinition = {
+  id: string;
+  name: string;
+  description: string;
+  apply: () => { design: EditorDocument; options?: Partial<EditorOptions> };
+};
+
+type DragBoundFactory = (element: EditorElement) => ((position: Vector2d) => Vector2d) | undefined;
+
+type BaseElementInit = Pick<EditorElement, 'name' | 'x' | 'y' | 'rotation' | 'opacity' | 'metadata'>;
+
+const SNAP_THRESHOLD = 12;
+const STORAGE_KEY = 'konva-image-editor-design';
+
+const DEFAULT_DRAW = { color: '#2563eb', width: 5 };
+const DEFAULT_PATH = { color: '#0f172a', width: 3 };
+
+const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
+  {
+    id: 'mountains',
+    name: 'Mountain view',
+    src: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=60',
+  },
+  {
+    id: 'workspace',
+    name: 'Workspace',
+    src: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=900&q=60',
+  },
+  {
+    id: 'city',
+    name: 'City skyline',
+    src: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=900&q=60',
+  },
+];
 
 function createId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function createRect(options: EditorOptions): RectElement {
+function createBaseElement(type: EditorElement['type'], init: BaseElementInit): BaseElementInit & {
+  id: string;
+  type: EditorElement['type'];
+  draggable: boolean;
+  visible: boolean;
+  locked: boolean;
+} {
   return {
-    id: createId('rect'),
+    id: createId(type),
+    type,
+    draggable: true,
+    visible: true,
+    locked: false,
+    ...init,
+  };
+}
+
+function createRect(options: EditorOptions, overrides: Partial<RectElement> = {}): RectElement {
+  const base = createBaseElement('rect', {
+    name: overrides.name ?? 'Rectangle',
+    x: overrides.x ?? options.width / 2 - 120,
+    y: overrides.y ?? options.height / 2 - 80,
+    rotation: overrides.rotation ?? 0,
+    opacity: overrides.opacity ?? 1,
+    metadata: overrides.metadata ?? null,
+  });
+  return {
+    ...base,
     type: 'rect',
-    name: 'Rectangle',
-    x: options.width / 2 - 80,
-    y: options.height / 2 - 60,
-    width: 160,
-    height: 120,
-    fill: '#38bdf8',
-    stroke: '#0f172a',
-    strokeWidth: 4,
-    cornerRadius: 16,
-    rotation: 0,
-    opacity: 1,
-    draggable: true,
-  };
+    width: overrides.width ?? 240,
+    height: overrides.height ?? 160,
+    fill: overrides.fill ?? '#38bdf8',
+    stroke: overrides.stroke ?? '#0f172a',
+    strokeWidth: overrides.strokeWidth ?? 4,
+    cornerRadius: overrides.cornerRadius ?? 16,
+  } satisfies RectElement;
 }
 
-function createCircle(options: EditorOptions): CircleElement {
+function createFrame(options: EditorOptions, overrides: Partial<FrameElement> = {}): FrameElement {
+  const rect = createRect(options, {
+    ...overrides,
+    name: overrides.name ?? 'Frame',
+    fill: 'transparent',
+    strokeWidth: overrides.strokeWidth ?? 10,
+    stroke: overrides.stroke ?? '#f8fafc',
+    cornerRadius: overrides.cornerRadius ?? 0,
+  });
+  return { ...rect, type: 'frame' } satisfies FrameElement;
+}
+
+function createCircle(options: EditorOptions, overrides: Partial<EditorElement> = {}) {
+  const base = createBaseElement('circle', {
+    name: overrides.name ?? 'Circle',
+    x: overrides.x ?? options.width / 2,
+    y: overrides.y ?? options.height / 2,
+    rotation: overrides.rotation ?? 0,
+    opacity: overrides.opacity ?? 1,
+    metadata: overrides.metadata ?? null,
+  });
   return {
-    id: createId('circle'),
+    ...base,
     type: 'circle',
-    name: 'Circle',
-    x: options.width / 2,
-    y: options.height / 2,
-    radius: 80,
-    fill: '#a855f7',
-    stroke: '#0f172a',
-    strokeWidth: 4,
-    rotation: 0,
-    opacity: 0.95,
-    draggable: true,
+    radius: 'radius' in overrides && typeof overrides.radius === 'number' ? overrides.radius : 120,
+    fill: 'fill' in overrides && typeof overrides.fill === 'string' ? overrides.fill : '#a855f7',
+    stroke: 'stroke' in overrides && typeof overrides.stroke === 'string' ? overrides.stroke : '#0f172a',
+    strokeWidth:
+      'strokeWidth' in overrides && typeof overrides.strokeWidth === 'number' ? overrides.strokeWidth : 4,
   };
 }
 
-function createText(options: EditorOptions): TextElement {
+function createEllipse(options: EditorOptions, overrides: Partial<EditorElement> = {}) {
+  const base = createBaseElement('ellipse', {
+    name: overrides.name ?? 'Ellipse',
+    x: overrides.x ?? options.width / 2,
+    y: overrides.y ?? options.height / 2,
+    rotation: overrides.rotation ?? 0,
+    opacity: overrides.opacity ?? 1,
+    metadata: overrides.metadata ?? null,
+  });
   return {
-    id: createId('text'),
+    ...base,
+    type: 'ellipse',
+    radiusX: 'radiusX' in overrides && typeof overrides.radiusX === 'number' ? overrides.radiusX : 180,
+    radiusY: 'radiusY' in overrides && typeof overrides.radiusY === 'number' ? overrides.radiusY : 120,
+    fill: 'fill' in overrides && typeof overrides.fill === 'string' ? overrides.fill : '#22d3ee',
+    stroke: 'stroke' in overrides && typeof overrides.stroke === 'string' ? overrides.stroke : '#0f172a',
+    strokeWidth:
+      'strokeWidth' in overrides && typeof overrides.strokeWidth === 'number' ? overrides.strokeWidth : 4,
+  };
+}
+
+function createTriangle(options: EditorOptions, overrides: Partial<EditorElement> = {}) {
+  const base = createBaseElement('triangle', {
+    name: overrides.name ?? 'Triangle',
+    x: overrides.x ?? options.width / 2 - 120,
+    y: overrides.y ?? options.height / 2 - 120,
+    rotation: overrides.rotation ?? 0,
+    opacity: overrides.opacity ?? 1,
+    metadata: overrides.metadata ?? null,
+  });
+  return {
+    ...base,
+    type: 'triangle',
+    width: 'width' in overrides && typeof overrides.width === 'number' ? overrides.width : 240,
+    height: 'height' in overrides && typeof overrides.height === 'number' ? overrides.height : 240,
+    fill: 'fill' in overrides && typeof overrides.fill === 'string' ? overrides.fill : '#f97316',
+    stroke: 'stroke' in overrides && typeof overrides.stroke === 'string' ? overrides.stroke : '#0f172a',
+    strokeWidth:
+      'strokeWidth' in overrides && typeof overrides.strokeWidth === 'number' ? overrides.strokeWidth : 4,
+  };
+}
+
+function createLine(options: EditorOptions, overrides: Partial<LineElement> = {}): LineElement {
+  const base = createBaseElement('line', {
+    name: overrides.name ?? 'Line',
+    x: overrides.x ?? options.width / 2 - 160,
+    y: overrides.y ?? options.height / 2,
+    rotation: overrides.rotation ?? 0,
+    opacity: overrides.opacity ?? 1,
+    metadata: overrides.metadata ?? null,
+  });
+  return {
+    ...base,
+    type: 'line',
+    points: overrides.points ? [...overrides.points] : [0, 0, 320, 0],
+    stroke: overrides.stroke ?? '#0f172a',
+    strokeWidth: overrides.strokeWidth ?? 6,
+    dash: overrides.dash ? [...overrides.dash] : undefined,
+    tension: overrides.tension,
+    closed: overrides.closed ?? false,
+    fill: overrides.fill,
+  } satisfies LineElement;
+}
+
+function createPathElement(options: EditorOptions, overrides: Partial<PathElement> = {}): PathElement {
+  const base = createBaseElement('path', {
+    name: overrides.name ?? 'Path',
+    x: overrides.x ?? options.width / 2 - 200,
+    y: overrides.y ?? options.height / 2 - 100,
+    rotation: overrides.rotation ?? 0,
+    opacity: overrides.opacity ?? 1,
+    metadata: overrides.metadata ?? null,
+  });
+  return {
+    ...base,
+    type: 'path',
+    points: overrides.points ? [...overrides.points] : [0, 0, 120, 40, 200, 120],
+    stroke: overrides.stroke ?? '#1e3a8a',
+    strokeWidth: overrides.strokeWidth ?? 5,
+    tension: overrides.tension ?? 0.4,
+    closed: overrides.closed ?? false,
+    fill: overrides.fill,
+  } satisfies PathElement;
+}
+
+function createText(options: EditorOptions, overrides: Partial<TextElement> = {}): TextElement {
+  const base = createBaseElement('text', {
+    name: overrides.name ?? 'Text',
+    x: overrides.x ?? options.width / 2 - 200,
+    y: overrides.y ?? options.height / 2 - 40,
+    rotation: overrides.rotation ?? 0,
+    opacity: overrides.opacity ?? 1,
+    metadata: overrides.metadata ?? null,
+  });
+  return {
+    ...base,
     type: 'text',
-    name: 'Text',
-    x: options.width / 2 - 150,
-    y: options.height / 2 - 20,
-    text: 'Edit me!',
-    fontSize: 32,
-    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    fill: '#0f172a',
-    width: 300,
-    align: 'center',
-    rotation: 0,
-    opacity: 1,
-    draggable: true,
-  };
+    text: overrides.text ?? 'Edit me!',
+    fontSize: overrides.fontSize ?? 48,
+    fontFamily:
+      overrides.fontFamily ?? 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontStyle: overrides.fontStyle ?? 'normal',
+    fontWeight: overrides.fontWeight ?? 'bold',
+    fill: overrides.fill ?? '#f8fafc',
+    width: overrides.width ?? 400,
+    align: overrides.align ?? 'center',
+    lineHeight: overrides.lineHeight ?? 1.2,
+    letterSpacing: overrides.letterSpacing ?? 0,
+    stroke: overrides.stroke ?? 'transparent',
+    strokeWidth: overrides.strokeWidth ?? 0,
+    backgroundColor: overrides.backgroundColor ?? 'transparent',
+    padding: overrides.padding ?? 0,
+  } satisfies TextElement;
 }
 
-function createImage(options: EditorOptions, src: string): ImageElement {
+function createImage(options: EditorOptions, src: string, overrides: Partial<ImageElement> = {}): ImageElement {
+  const base = createBaseElement('image', {
+    name: overrides.name ?? 'Image',
+    x: overrides.x ?? options.width / 2 - 160,
+    y: overrides.y ?? options.height / 2 - 120,
+    rotation: overrides.rotation ?? 0,
+    opacity: overrides.opacity ?? 1,
+    metadata: overrides.metadata ?? null,
+  });
   return {
-    id: createId('image'),
+    ...base,
     type: 'image',
-    name: 'Image',
-    x: options.width / 2 - 160,
-    y: options.height / 2 - 120,
-    width: 320,
-    height: 240,
     src,
+    width: overrides.width ?? 320,
+    height: overrides.height ?? 240,
+    cornerRadius: overrides.cornerRadius ?? 0,
+    keepRatio: overrides.keepRatio ?? true,
+  } satisfies ImageElement;
+}
+
+function createGuide(options: EditorOptions, orientation: GuideElement['orientation']): GuideElement {
+  const base = createBaseElement('guide', {
+    name: orientation === 'horizontal' ? 'Horizontal guide' : 'Vertical guide',
+    x: orientation === 'vertical' ? options.width / 2 : 0,
+    y: orientation === 'horizontal' ? options.height / 2 : 0,
     rotation: 0,
     opacity: 1,
-    draggable: true,
+    metadata: { isGuide: true, excludeFromExport: true },
+  });
+  return {
+    ...base,
+    type: 'guide',
+    orientation,
+    length: orientation === 'horizontal' ? options.width : options.height,
+    stroke: 'rgba(56, 189, 248, 0.8)',
+    strokeWidth: 1,
+  } satisfies GuideElement;
+}
+
+function cloneElement(element: EditorElement): EditorElement {
+  const base = {
+    ...element,
+    id: createId(element.type),
+    name: `${element.name} copy`,
+    x: element.x + 24,
+    y: element.y + 24,
+    metadata: element.metadata ? { ...element.metadata } : null,
+    locked: false,
+  } as EditorElement;
+
+  switch (element.type) {
+    case 'rect':
+    case 'frame':
+      return { ...base, type: element.type, width: element.width, height: element.height } as RectElement | FrameElement;
+    case 'circle':
+      return { ...base, type: 'circle', radius: element.radius };
+    case 'ellipse':
+      return { ...base, type: 'ellipse', radiusX: element.radiusX, radiusY: element.radiusY };
+    case 'triangle':
+      return { ...base, type: 'triangle', width: element.width, height: element.height };
+    case 'line':
+      return { ...base, type: 'line', points: [...element.points], dash: element.dash ? [...element.dash] : undefined };
+    case 'path':
+      return { ...base, type: 'path', points: [...element.points], closed: element.closed };
+    case 'pencil':
+      return { ...base, type: 'pencil', points: [...element.points] };
+    case 'text':
+      return { ...base, type: 'text', text: element.text };
+    case 'image':
+      return { ...base, type: 'image', width: element.width, height: element.height };
+    case 'guide':
+      return { ...element, id: createId('guide') };
+    default:
+      return base;
+  }
+}
+
+interface ElementBounds {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  centerX: number;
+  centerY: number;
+}
+
+function getElementBounds(element: EditorElement, position: Vector2d): ElementBounds | null {
+  switch (element.type) {
+    case 'rect':
+    case 'frame':
+      return {
+        left: position.x,
+        right: position.x + element.width,
+        top: position.y,
+        bottom: position.y + element.height,
+        centerX: position.x + element.width / 2,
+        centerY: position.y + element.height / 2,
+      };
+    case 'triangle':
+      return {
+        left: position.x,
+        right: position.x + element.width,
+        top: position.y,
+        bottom: position.y + element.height,
+        centerX: position.x + element.width / 2,
+        centerY: position.y + element.height / 2,
+      };
+    case 'circle':
+      return {
+        left: position.x - element.radius,
+        right: position.x + element.radius,
+        top: position.y - element.radius,
+        bottom: position.y + element.radius,
+        centerX: position.x,
+        centerY: position.y,
+      };
+    case 'ellipse':
+      return {
+        left: position.x - element.radiusX,
+        right: position.x + element.radiusX,
+        top: position.y - element.radiusY,
+        bottom: position.y + element.radiusY,
+        centerX: position.x,
+        centerY: position.y,
+      };
+    case 'image':
+      return {
+        left: position.x,
+        right: position.x + element.width,
+        top: position.y,
+        bottom: position.y + element.height,
+        centerX: position.x + element.width / 2,
+        centerY: position.y + element.height / 2,
+      };
+    case 'text':
+      return {
+        left: position.x,
+        right: position.x + element.width,
+        top: position.y,
+        bottom: position.y + element.fontSize,
+        centerX: position.x + element.width / 2,
+        centerY: position.y + element.fontSize / 2,
+      };
+    default:
+      return null;
+  }
+}
+
+function createDragBound(options: EditorOptions, guides: GuideElement[]): DragBoundFactory {
+  if (!options.snapToGrid && (!options.snapToGuides || guides.length === 0)) {
+    return () => undefined;
+  }
+
+  const verticalGuides = guides.filter((guide) => guide.orientation === 'vertical').map((guide) => guide.x);
+  const horizontalGuides = guides.filter((guide) => guide.orientation === 'horizontal').map((guide) => guide.y);
+
+  return (element: EditorElement) => {
+    if (element.type === 'guide') return undefined;
+
+    return (position: Vector2d) => {
+      let { x, y } = position;
+
+      if (options.snapToGrid) {
+        const grid = Math.max(2, options.gridSize);
+        x = Math.round(x / grid) * grid;
+        y = Math.round(y / grid) * grid;
+      }
+
+      if (options.snapToGuides && (verticalGuides.length > 0 || horizontalGuides.length > 0)) {
+        const bounds = getElementBounds(element, { x, y });
+        if (bounds) {
+          if (verticalGuides.length > 0) {
+            const verticalCandidates = [
+              {
+                value: bounds.left,
+                apply: (target: number) => {
+                  x += target - bounds.left;
+                },
+              },
+              {
+                value: bounds.centerX,
+                apply: (target: number) => {
+                  x += target - bounds.centerX;
+                },
+              },
+              {
+                value: bounds.right,
+                apply: (target: number) => {
+                  x += target - bounds.right;
+                },
+              },
+            ];
+            let bestX: { diff: number; apply: (target: number) => void; target: number } | null = null;
+            verticalCandidates.forEach((candidate) => {
+              verticalGuides.forEach((guide) => {
+                const diff = Math.abs(candidate.value - guide);
+                if (diff <= SNAP_THRESHOLD && (!bestX || diff < bestX.diff)) {
+                  bestX = { diff, apply: candidate.apply, target: guide };
+                }
+              });
+            });
+            if (bestX) {
+              bestX.apply(bestX.target);
+            }
+          }
+
+          if (horizontalGuides.length > 0) {
+            const horizontalCandidates = [
+              {
+                value: bounds.top,
+                apply: (target: number) => {
+                  y += target - bounds.top;
+                },
+              },
+              {
+                value: bounds.centerY,
+                apply: (target: number) => {
+                  y += target - bounds.centerY;
+                },
+              },
+              {
+                value: bounds.bottom,
+                apply: (target: number) => {
+                  y += target - bounds.bottom;
+                },
+              },
+            ];
+            let bestY: { diff: number; apply: (target: number) => void; target: number } | null = null;
+            horizontalCandidates.forEach((candidate) => {
+              horizontalGuides.forEach((guide) => {
+                const diff = Math.abs(candidate.value - guide);
+                if (diff <= SNAP_THRESHOLD && (!bestY || diff < bestY.diff)) {
+                  bestY = { diff, apply: candidate.apply, target: guide };
+                }
+              });
+            });
+            if (bestY) {
+              bestY.apply(bestY.target);
+            }
+          }
+        }
+      }
+
+      return { x, y };
+    };
   };
 }
 
-interface EditorAppProps {
-  initialDesign?: EditorDesign | null;
-  initialOptions?: Partial<EditorOptions>;
+function createDefaultTemplates(options: EditorOptions): TemplateDefinition[] {
+  return [
+    {
+      id: 'hero-banner',
+      name: 'Hero banner',
+      description: 'A bold hero layout with accent circle and button.',
+      apply: () => {
+        const background = createRect(options, {
+          name: 'Hero block',
+          width: options.width * 0.7,
+          height: options.height * 0.7,
+          x: options.width * 0.15,
+          y: options.height * 0.15,
+          fill: '#0f172a',
+          stroke: '#1d4ed8',
+          strokeWidth: 6,
+          cornerRadius: 32,
+        });
+        const circle = createCircle(options, {
+          name: 'Accent circle',
+          x: options.width * 0.75,
+          y: options.height * 0.3,
+          radius: options.height * 0.25,
+          fill: '#2563eb',
+          stroke: '#93c5fd',
+          strokeWidth: 12,
+        });
+        const heading = createText(options, {
+          name: 'Heading',
+          text: 'Create something amazing',
+          fontSize: 64,
+          width: options.width * 0.6,
+          x: options.width * 0.2,
+          y: options.height * 0.25,
+          align: 'left',
+          fill: '#f8fafc',
+          fontWeight: 'bold',
+          stroke: 'transparent',
+        });
+        const subheading = createText(options, {
+          name: 'Subheading',
+          text: 'Craft beautiful stories with the power of React + Konva.',
+          fontSize: 28,
+          width: options.width * 0.5,
+          x: options.width * 0.2,
+          y: options.height * 0.4,
+          align: 'left',
+          fill: '#cbd5f5',
+          fontWeight: 'normal',
+        });
+        const button = createRect(options, {
+          name: 'Primary button',
+          x: options.width * 0.2,
+          y: options.height * 0.55,
+          width: 220,
+          height: 64,
+          cornerRadius: 32,
+          fill: '#f97316',
+          stroke: '#fb923c',
+          strokeWidth: 0,
+        });
+        const buttonText = createText(options, {
+          name: 'Button text',
+          text: 'Get started',
+          fontSize: 28,
+          width: 220,
+          x: button.x,
+          y: button.y + 14,
+          fill: '#0f172a',
+        });
+
+        return {
+          design: {
+            elements: [background, circle, heading, subheading, button, buttonText],
+            metadata: null,
+          },
+          options: {
+            backgroundColor: '#020617',
+            showGrid: false,
+          },
+        };
+      },
+    },
+    {
+      id: 'quote-card',
+      name: 'Quote card',
+      description: 'Centered quote with framed border.',
+      apply: () => {
+        const frame = createFrame(options, {
+          width: options.width * 0.8,
+          height: options.height * 0.6,
+          x: options.width * 0.1,
+          y: options.height * 0.2,
+          stroke: '#f97316',
+          strokeWidth: 12,
+        });
+        const quote = createText(options, {
+          text: '“Design is the silent ambassador of your brand.”',
+          fontSize: 48,
+          width: options.width * 0.7,
+          x: options.width * 0.15,
+          y: options.height * 0.3,
+          align: 'center',
+          fill: '#f8fafc',
+          stroke: 'transparent',
+        });
+        const author = createText(options, {
+          text: '— Paul Rand',
+          fontSize: 28,
+          width: options.width * 0.7,
+          x: options.width * 0.15,
+          y: options.height * 0.45,
+          align: 'center',
+          fill: '#cbd5f5',
+        });
+        const accent = createCircle(options, {
+          name: 'Accent dot',
+          radius: 24,
+          fill: '#38bdf8',
+          stroke: 'transparent',
+          x: frame.x + frame.width - 40,
+          y: frame.y + 40,
+        });
+
+        return {
+          design: {
+            elements: [frame, quote, author, accent],
+            metadata: null,
+          },
+          options: {
+            backgroundColor: '#0f172a',
+            showGrid: false,
+          },
+        };
+      },
+    },
+    {
+      id: 'photo-card',
+      name: 'Photo focus',
+      description: 'Photo with caption and callout rectangle.',
+      apply: () => {
+        const frame = createFrame(options, {
+          width: options.width * 0.6,
+          height: options.height * 0.6,
+          x: options.width * 0.3,
+          y: options.height * 0.2,
+          stroke: '#38bdf8',
+          strokeWidth: 8,
+        });
+        const caption = createText(options, {
+          text: 'Exploring the vibrant streets of Tokyo at night.',
+          fontSize: 28,
+          width: options.width * 0.6,
+          x: options.width * 0.32,
+          y: frame.y + frame.height + 16,
+          align: 'left',
+          fill: '#f8fafc',
+        });
+        const callout = createRect(options, {
+          name: 'Callout',
+          x: options.width * 0.05,
+          y: options.height * 0.25,
+          width: options.width * 0.22,
+          height: options.height * 0.5,
+          fill: '#1e293b',
+          stroke: '#38bdf8',
+          strokeWidth: 2,
+          cornerRadius: 18,
+        });
+        const calloutText = createText(options, {
+          text: 'Travel Journal\nVolume 05',
+          fontSize: 34,
+          width: callout.width,
+          x: callout.x,
+          y: callout.y + 32,
+          align: 'center',
+          fill: '#38bdf8',
+        });
+
+        return {
+          design: {
+            elements: [frame, caption, callout, calloutText],
+            metadata: null,
+          },
+          options: {
+            backgroundColor: '#020617',
+            showGrid: false,
+          },
+        };
+      },
+    },
+  ];
 }
+
+function createDefaultFrames(options: EditorOptions): FrameElement[] {
+  return [
+    createFrame(options, {
+      name: 'Simple frame',
+      width: options.width - 80,
+      height: options.height - 80,
+      x: 40,
+      y: 40,
+      stroke: '#f8fafc',
+      strokeWidth: 12,
+      cornerRadius: 24,
+    }),
+    createFrame(options, {
+      name: 'Poster border',
+      width: options.width - 120,
+      height: options.height - 120,
+      x: 60,
+      y: 60,
+      stroke: '#38bdf8',
+      strokeWidth: 18,
+      cornerRadius: 0,
+    }),
+  ];
+}
+
+const DEFAULT_OPTIONS: EditorOptions = {
+  width: 960,
+  height: 540,
+  backgroundColor: '#0f172a',
+  showGrid: true,
+  gridSize: 32,
+  snapToGrid: true,
+  snapToGuides: true,
+  showGuides: true,
+  showRulers: true,
+  zoom: 1,
+  fixedCanvas: false,
+  canvasSizeLocked: false,
+};
 
 function getInitialOptions(options?: Partial<EditorOptions>): EditorOptions {
   return { ...DEFAULT_OPTIONS, ...(options ?? {}) };
@@ -146,130 +789,481 @@ function useBridge() {
   return { postMessage };
 }
 
+function cloneDocument(document: EditorDocument): EditorDocument {
+  return {
+    elements: document.elements.map((element) => cloneElement(element)),
+    metadata: document.metadata ? { ...document.metadata } : null,
+  } satisfies EditorDocument;
+}
+
+interface EditorAppProps {
+  initialDesign?: EditorDocument | null;
+  initialOptions?: Partial<EditorOptions>;
+}
+
 export default function EditorApp({ initialDesign, initialOptions }: EditorAppProps) {
   const [options, setOptions] = useState<EditorOptions>(getInitialOptions(initialOptions));
   const stageRef = useRef<StageType | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const design = useMemo(() => initialDesign ?? { elements: [], metadata: null }, [initialDesign]);
-  const { value: elements, set: setElements, reset: resetElements, undo, redo, canUndo, canRedo } =
-    useHistory<EditorElement[]>(design.elements ?? []);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const initialDocument = useMemo(() => initialDesign ?? createEmptyDesign(), [initialDesign]);
+  const { value: document, set: setDocument, reset: resetDocument, undo, redo, canUndo, canRedo } =
+    useHistory<EditorDocument>(initialDocument);
+
+  const elements = document.elements;
+  const guides = useMemo(() => elements.filter((element) => element.type === 'guide') as GuideElement[], [elements]);
+  const contentElements = useMemo(() => elements.filter((element) => element.type !== 'guide'), [elements]);
+
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [activeTool, setActiveTool] = useState<Tool>('select');
+  const [drawingState, setDrawingState] = useState<DrawingState | null>(null);
+  const [clipboard, setClipboard] = useState<EditorElement[] | null>(null);
+  const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
+  const [pathSettings, setPathSettings] = useState(DEFAULT_PATH);
+
+  const dragBoundFactory = useMemo(() => createDragBound(options, guides), [options, guides]);
+
+  const selectedElement = useMemo(
+    () => contentElements.find((element) => selectedIds.includes(element.id)) ?? null,
+    [contentElements, selectedIds],
+  );
+
+  const templates = useMemo(() => createDefaultTemplates(options), [options.width, options.height, options.backgroundColor]);
+  const frames = useMemo(() => createDefaultFrames(options), [options.width, options.height]);
+
   const { postMessage } = useBridge();
 
-  const addImageFromSource = useCallback(
+  const updateElements = useCallback(
+    (updater: (elements: EditorElement[]) => EditorElement[]) => {
+      setDocument((current) => ({ ...current, elements: updater(current.elements) }));
+    },
+    [setDocument],
+  );
+
+  const addElement = useCallback(
+    (element: EditorElement) => {
+      updateElements((current) => [...current, element]);
+      setSelectedIds([element.id]);
+    },
+    [updateElements],
+  );
+
+  const updateElement = useCallback(
+    (id: string, attributes: Partial<EditorElement>) => {
+      updateElements((current) =>
+        current.map((element) => (element.id === id ? ({ ...element, ...attributes } as EditorElement) : element)),
+      );
+    },
+    [updateElements],
+  );
+
+  const removeSelected = useCallback(() => {
+    if (selectedIds.length === 0) return;
+    updateElements((current) => current.filter((element) => !selectedIds.includes(element.id)));
+    setSelectedIds([]);
+  }, [selectedIds, updateElements]);
+
+  const handleAddRect = useCallback(() => {
+    addElement(createRect(options));
+  }, [addElement, options]);
+
+  const handleAddCircle = useCallback(() => {
+    addElement(createCircle(options));
+  }, [addElement, options]);
+
+  const handleAddEllipse = useCallback(() => {
+    addElement(createEllipse(options));
+  }, [addElement, options]);
+
+  const handleAddTriangle = useCallback(() => {
+    addElement(createTriangle(options));
+  }, [addElement, options]);
+
+  const handleAddLine = useCallback(() => {
+    addElement(createLine(options));
+  }, [addElement, options]);
+
+  const handleAddPath = useCallback(() => {
+    setActiveTool('path');
+  }, []);
+
+  const handleAddDraw = useCallback(() => {
+    setActiveTool('draw');
+  }, []);
+
+  const handleAddText = useCallback(() => {
+    addElement(createText(options));
+  }, [addElement, options]);
+
+  const handleAddGuide = useCallback(
+    (orientation: GuideElement['orientation']) => {
+      addElement(createGuide(options, orientation));
+    },
+    [addElement, options],
+  );
+
+  const handleAddFrame = useCallback(
+    (frame: FrameElement) => {
+      const clone = cloneElement(frame) as FrameElement;
+      clone.x = frame.x;
+      clone.y = frame.y;
+      addElement(clone);
+    },
+    [addElement],
+  );
+
+  const handleApplyTemplate = useCallback(
+    (template: TemplateDefinition) => {
+      const result = template.apply();
+      resetDocument(cloneDocument(result.design));
+      setSelectedIds([]);
+      if (result.options) {
+        setOptions((current) => ({ ...current, ...result.options }));
+      }
+    },
+    [resetDocument],
+  );
+
+  const handleAddImage = useCallback(
     (src: string, overrides?: Partial<ImageElement>) => {
       if (!src) return;
       const trimmed = src.trim();
       if (!trimmed) return;
-      const node: ImageElement = { ...createImage(options, trimmed), ...(overrides ?? {}) };
-      setElements((current) => [...current, node]);
-      setSelectedId(node.id);
+      addElement(createImage(options, trimmed, overrides));
     },
-    [options, setElements, setSelectedId],
+    [addElement, options],
   );
 
-  const selectedElement = useMemo(
-    () => elements.find((element: EditorElement) => element.id === selectedId) ?? null,
-    [elements, selectedId],
-  );
-
-  const updateElement = useCallback(
-      (id: string, attributes: Partial<EditorElement>) => {
-        setElements((current) =>
-          current.map((element: EditorElement) =>
-            element.id === id ? ({ ...element, ...attributes } as EditorElement) : element,
-          ),
-        );
-      },
-      [setElements],
-    );
-
-  const removeElement = useCallback(() => {
-    if (!selectedId) return;
-    setElements((current) => current.filter((element: EditorElement) => element.id !== selectedId));
-    setSelectedId(null);
-  }, [selectedId, setElements, setSelectedId]);
-
-  const handleAddRect = useCallback(() => {
-    const node = createRect(options);
-    setElements((current) => [...current, node]);
-    setSelectedId(node.id);
-  }, [options, setElements, setSelectedId]);
-
-  const handleAddCircle = useCallback(() => {
-    const node = createCircle(options);
-    setElements((current) => [...current, node]);
-    setSelectedId(node.id);
-  }, [options, setElements, setSelectedId]);
-
-  const handleAddText = useCallback(() => {
-    const node = createText(options);
-    setElements((current) => [...current, node]);
-    setSelectedId(node.id);
-  }, [options, setElements, setSelectedId]);
-
-  const handleAddImage = useCallback(() => {
+  const handleRequestImage = useCallback(() => {
     if (window.ReactNativeWebView) {
       postMessage('requestImage', { options });
       return;
     }
+    fileInputRef.current?.click();
+  }, [options, postMessage]);
 
-    const url = window.prompt('Enter image URL');
-    if (!url) return;
-    addImageFromSource(url);
-  }, [addImageFromSource, options, postMessage]);
+  const handleUploadFile = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : null;
+      if (result) {
+        handleAddImage(result);
+      }
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  }, [handleAddImage]);
+
+  const handleCopy = useCallback(() => {
+    if (selectedIds.length === 0) return;
+    const selected = elements.filter((element) => selectedIds.includes(element.id)).map((element) => cloneElement(element));
+    setClipboard(selected);
+  }, [elements, selectedIds]);
+
+  const handlePaste = useCallback(() => {
+    if (!clipboard || clipboard.length === 0) return;
+    const clones = clipboard.map((element) => cloneElement(element));
+    updateElements((current) => [...current, ...clones]);
+    setSelectedIds(clones.map((element) => element.id));
+  }, [clipboard, updateElements]);
+
+  const handleDuplicate = useCallback(() => {
+    if (selectedIds.length === 0) return;
+    const clones = elements
+      .filter((element) => selectedIds.includes(element.id))
+      .map((element) => cloneElement(element));
+    updateElements((current) => [...current, ...clones]);
+    setSelectedIds(clones.map((element) => element.id));
+  }, [elements, selectedIds, updateElements]);
 
   const handleClear = useCallback(() => {
-    setElements(() => []);
-    setSelectedId(null);
-  }, [setElements, setSelectedId]);
+    updateElements(() => []);
+    setSelectedIds([]);
+  }, [updateElements]);
 
-  const handleSave = useCallback(() => {
-    postMessage('save', { json: stringifyDesign(elements) });
-  }, [elements, postMessage]);
-
-  const handleExport = useCallback(
-    (format: 'png' | 'jpeg' | 'json') => {
-      if (format === 'json') {
-        postMessage('export', { format: 'json', json: stringifyDesign(elements) });
-        return;
-      }
-      const stage = stageRef.current;
-      if (!stage) return;
-      const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
-      const dataUrl = stage.toDataURL({ mimeType, quality: format === 'jpeg' ? 0.92 : undefined });
-      postMessage('export', { format, dataUrl });
+  const handleLayerMove = useCallback(
+    (id: string, direction: 'up' | 'down' | 'top' | 'bottom') => {
+      updateElements((current) => {
+        const index = current.findIndex((element) => element.id === id);
+        if (index === -1) return current;
+        const next = [...current];
+        switch (direction) {
+          case 'up':
+            if (index < next.length - 1) {
+              const temp = next[index + 1];
+              next[index + 1] = next[index];
+              next[index] = temp;
+            }
+            break;
+          case 'down':
+            if (index > 0) {
+              const temp = next[index - 1];
+              next[index - 1] = next[index];
+              next[index] = temp;
+            }
+            break;
+          case 'top':
+            if (index < next.length - 1) {
+              const [item] = next.splice(index, 1);
+              next.push(item);
+            }
+            break;
+          case 'bottom':
+            if (index > 0) {
+              const [item] = next.splice(index, 1);
+              next.unshift(item);
+            }
+            break;
+          default:
+            break;
+        }
+        return next;
+      });
     },
-    [elements, postMessage],
+    [updateElements],
+  );
+
+  const handleToggleVisibility = useCallback(
+    (id: string) => {
+      const target = elements.find((element) => element.id === id);
+      if (!target) return;
+      updateElement(id, { visible: !target.visible });
+    },
+    [elements, updateElement],
+  );
+
+  const handleToggleLock = useCallback(
+    (id: string) => {
+      const target = elements.find((element) => element.id === id);
+      if (!target) return;
+      updateElement(id, { locked: !target.locked });
+    },
+    [elements, updateElement],
+  );
+
+  const handleSelectElement = useCallback(
+    (id: string) => {
+      setSelectedIds([id]);
+      setActiveTool('select');
+    },
+    [],
   );
 
   const handleStagePointerDown = useCallback(
     (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
       const stage = event.target.getStage();
       if (!stage) return;
+      const pointer = stage.getPointerPosition();
+      if (!pointer) return;
+
+      if (activeTool === 'draw' || activeTool === 'path') {
+        const type = activeTool === 'draw' ? 'pencil' : 'path';
+        const element: PencilElement | PathElement =
+          type === 'pencil'
+            ? {
+                ...createBaseElement('pencil', {
+                  name: 'Free draw',
+                  x: pointer.x,
+                  y: pointer.y,
+                  rotation: 0,
+                  opacity: 1,
+                  metadata: null,
+                }),
+                type: 'pencil',
+                points: [0, 0],
+                stroke: drawSettings.color,
+                strokeWidth: drawSettings.width,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }
+            : {
+                ...createBaseElement('path', {
+                  name: 'Path',
+                  x: pointer.x,
+                  y: pointer.y,
+                  rotation: 0,
+                  opacity: 1,
+                  metadata: null,
+                }),
+                type: 'path',
+                points: [0, 0],
+                stroke: pathSettings.color,
+                strokeWidth: pathSettings.width,
+                tension: 0,
+                closed: false,
+              };
+        addElement(element);
+        setDrawingState({ id: element.id, type, origin: { x: pointer.x, y: pointer.y } });
+        return;
+      }
+
       if (event.target === stage) {
-        setSelectedId(null);
+        setSelectedIds([]);
+        setActiveTool('select');
       }
     },
-    [],
+    [activeTool, addElement, drawSettings, pathSettings],
   );
+
+  const handleStagePointerMove = useCallback(
+    (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
+      if (!drawingState) return;
+      const stage = event.target.getStage();
+      if (!stage) return;
+      const pointer = stage.getPointerPosition();
+      if (!pointer) return;
+
+      updateElements((current) =>
+        current.map((element) => {
+          if (element.id !== drawingState.id) {
+            return element;
+          }
+          const dx = pointer.x - drawingState.origin.x;
+          const dy = pointer.y - drawingState.origin.y;
+          if (drawingState.type === 'pencil') {
+            const pencil = element as PencilElement;
+            return { ...pencil, points: [...pencil.points, dx, dy] };
+          }
+          const path = element as PathElement;
+          return { ...path, points: [...path.points, dx, dy] };
+        }),
+      );
+    },
+    [drawingState, updateElements],
+  );
+
+  const handleStagePointerUp = useCallback(() => {
+    if (!drawingState) return;
+    setDrawingState(null);
+  }, [drawingState]);
+
+  const handleSave = useCallback(() => {
+    postMessage('save', { json: stringifyDesign(document) });
+    try {
+      window.localStorage.setItem(STORAGE_KEY, stringifyDesign(document));
+    } catch (error) {
+      console.warn('Unable to save design locally', error);
+    }
+  }, [document, postMessage]);
+
+  const handleExport = useCallback(
+    (format: 'png' | 'jpeg' | 'json' | 'svg') => {
+      if (format === 'json') {
+        postMessage('export', { format: 'json', json: stringifyDesign(document) });
+        return;
+      }
+      const stage = stageRef.current;
+      if (!stage) return;
+      if (format === 'svg') {
+        const svg = stage.toSVG();
+        postMessage('export', { format: 'svg', svg });
+        return;
+      }
+      const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
+      const dataUrl = stage.toDataURL({ mimeType, quality: format === 'jpeg' ? 0.92 : undefined });
+      postMessage('export', { format, dataUrl });
+    },
+    [document, postMessage],
+  );
+
+  const handleLoadFromBrowser = useCallback(() => {
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (!stored) return;
+      const parsed = parseDesign(stored);
+      if (parsed) {
+        resetDocument(parsed);
+        setSelectedIds([]);
+      }
+    } catch (error) {
+      console.warn('Unable to load design from local storage', error);
+    }
+  }, [resetDocument]);
+
+  const handleZoomChange = useCallback((value: number) => {
+    setOptions((current) => ({ ...current, zoom: value }));
+  }, []);
 
   useEffect(() => {
     postMessage('ready', { options });
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (!initialDesign && stored) {
+      const parsed = parseDesign(stored);
+      if (parsed) {
+        resetDocument(parsed);
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    const serialized = stringifyDesign(elements);
     const handle = window.setTimeout(() => {
-      postMessage('change', { json: serialized });
+      postMessage('change', { json: stringifyDesign(document) });
     }, 250);
     return () => window.clearTimeout(handle);
-  }, [elements, postMessage]);
+  }, [document, postMessage]);
 
   useEffect(() => {
     postMessage('options', { options });
   }, [options, postMessage]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.target && (event.target as HTMLElement).tagName === 'INPUT') return;
+      if (event.target && (event.target as HTMLElement).tagName === 'TEXTAREA') return;
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        redo();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c') {
+        event.preventDefault();
+        handleCopy();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v') {
+        event.preventDefault();
+        handlePaste();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd') {
+        event.preventDefault();
+        handleDuplicate();
+        return;
+      }
+
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        if (selectedIds.length > 0) {
+          event.preventDefault();
+          removeSelected();
+        }
+      }
+
+      if (event.key === 'Escape') {
+        setSelectedIds([]);
+        setActiveTool('select');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleCopy, handleDuplicate, handlePaste, redo, removeSelected, selectedIds.length, undo]);
 
   useEffect(() => {
     const listener = (event: MessageEvent) => {
@@ -282,8 +1276,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
           const designValue = message.payload?.json ?? message.payload ?? null;
           const parsed = parseDesign(designValue);
           if (parsed) {
-            resetElements(parsed.elements ?? []);
-            setSelectedId(null);
+            resetDocument(parsed);
+            setSelectedIds([]);
           }
           break;
         }
@@ -313,11 +1307,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     rotation: typeof payload.rotation === 'number' ? payload.rotation : undefined,
                     opacity: typeof payload.opacity === 'number' ? payload.opacity : undefined,
                     name: typeof payload.name === 'string' ? payload.name : undefined,
-                    draggable:
-                      typeof payload.draggable === 'boolean' ? payload.draggable : undefined,
+                    draggable: typeof payload.draggable === 'boolean' ? payload.draggable : undefined,
                   }
                 : {};
-            addImageFromSource(source, overrides);
+            handleAddImage(source, overrides);
           }
           break;
         }
@@ -331,13 +1324,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
           handleClear();
           break;
         case 'requestExport': {
-          const format = (message.payload?.format as 'png' | 'jpeg' | 'json') ?? 'png';
+          const format = (message.payload?.format as 'png' | 'jpeg' | 'json' | 'svg') ?? 'png';
           handleExport(format);
           break;
         }
         case 'requestJSON':
         case 'requestCanvasJSON': {
-          postMessage('change', { json: stringifyDesign(elements) });
+          postMessage('change', { json: stringifyDesign(document) });
           break;
         }
         default:
@@ -351,114 +1344,276 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
       window.removeEventListener('message', listener);
       document.removeEventListener('message', listener as any);
     };
-  }, [addImageFromSource, elements, handleClear, handleExport, postMessage, redo, resetElements, undo]);
+  }, [document, handleAddImage, handleClear, handleExport, postMessage, redo, resetDocument, undo]);
 
   const gridBackground = useMemo(() => {
     if (!options.showGrid) {
       return {
         backgroundColor: options.backgroundColor,
-      };
+      } as const;
     }
     return {
       backgroundColor: options.backgroundColor,
       backgroundImage:
-        'linear-gradient(rgba(15, 23, 42, 0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(15, 23, 42, 0.08) 1px, transparent 1px)',
-      backgroundSize: '32px 32px',
+        'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)',
+      backgroundSize: `${options.gridSize}px ${options.gridSize}px`,
     } as const;
-  }, [options.backgroundColor, options.showGrid]);
+  }, [options.backgroundColor, options.gridSize, options.showGrid]);
+
+  const zoomedWidth = Math.round(options.width * options.zoom);
+  const zoomedHeight = Math.round(options.height * options.zoom);
 
   return (
     <div className="editor-shell">
       <div className="editor-toolbar">
-        <button type="button" onClick={handleAddRect}>
-          Rectangle
-        </button>
-        <button type="button" onClick={handleAddCircle}>
-          Circle
-        </button>
-        <button type="button" onClick={handleAddText}>
-          Text
-        </button>
-        <button type="button" onClick={handleAddImage}>
-          Image
-        </button>
-        <span className="toolbar-spacer" aria-hidden="true" />
-        <button type="button" onClick={undo} disabled={!canUndo}>
-          Undo
-        </button>
-        <button type="button" onClick={redo} disabled={!canRedo}>
-          Redo
-        </button>
-        <button type="button" onClick={handleClear} disabled={elements.length === 0}>
-          Clear
-        </button>
-        <button type="button" onClick={handleSave} disabled={elements.length === 0}>
-          Save
-        </button>
-        <button type="button" onClick={() => handleExport('png')} disabled={elements.length === 0}>
-          Export PNG
-        </button>
+        <div className="toolbar-group">
+          <button type="button" className={activeTool === 'select' ? 'active' : ''} onClick={() => setActiveTool('select')}>
+            Select
+          </button>
+          <button type="button" className={activeTool === 'draw' ? 'active' : ''} onClick={handleAddDraw}>
+            Draw
+          </button>
+          <button type="button" className={activeTool === 'path' ? 'active' : ''} onClick={handleAddPath}>
+            Path
+          </button>
+        </div>
+        <div className="toolbar-group">
+          <button type="button" onClick={handleAddRect}>
+            Rectangle
+          </button>
+          <button type="button" onClick={handleAddCircle}>
+            Circle
+          </button>
+          <button type="button" onClick={handleAddEllipse}>
+            Ellipse
+          </button>
+          <button type="button" onClick={handleAddTriangle}>
+            Triangle
+          </button>
+          <button type="button" onClick={handleAddLine}>
+            Line
+          </button>
+          <button type="button" onClick={handleAddText}>
+            Text
+          </button>
+          <button type="button" onClick={handleRequestImage}>
+            Image
+          </button>
+          <button type="button" onClick={() => handleAddGuide('horizontal')}>
+            H-Guide
+          </button>
+          <button type="button" onClick={() => handleAddGuide('vertical')}>
+            V-Guide
+          </button>
+        </div>
+        <div className="toolbar-group">
+          <button type="button" onClick={undo} disabled={!canUndo}>
+            Undo
+          </button>
+          <button type="button" onClick={redo} disabled={!canRedo}>
+            Redo
+          </button>
+          <button type="button" onClick={handleCopy} disabled={selectedIds.length === 0}>
+            Copy
+          </button>
+          <button type="button" onClick={handlePaste} disabled={!clipboard || clipboard.length === 0}>
+            Paste
+          </button>
+          <button type="button" onClick={handleDuplicate} disabled={selectedIds.length === 0}>
+            Duplicate
+          </button>
+          <button type="button" onClick={removeSelected} disabled={selectedIds.length === 0}>
+            Delete
+          </button>
+          <button type="button" onClick={handleClear}>
+            Clear
+          </button>
+        </div>
+        <div className="toolbar-group">
+          <button type="button" onClick={handleSave}>
+            Save
+          </button>
+          <button type="button" onClick={handleLoadFromBrowser}>
+            Load
+          </button>
+          <button type="button" onClick={() => handleExport('png')}>
+            Export PNG
+          </button>
+          <button type="button" onClick={() => handleExport('jpeg')}>
+            Export JPEG
+          </button>
+          <button type="button" onClick={() => handleExport('svg')}>
+            Export SVG
+          </button>
+          <button type="button" onClick={() => handleExport('json')}>
+            Export JSON
+          </button>
+        </div>
       </div>
 
       <div className="editor-layout">
         <div className="editor-canvas">
-          <div className="stage-wrapper" style={{ width: options.width, height: options.height, ...gridBackground }}>
-            <Stage
-              ref={stageRef}
-              width={options.width}
-              height={options.height}
-              onMouseDown={handleStagePointerDown}
-              onTouchStart={handleStagePointerDown}
-            >
-              <Layer>
-                {elements.map((element: EditorElement) => {
-                  switch (element.type) {
-                    case 'rect':
-                      return (
-                        <RectNode
-                          key={element.id}
-                          shape={element}
-                          isSelected={selectedId === element.id}
-                          onSelect={() => setSelectedId(element.id)}
-                          onChange={(attrs: Partial<EditorElement>) => updateElement(element.id, attrs)}
-                        />
-                      );
-                    case 'circle':
-                      return (
-                        <CircleNode
-                          key={element.id}
-                          shape={element}
-                          isSelected={selectedId === element.id}
-                          onSelect={() => setSelectedId(element.id)}
-                          onChange={(attrs: Partial<EditorElement>) => updateElement(element.id, attrs)}
-                        />
-                      );
-                    case 'text':
-                      return (
-                        <TextNode
-                          key={element.id}
-                          shape={element}
-                          isSelected={selectedId === element.id}
-                          onSelect={() => setSelectedId(element.id)}
-                          onChange={(attrs: Partial<EditorElement>) => updateElement(element.id, attrs)}
-                        />
-                      );
-                    case 'image':
-                      return (
-                        <ImageNode
-                          key={element.id}
-                          shape={element}
-                          isSelected={selectedId === element.id}
-                          onSelect={() => setSelectedId(element.id)}
-                          onChange={(attrs: Partial<EditorElement>) => updateElement(element.id, attrs)}
-                        />
-                      );
-                    default:
-                      return null;
-                  }
-                })}
-              </Layer>
-            </Stage>
+          <div className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={{ width: zoomedWidth, height: zoomedHeight }}>
+            {options.showRulers && <div className="stage-ruler stage-ruler-horizontal" style={{ width: zoomedWidth }} />}
+            {options.showRulers && <div className="stage-ruler stage-ruler-vertical" style={{ height: zoomedHeight }} />}
+            <div className="stage-canvas" style={{ width: zoomedWidth, height: zoomedHeight, ...gridBackground }}>
+              <Stage
+                ref={stageRef}
+                width={options.width}
+                height={options.height}
+                scaleX={options.zoom}
+                scaleY={options.zoom}
+                onMouseDown={handleStagePointerDown}
+                onTouchStart={handleStagePointerDown}
+                onMouseMove={handleStagePointerMove}
+                onTouchMove={handleStagePointerMove}
+                onMouseUp={handleStagePointerUp}
+                onTouchEnd={handleStagePointerUp}
+              >
+                <Layer>
+                  {options.showGuides &&
+                    guides.map((guide) => (
+                      <GuideNode
+                        key={guide.id}
+                        shape={guide}
+                        isSelected={selectedIds.includes(guide.id)}
+                        selectionEnabled={activeTool === 'select'}
+                        onSelect={() => handleSelectElement(guide.id)}
+                        onChange={(attributes) => updateElement(guide.id, attributes)}
+                      />
+                    ))}
+                  {contentElements.map((element) => {
+                    const isSelected = selectedIds.includes(element.id);
+                    const selectionEnabled = activeTool === 'select';
+                    const dragBound = dragBoundFactory(element);
+
+                    switch (element.type) {
+                      case 'rect':
+                        return (
+                          <RectNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'frame':
+                        return (
+                          <FrameNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'circle':
+                        return (
+                          <CircleNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'ellipse':
+                        return (
+                          <EllipseNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'triangle':
+                        return (
+                          <TriangleNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'line':
+                        return (
+                          <LineNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'path':
+                        return (
+                          <PathNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'pencil':
+                        return (
+                          <PencilNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                          />
+                        );
+                      case 'text':
+                        return (
+                          <TextNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      case 'image':
+                        return (
+                          <ImageNode
+                            key={element.id}
+                            shape={element}
+                            isSelected={isSelected}
+                            selectionEnabled={selectionEnabled}
+                            onSelect={() => handleSelectElement(element.id)}
+                            onChange={(attributes) => updateElement(element.id, attributes)}
+                            dragBoundFunc={dragBound}
+                          />
+                        );
+                      default:
+                        return null;
+                    }
+                  })}
+                </Layer>
+              </Stage>
+            </div>
           </div>
         </div>
 
@@ -468,7 +1623,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             <span>
               {options.width} × {options.height} px
             </span>
-            <span>{elements.length} layers</span>
+            <span>{contentElements.length} layers</span>
           </div>
           <div className="properties-grid">
             <label>
@@ -480,12 +1635,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 onChange={(event) =>
                   setOptions((current) => {
                     const value = Number(event.target.value);
-                    return {
-                      ...current,
-                      width: Number.isFinite(value) ? Math.max(100, value) : current.width,
-                    };
+                    return { ...current, width: Number.isFinite(value) ? Math.max(100, value) : current.width };
                   })
                 }
+                disabled={options.canvasSizeLocked}
               />
             </label>
             <label>
@@ -497,12 +1650,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 onChange={(event) =>
                   setOptions((current) => {
                     const value = Number(event.target.value);
-                    return {
-                      ...current,
-                      height: Number.isFinite(value) ? Math.max(100, value) : current.height,
-                    };
+                    return { ...current, height: Number.isFinite(value) ? Math.max(100, value) : current.height };
                   })
                 }
+                disabled={options.canvasSizeLocked}
               />
             </label>
             <label className="full-width">
@@ -514,40 +1665,195 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
               />
             </label>
             <label>
-              <span>Show grid</span>
+              Show grid
               <input
                 type="checkbox"
                 checked={options.showGrid}
                 onChange={(event) => setOptions((current) => ({ ...current, showGrid: event.target.checked }))}
               />
             </label>
+            <label>
+              Grid size
+              <input
+                type="number"
+                min={4}
+                value={options.gridSize}
+                onChange={(event) =>
+                  setOptions((current) => {
+                    const value = Number(event.target.value);
+                    return { ...current, gridSize: Number.isFinite(value) ? Math.max(4, value) : current.gridSize };
+                  })
+                }
+              />
+            </label>
+            <label>
+              Snap to grid
+              <input
+                type="checkbox"
+                checked={options.snapToGrid}
+                onChange={(event) => setOptions((current) => ({ ...current, snapToGrid: event.target.checked }))}
+              />
+            </label>
+            <label>
+              Snap to guides
+              <input
+                type="checkbox"
+                checked={options.snapToGuides}
+                onChange={(event) => setOptions((current) => ({ ...current, snapToGuides: event.target.checked }))}
+              />
+            </label>
+            <label>
+              Show guides
+              <input
+                type="checkbox"
+                checked={options.showGuides}
+                onChange={(event) => setOptions((current) => ({ ...current, showGuides: event.target.checked }))}
+              />
+            </label>
+            <label>
+              Show rulers
+              <input
+                type="checkbox"
+                checked={options.showRulers}
+                onChange={(event) => setOptions((current) => ({ ...current, showRulers: event.target.checked }))}
+              />
+            </label>
+            <label>
+              Zoom
+              <input
+                type="range"
+                min={0.25}
+                max={2}
+                step={0.05}
+                value={options.zoom}
+                onChange={(event) => handleZoomChange(Number(event.target.value))}
+              />
+            </label>
           </div>
+
+          <h2>Draw tools</h2>
+          <div className="properties-grid">
+            <label>
+              Draw colour
+              <input
+                type="color"
+                value={drawSettings.color}
+                onChange={(event) => setDrawSettings((current) => ({ ...current, color: event.target.value }))}
+              />
+            </label>
+            <label>
+              Draw width
+              <input
+                type="number"
+                min={1}
+                value={drawSettings.width}
+                onChange={(event) => {
+                  const value = Number(event.target.value);
+                  setDrawSettings((current) => ({ ...current, width: Number.isFinite(value) ? Math.max(1, value) : current.width }));
+                }}
+              />
+            </label>
+            <label>
+              Path colour
+              <input
+                type="color"
+                value={pathSettings.color}
+                onChange={(event) => setPathSettings((current) => ({ ...current, color: event.target.value }))}
+              />
+            </label>
+            <label>
+              Path width
+              <input
+                type="number"
+                min={1}
+                value={pathSettings.width}
+                onChange={(event) => {
+                  const value = Number(event.target.value);
+                  setPathSettings((current) => ({ ...current, width: Number.isFinite(value) ? Math.max(1, value) : current.width }));
+                }}
+              />
+            </label>
+          </div>
+
+          <h2>Templates</h2>
+          <div className="template-list">
+            {templates.map((template) => (
+              <button
+                type="button"
+                key={template.id}
+                className="template-item"
+                onClick={() => handleApplyTemplate(template)}
+              >
+                <strong>{template.name}</strong>
+                <span>{template.description}</span>
+              </button>
+            ))}
+          </div>
+
+          <h2>Frames</h2>
+          <div className="template-list">
+            {frames.map((frame) => (
+              <button
+                type="button"
+                key={frame.id}
+                className="template-item"
+                onClick={() => handleAddFrame(frame)}
+              >
+                <strong>{frame.name}</strong>
+                <span>
+                  {Math.round(frame.width)} × {Math.round(frame.height)}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <h2>Images</h2>
+          <div className="image-library">
+            {DEFAULT_IMAGES.map((image) => (
+              <button type="button" key={image.id} onClick={() => handleAddImage(image.src, { name: image.name })}>
+                {image.name}
+              </button>
+            ))}
+            <button type="button" onClick={() => fileInputRef.current?.click()}>
+              Upload…
+            </button>
+          </div>
+
+          <h2>Layers</h2>
+          <LayersPanel
+            elements={elements}
+            selectedIds={selectedIds}
+            onSelect={handleSelectElement}
+            onToggleVisibility={handleToggleVisibility}
+            onToggleLock={handleToggleLock}
+            onRemove={(id) => {
+              setSelectedIds((current) => current.filter((selected) => selected !== id));
+              updateElements((current) => current.filter((element) => element.id !== id));
+            }}
+            onMove={handleLayerMove}
+          />
 
           <h2>Selection</h2>
           {selectedElement ? (
             <PropertiesPanel
               element={selectedElement}
               onChange={(attributes) => updateElement(selectedElement.id, attributes)}
-              onRemove={removeElement}
+              onRemove={removeSelected}
             />
           ) : (
-            <p className="empty-selection">Select an element to reveal editable settings.</p>
+            <p className="empty-selection">Select an element to edit its properties.</p>
           )}
-
-          <h2>Export</h2>
-          <div className="export-panel">
-            <button type="button" onClick={() => handleExport('png')} disabled={elements.length === 0}>
-              Download PNG
-            </button>
-            <button type="button" onClick={() => handleExport('jpeg')} disabled={elements.length === 0}>
-              Download JPEG
-            </button>
-            <button type="button" onClick={() => handleExport('json')} disabled={elements.length === 0}>
-              Download JSON
-            </button>
-          </div>
         </aside>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleUploadFile}
+      />
     </div>
   );
 }
+

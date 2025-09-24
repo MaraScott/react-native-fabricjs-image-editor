@@ -1,6 +1,17 @@
-export type EditorElementType = 'rect' | 'circle' | 'text' | 'image';
+export type EditorElementType =
+  | 'rect'
+  | 'circle'
+  | 'ellipse'
+  | 'triangle'
+  | 'line'
+  | 'path'
+  | 'pencil'
+  | 'text'
+  | 'image'
+  | 'guide'
+  | 'frame';
 
-interface BaseElement {
+export interface BaseElement {
   id: string;
   type: EditorElementType;
   name: string;
@@ -8,25 +19,76 @@ interface BaseElement {
   y: number;
   rotation: number;
   opacity: number;
-  draggable?: boolean;
+  draggable: boolean;
+  visible: boolean;
+  locked: boolean;
+  metadata?: Record<string, unknown> | null;
 }
 
-export interface RectElement extends BaseElement {
+interface FillableElement extends BaseElement {
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+}
+
+export interface RectElement extends FillableElement {
   type: 'rect';
   width: number;
   height: number;
-  fill: string;
-  stroke: string;
-  strokeWidth: number;
   cornerRadius: number;
 }
 
-export interface CircleElement extends BaseElement {
+export interface FrameElement extends RectElement {
+  type: 'frame';
+}
+
+export interface CircleElement extends FillableElement {
   type: 'circle';
   radius: number;
-  fill: string;
+}
+
+export interface EllipseElement extends FillableElement {
+  type: 'ellipse';
+  radiusX: number;
+  radiusY: number;
+}
+
+export interface TriangleElement extends FillableElement {
+  type: 'triangle';
+  width: number;
+  height: number;
+}
+
+export interface LineElement extends BaseElement {
+  type: 'line';
+  points: number[];
   stroke: string;
   strokeWidth: number;
+  dash?: number[];
+  tension?: number;
+  pointerLength?: number;
+  pointerWidth?: number;
+  closed?: boolean;
+  fill?: string;
+}
+
+export interface PathElement extends BaseElement {
+  type: 'path';
+  points: number[];
+  stroke: string;
+  strokeWidth: number;
+  tension: number;
+  closed: boolean;
+  fill?: string;
+}
+
+export interface PencilElement extends BaseElement {
+  type: 'pencil';
+  points: number[];
+  stroke: string;
+  strokeWidth: number;
+  lineCap: 'round' | 'butt' | 'square';
+  lineJoin: 'round' | 'miter' | 'bevel';
 }
 
 export interface TextElement extends BaseElement {
@@ -34,9 +96,17 @@ export interface TextElement extends BaseElement {
   text: string;
   fontSize: number;
   fontFamily: string;
+  fontStyle: 'normal' | 'italic';
+  fontWeight: 'normal' | 'bold';
   fill: string;
   width: number;
   align: 'left' | 'center' | 'right';
+  lineHeight: number;
+  letterSpacing: number;
+  stroke: string;
+  strokeWidth: number;
+  backgroundColor: string;
+  padding: number;
 }
 
 export interface ImageElement extends BaseElement {
@@ -44,13 +114,38 @@ export interface ImageElement extends BaseElement {
   src: string;
   width: number;
   height: number;
+  cornerRadius: number;
+  keepRatio: boolean;
 }
 
-export type EditorElement = RectElement | CircleElement | TextElement | ImageElement;
+export interface GuideElement extends BaseElement {
+  type: 'guide';
+  orientation: 'horizontal' | 'vertical';
+  length: number;
+  stroke: string;
+  strokeWidth: number;
+}
 
-export interface EditorDesign {
+export type EditorElement =
+  | RectElement
+  | FrameElement
+  | CircleElement
+  | EllipseElement
+  | TriangleElement
+  | LineElement
+  | PathElement
+  | PencilElement
+  | TextElement
+  | ImageElement
+  | GuideElement;
+
+export interface EditorDocument {
   elements: EditorElement[];
   metadata?: Record<string, unknown> | null;
+}
+
+export interface EditorDesign extends EditorDocument {
+  options?: Partial<EditorOptions> | null;
 }
 
 export interface EditorOptions {
@@ -58,6 +153,14 @@ export interface EditorOptions {
   height: number;
   backgroundColor: string;
   showGrid: boolean;
+  gridSize: number;
+  snapToGrid: boolean;
+  snapToGuides: boolean;
+  showGuides: boolean;
+  showRulers: boolean;
+  zoom: number;
+  fixedCanvas: boolean;
+  canvasSizeLocked: boolean;
 }
 
 export interface EditorBootstrapConfig {
