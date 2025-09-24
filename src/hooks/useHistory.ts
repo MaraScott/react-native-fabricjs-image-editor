@@ -6,8 +6,10 @@ type HistoryState<T> = {
   future: T[];
 };
 
+type HistoryUpdater<T> = T | ((previous: T) => T);
+
 type HistoryAction<T> =
-  | { type: 'set'; payload: T; overwrite?: boolean }
+  | { type: 'set'; payload: HistoryUpdater<T>; overwrite?: boolean }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'reset'; payload: T };
@@ -15,21 +17,26 @@ type HistoryAction<T> =
 function historyReducer<T>(state: HistoryState<T>, action: HistoryAction<T>): HistoryState<T> {
   switch (action.type) {
     case 'set': {
+      const nextValue =
+        typeof action.payload === 'function'
+          ? (action.payload as (previous: T) => T)(state.present)
+          : action.payload;
+
       if (action.overwrite) {
         return {
           past: [],
-          present: action.payload,
+          present: nextValue,
           future: [],
         };
       }
 
-      if (Object.is(state.present, action.payload)) {
+      if (Object.is(state.present, nextValue)) {
         return state;
       }
 
       return {
         past: [...state.past, state.present],
-        present: action.payload,
+        present: nextValue,
         future: [],
       };
     }
@@ -77,7 +84,7 @@ export function useHistory<T>(initialState: T) {
   });
 
   const set = useCallback(
-    (value: T, overwrite = false) => {
+    (value: HistoryUpdater<T>, overwrite = false) => {
       dispatch({ type: 'set', payload: value, overwrite });
     },
     [dispatch],

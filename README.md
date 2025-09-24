@@ -8,7 +8,7 @@ A modern image editor powered by [React Konva](https://konvajs.org/docs/react/in
 
 - **Konva rendering** – Shapes are rendered with `react-konva`, providing fast Canvas operations and transformer handles.
 - **TypeScript-first** – All editor modules are authored as `.tsx` files with strict typing.
-- **React Native bridge** – The HTML bundle posts `ready`, `change`, `save` and `export` events to the host app and accepts imperative commands (`loadDesign`, `requestExport`, `undo`, `redo`, etc.).
+- **React Native bridge** – The HTML bundle posts `ready`, `change`, `save`, `export` and `requestImage` events to the host app and accepts imperative commands (`loadDesign`, `addImage`, `requestExport`, `undo`, `redo`, etc.).
 - **Customisable canvas** – Change dimensions, background colour and grid visibility at runtime.
 - **No Fabric.js** – The legacy Fabric implementation has been removed in favour of Konva + React.
 
@@ -50,10 +50,15 @@ type EditorMessage =
   | { type: 'ready'; payload: { options: any } }
   | { type: 'change'; payload: { json: string } }
   | { type: 'save'; payload: { json: string } }
-  | { type: 'export'; payload: { format: string; dataUrl?: string; json?: string } };
+  | { type: 'export'; payload: { format: string; dataUrl?: string; json?: string } }
+  | { type: 'requestImage'; payload: { options: any } };
 
 export default function Editor() {
   const webviewRef = useRef<WebView>(null);
+
+  const postMessage = (message: unknown) => {
+    webviewRef.current?.postMessage(JSON.stringify(message));
+  };
 
   const handleMessage = (event: WebViewMessageEvent) => {
     const data = JSON.parse(event.nativeEvent.data) as EditorMessage;
@@ -70,13 +75,16 @@ export default function Editor() {
       case 'export':
         console.log('Exported', data.payload.format);
         break;
+      case 'requestImage':
+        // Launch your native image picker and respond with an image URL/base64 payload
+        postMessage({
+          type: 'addImage',
+          payload: { src: 'https://example.com/photo.png' },
+        });
+        break;
       default:
         break;
     }
-  };
-
-  const postMessage = (message: unknown) => {
-    webviewRef.current?.postMessage(JSON.stringify(message));
   };
 
   return (
@@ -99,6 +107,7 @@ Messages sent **from** native to the editor:
 | ---- | ------- | ------ |
 | `setDesign` / `loadDesign` | `{ json: string \| EditorDesign }` | Loads a serialized canvas state |
 | `setOptions` | `{ options: Partial<EditorOptions> }` | Updates canvas dimensions, background, grid |
+| `addImage` | `{ src: string, width?, height?, x?, y?, rotation?, opacity?, name?, draggable? }` | Inserts an image element with optional overrides |
 | `undo` / `redo` | – | History traversal |
 | `clear` | – | Clears the canvas |
 | `requestExport` | `{ format?: 'png' \| 'jpeg' \| 'json' }` | Triggers export callback |
@@ -110,6 +119,7 @@ Messages emitted **to** native:
 - `change` – Debounced canvas changes with serialized JSON.
 - `save` – Save button clicked.
 - `export` – Export complete, includes format + payload.
+- `requestImage` – User requested an image element; native hosts can respond with `addImage`.
 
 ## Licensing
 

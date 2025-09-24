@@ -27,5 +27,8 @@ module.exports = {
     ],
   },
   devtool: 'source-map',
-  mode: 'development',
+  performance: {
+    maxAssetSize: 600000,
+    maxEntrypointSize: 600000,
+  },
 };

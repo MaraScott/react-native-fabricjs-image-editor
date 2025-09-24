@@ -156,6 +156,18 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { postMessage } = useBridge();
 
+  const addImageFromSource = useCallback(
+    (src: string, overrides?: Partial<ImageElement>) => {
+      if (!src) return;
+      const trimmed = src.trim();
+      if (!trimmed) return;
+      const node: ImageElement = { ...createImage(options, trimmed), ...(overrides ?? {}) };
+      setElements((current) => [...current, node]);
+      setSelectedId(node.id);
+    },
+    [options, setElements, setSelectedId],
+  );
+
   const selectedElement = useMemo(
     () => elements.find((element: EditorElement) => element.id === selectedId) ?? null,
     [elements, selectedId],
@@ -163,51 +175,54 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
   const updateElement = useCallback(
       (id: string, attributes: Partial<EditorElement>) => {
-        setElements(
-          elements.map((element: EditorElement) =>
+        setElements((current) =>
+          current.map((element: EditorElement) =>
             element.id === id ? ({ ...element, ...attributes } as EditorElement) : element,
           ),
         );
       },
-      [elements, setElements],
+      [setElements],
     );
 
   const removeElement = useCallback(() => {
     if (!selectedId) return;
-    setElements(elements.filter((element: EditorElement) => element.id !== selectedId));
+    setElements((current) => current.filter((element: EditorElement) => element.id !== selectedId));
     setSelectedId(null);
-  }, [elements, selectedId, setElements]);
+  }, [selectedId, setElements, setSelectedId]);
 
   const handleAddRect = useCallback(() => {
     const node = createRect(options);
-    setElements([...elements, node]);
+    setElements((current) => [...current, node]);
     setSelectedId(node.id);
-  }, [elements, options, setElements]);
+  }, [options, setElements, setSelectedId]);
 
   const handleAddCircle = useCallback(() => {
     const node = createCircle(options);
-    setElements([...elements, node]);
+    setElements((current) => [...current, node]);
     setSelectedId(node.id);
-  }, [elements, options, setElements]);
+  }, [options, setElements, setSelectedId]);
 
   const handleAddText = useCallback(() => {
     const node = createText(options);
-    setElements([...elements, node]);
+    setElements((current) => [...current, node]);
     setSelectedId(node.id);
-  }, [elements, options, setElements]);
+  }, [options, setElements, setSelectedId]);
 
   const handleAddImage = useCallback(() => {
+    if (window.ReactNativeWebView) {
+      postMessage('requestImage', { options });
+      return;
+    }
+
     const url = window.prompt('Enter image URL');
     if (!url) return;
-    const node = createImage(options, url);
-    setElements([...elements, node]);
-    setSelectedId(node.id);
-  }, [elements, options, setElements]);
+    addImageFromSource(url);
+  }, [addImageFromSource, options, postMessage]);
 
   const handleClear = useCallback(() => {
-    setElements([]);
+    setElements(() => []);
     setSelectedId(null);
-  }, [setElements]);
+  }, [setElements, setSelectedId]);
 
   const handleSave = useCallback(() => {
     postMessage('save', { json: stringifyDesign(elements) });
@@ -277,6 +292,35 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
           setOptions((current) => ({ ...current, ...incoming }));
           break;
         }
+        case 'addImage': {
+          const payload = message.payload ?? {};
+          const source =
+            typeof payload === 'string'
+              ? payload
+              : typeof payload?.src === 'string'
+                ? payload.src
+                : typeof payload?.url === 'string'
+                  ? payload.url
+                  : null;
+          if (source) {
+            const overrides: Partial<ImageElement> =
+              typeof payload === 'object' && payload !== null
+                ? {
+                    width: typeof payload.width === 'number' ? payload.width : undefined,
+                    height: typeof payload.height === 'number' ? payload.height : undefined,
+                    x: typeof payload.x === 'number' ? payload.x : undefined,
+                    y: typeof payload.y === 'number' ? payload.y : undefined,
+                    rotation: typeof payload.rotation === 'number' ? payload.rotation : undefined,
+                    opacity: typeof payload.opacity === 'number' ? payload.opacity : undefined,
+                    name: typeof payload.name === 'string' ? payload.name : undefined,
+                    draggable:
+                      typeof payload.draggable === 'boolean' ? payload.draggable : undefined,
+                  }
+                : {};
+            addImageFromSource(source, overrides);
+          }
+          break;
+        }
         case 'undo':
           undo();
           break;
@@ -307,7 +351,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
       window.removeEventListener('message', listener);
       document.removeEventListener('message', listener as any);
     };
-  }, [elements, handleClear, handleExport, postMessage, redo, resetElements, undo]);
+  }, [addImageFromSource, elements, handleClear, handleExport, postMessage, redo, resetElements, undo]);
 
   const gridBackground = useMemo(() => {
     if (!options.showGrid) {
