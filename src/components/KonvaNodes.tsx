@@ -1,5 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { Circle, Image as KonvaImage, Rect, Text, Transformer } from 'react-konva';
+import { Circle as CircleShape, Image as ImageShape, Rect as RectShape, Text as TextShape, Transformer as TransformerShape } from 'react-konva/compat';
+import type { KonvaEventObject } from 'konva/lib/Node';
+import type { Circle as KonvaCircle } from 'konva/lib/shapes/Circle';
+import type { Image as KonvaImage } from 'konva/lib/shapes/Image';
+import type { Rect as KonvaRect } from 'konva/lib/shapes/Rect';
+import type { Text as KonvaText } from 'konva/lib/shapes/Text';
+import type { Transformer as KonvaTransformer } from 'konva/lib/shapes/Transformer';
 import { useImage } from 'use-image';
 import type {
   CircleElement,
@@ -16,8 +22,8 @@ interface NodeProps<T> {
 }
 
 export function RectNode({ shape, isSelected, onSelect, onChange }: NodeProps<RectElement>) {
-  const shapeRef = useRef<Rect>(null);
-  const trRef = useRef<Transformer>(null);
+  const shapeRef = useRef<KonvaRect | null>(null);
+  const trRef = useRef<KonvaTransformer | null>(null);
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
@@ -28,7 +34,7 @@ export function RectNode({ shape, isSelected, onSelect, onChange }: NodeProps<Re
 
   return (
     <>
-      <Rect
+      <RectShape
         ref={shapeRef}
         x={shape.x}
         y={shape.y}
@@ -43,7 +49,7 @@ export function RectNode({ shape, isSelected, onSelect, onChange }: NodeProps<Re
         draggable
         onClick={onSelect}
         onTap={onSelect}
-        onDragEnd={(event) => {
+        onDragEnd={(event: KonvaEventObject<DragEvent>) => {
           onChange({ x: event.target.x(), y: event.target.y() });
         }}
         onTransformEnd={() => {
@@ -63,7 +69,7 @@ export function RectNode({ shape, isSelected, onSelect, onChange }: NodeProps<Re
         }}
       />
       {isSelected && (
-        <Transformer
+        <TransformerShape
           ref={trRef}
           anchorSize={8}
           borderStroke="#38bdf8"
@@ -75,8 +81,8 @@ export function RectNode({ shape, isSelected, onSelect, onChange }: NodeProps<Re
 }
 
 export function CircleNode({ shape, isSelected, onSelect, onChange }: NodeProps<CircleElement>) {
-  const shapeRef = useRef<Circle>(null);
-  const trRef = useRef<Transformer>(null);
+  const shapeRef = useRef<KonvaCircle | null>(null);
+  const trRef = useRef<KonvaTransformer | null>(null);
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
@@ -87,7 +93,7 @@ export function CircleNode({ shape, isSelected, onSelect, onChange }: NodeProps<
 
   return (
     <>
-      <Circle
+      <CircleShape
         ref={shapeRef}
         x={shape.x}
         y={shape.y}
@@ -100,7 +106,7 @@ export function CircleNode({ shape, isSelected, onSelect, onChange }: NodeProps<
         draggable
         onClick={onSelect}
         onTap={onSelect}
-        onDragEnd={(event) => {
+        onDragEnd={(event: KonvaEventObject<DragEvent>) => {
           onChange({ x: event.target.x(), y: event.target.y() });
         }}
         onTransformEnd={() => {
@@ -120,7 +126,7 @@ export function CircleNode({ shape, isSelected, onSelect, onChange }: NodeProps<
         }}
       />
       {isSelected && (
-        <Transformer
+        <TransformerShape
           ref={trRef}
           anchorSize={8}
           borderStroke="#38bdf8"
@@ -133,8 +139,8 @@ export function CircleNode({ shape, isSelected, onSelect, onChange }: NodeProps<
 }
 
 export function TextNode({ shape, isSelected, onSelect, onChange }: NodeProps<TextElement>) {
-  const shapeRef = useRef<Text>(null);
-  const trRef = useRef<Transformer>(null);
+  const shapeRef = useRef<KonvaText | null>(null);
+  const trRef = useRef<KonvaTransformer | null>(null);
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
@@ -145,7 +151,7 @@ export function TextNode({ shape, isSelected, onSelect, onChange }: NodeProps<Te
 
   return (
     <>
-      <Text
+      <TextShape
         ref={shapeRef}
         x={shape.x}
         y={shape.y}
@@ -160,7 +166,7 @@ export function TextNode({ shape, isSelected, onSelect, onChange }: NodeProps<Te
         draggable
         onClick={onSelect}
         onTap={onSelect}
-        onDragEnd={(event) => {
+        onDragEnd={(event: KonvaEventObject<DragEvent>) => {
           onChange({ x: event.target.x(), y: event.target.y() });
         }}
         onTransformEnd={() => {
@@ -177,7 +183,7 @@ export function TextNode({ shape, isSelected, onSelect, onChange }: NodeProps<Te
         }}
       />
       {isSelected && (
-        <Transformer
+        <TransformerShape
           ref={trRef}
           anchorSize={8}
           borderStroke="#38bdf8"
@@ -190,8 +196,8 @@ export function TextNode({ shape, isSelected, onSelect, onChange }: NodeProps<Te
 }
 
 export function ImageNode({ shape, isSelected, onSelect, onChange }: NodeProps<ImageElement>) {
-  const shapeRef = useRef<KonvaImage>(null);
-  const trRef = useRef<Transformer>(null);
+  const shapeRef = useRef<KonvaImage | null>(null);
+  const trRef = useRef<KonvaTransformer | null>(null);
   const [image] = useImage(shape.src, 'Anonymous');
 
   useEffect(() => {
@@ -203,7 +209,7 @@ export function ImageNode({ shape, isSelected, onSelect, onChange }: NodeProps<I
 
   return (
     <>
-      <KonvaImage
+      <ImageShape
         ref={shapeRef}
         image={image || undefined}
         x={shape.x}
@@ -215,7 +221,7 @@ export function ImageNode({ shape, isSelected, onSelect, onChange }: NodeProps<I
         draggable
         onClick={onSelect}
         onTap={onSelect}
-        onDragEnd={(event) => {
+        onDragEnd={(event: KonvaEventObject<DragEvent>) => {
           onChange({ x: event.target.x(), y: event.target.y() });
         }}
         onTransformEnd={() => {
@@ -235,7 +241,7 @@ export function ImageNode({ shape, isSelected, onSelect, onChange }: NodeProps<I
         }}
       />
       {isSelected && (
-        <Transformer
+        <TransformerShape
           ref={trRef}
           anchorSize={8}
           borderStroke="#38bdf8"

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Layer, Stage } from 'react-konva';
+import { Layer, Stage } from 'react-konva/compat';
 import type { KonvaEventObject } from 'konva/lib/Node';
-import type Konva from 'konva';
+import type { Stage as StageType } from 'konva/lib/Stage';
 import PropertiesPanel from './PropertiesPanel';
 import { CircleNode, ImageNode, RectNode, TextNode } from './KonvaNodes';
 import { useHistory } from '../hooks/useHistory';
@@ -148,7 +148,7 @@ function useBridge() {
 
 export default function EditorApp({ initialDesign, initialOptions }: EditorAppProps) {
   const [options, setOptions] = useState<EditorOptions>(getInitialOptions(initialOptions));
-  const stageRef = useRef<Konva.Stage>(null);
+  const stageRef = useRef<StageType | null>(null);
 
   const design = useMemo(() => initialDesign ?? { elements: [], metadata: null }, [initialDesign]);
   const { value: elements, set: setElements, reset: resetElements, undo, redo, canUndo, canRedo } =
