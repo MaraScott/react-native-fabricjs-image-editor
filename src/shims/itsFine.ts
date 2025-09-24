@@ -1,17 +1,21 @@
 import * as React from 'react';
 
-const startTransition: (typeof React.startTransition) extends undefined
+type StartTransitionType = typeof React.startTransition extends undefined
   ? (callback: () => void) => void
-  : NonNullable<typeof React.startTransition> =
+  : NonNullable<typeof React.startTransition>;
+
+const startTransition: StartTransitionType =
   typeof React.startTransition === 'function'
     ? React.startTransition.bind(React)
     : (callback: () => void) => {
         callback();
       };
 
-const useInsertionEffect: (typeof React.useInsertionEffect) extends undefined
+type UseInsertionEffectType = typeof React.useInsertionEffect extends undefined
   ? typeof React.useLayoutEffect
-  : NonNullable<typeof React.useInsertionEffect> =
+  : NonNullable<typeof React.useInsertionEffect>;
+
+const useInsertionEffect: UseInsertionEffectType =
   typeof React.useInsertionEffect === 'function'
     ? React.useInsertionEffect.bind(React)
     : React.useLayoutEffect.bind(React);
@@ -36,13 +40,15 @@ function use<T>(usable: T | Thenable<T>): T {
   return usable as T;
 }
 
-const useSyncExternalStoreImpl:
-  | typeof React.useSyncExternalStore
-  | (<T>(
+type UseSyncExternalStoreType = typeof React.useSyncExternalStore extends undefined
+  ? <T>(
       subscribe: (onStoreChange: () => void) => () => void,
       getSnapshot: () => T,
       getServerSnapshot?: () => T,
-    ) => T) =
+    ) => T
+  : NonNullable<typeof React.useSyncExternalStore>;
+
+const useSyncExternalStoreImpl: UseSyncExternalStoreType =
   typeof React.useSyncExternalStore === 'function'
     ? React.useSyncExternalStore.bind(React)
     : function fallbackUseSyncExternalStore<T>(
@@ -69,21 +75,27 @@ const useSyncExternalStoreImpl:
         return state;
       };
 
-const useDeferredValueImpl: typeof React.useDeferredValue extends undefined
+type UseDeferredValueType = typeof React.useDeferredValue extends undefined
   ? <T>(value: T) => T
-  : NonNullable<typeof React.useDeferredValue> =
+  : NonNullable<typeof React.useDeferredValue>;
+
+const useDeferredValueImpl: UseDeferredValueType =
   typeof React.useDeferredValue === 'function'
     ? React.useDeferredValue.bind(React)
     : ((value) => value);
 
-const useIdImpl: typeof React.useId extends undefined ? () => string : NonNullable<typeof React.useId> =
+type UseIdType = typeof React.useId extends undefined ? () => string : NonNullable<typeof React.useId>;
+
+const useIdImpl: UseIdType =
   typeof React.useId === 'function'
     ? React.useId.bind(React)
     : () => `its-fine-${Math.random().toString(36).slice(2)}`;
 
-const useTransitionImpl: typeof React.useTransition extends undefined
-  ? () => [false, (callback: () => void) => void] as const
-  : NonNullable<typeof React.useTransition> =
+type UseTransitionType = typeof React.useTransition extends undefined
+  ? () => readonly [false, (callback: () => void) => void]
+  : NonNullable<typeof React.useTransition>;
+
+const useTransitionImpl: UseTransitionType =
   typeof React.useTransition === 'function'
     ? React.useTransition.bind(React)
     : (() => {
