@@ -4,7 +4,8 @@ const path = require('path');
 const projectRoot = process.cwd();
 const entryFile = path.resolve(projectRoot, 'index.tsx');
 const outDir = path.resolve(projectRoot, 'dist');
-const outFile = path.join(outDir, 'editor.bundle.js');
+const bundleBaseName = 'editor.bundle';
+const manifestFile = path.join(outDir, 'asset-manifest.json');
 
 const aliasMap = {
   'react-native': 'react-native-web-lite',
@@ -91,13 +92,65 @@ function createEmptyModulePlugin() {
   };
 }
 
+function deriveBuildId(jsFileName) {
+  const match = jsFileName.match(/editor\.bundle\.(.+)\.js$/);
+  return match ? match[1] : jsFileName;
+}
+
+function createAssetManifestPlugin({ mode }) {
+  return {
+    name: 'asset-manifest-plugin',
+    setup(build) {
+      build.onEnd((result) => {
+        if (result.errors.length > 0 || !result.metafile) {
+          return;
+        }
+
+        let jsFile = null;
+        let cssFile = null;
+
+        for (const [outputPath, outputMeta] of Object.entries(result.metafile.outputs)) {
+          if (outputMeta.entryPoint !== entryFile) {
+            continue;
+          }
+
+          if (outputPath.endsWith('.js')) {
+            jsFile = path.basename(outputPath);
+          } else if (outputPath.endsWith('.css')) {
+            cssFile = path.basename(outputPath);
+          }
+        }
+
+        if (!jsFile) {
+          console.warn('asset-manifest-plugin: Unable to locate primary JS bundle.');
+          return;
+        }
+
+        const manifest = {
+          buildId: deriveBuildId(jsFile),
+          js: jsFile,
+          css: cssFile ?? null,
+          mode,
+          createdAt: new Date().toISOString(),
+        };
+
+        fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+        console.log(`Generated asset manifest for ${jsFile}`);
+      });
+    },
+  };
+}
+
 function createBuildOptions({ mode = 'production' } = {}) {
   const isProd = mode !== 'development';
 
   return {
     entryPoints: [entryFile],
     bundle: true,
-    outfile: outFile,
+    outdir: outDir,
+    entryNames: `${bundleBaseName}.[hash]`,
+    chunkNames: 'chunks/[name]-[hash]',
+    assetNames: 'assets/[name]-[hash]',
     format: 'iife',
     platform: 'browser',
     target: ['es2019'],
@@ -106,11 +159,12 @@ function createBuildOptions({ mode = 'production' } = {}) {
     define: createDefine(isProd),
     tsconfig: path.resolve(projectRoot, 'tsconfig.json'),
     logLevel: 'info',
-    plugins: [createAliasPlugin(), createEmptyModulePlugin()],
+    plugins: [createAliasPlugin(), createEmptyModulePlugin(), createAssetManifestPlugin({ mode })],
     banner: {
       js: createEnvBanner(isProd),
     },
     loader: loaders,
+    metafile: true,
   };
 }
 
@@ -118,8 +172,8 @@ module.exports = {
   projectRoot,
   entryFile,
   outDir,
-  outFile,
   ensureEntryFile,
   ensureOutDir,
+  manifestFile,
   createBuildOptions,
 };

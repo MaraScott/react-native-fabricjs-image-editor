@@ -4,7 +4,7 @@ const fs = require('fs');
 const esbuild = require('esbuild');
 const {
   outDir,
-  outFile,
+  manifestFile,
   ensureEntryFile,
   ensureOutDir,
   createBuildOptions,
@@ -21,7 +21,9 @@ async function buildBundle() {
   const options = createBuildOptions({ mode });
   await esbuild.build(options);
 
-  console.log(`Build completed. Wrote ${outFile}`);
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+  const outputs = [manifest.js, manifest.css].filter(Boolean).join(', ');
+  console.log(`Build completed. Emitted ${outputs}`);
 }
 
 buildBundle().catch((error) => {

@@ -24,10 +24,65 @@
   </head>
   <body>
     <div id="image-editor-root"></div>
-    <link rel="stylesheet" href="./dist/editor.bundle.css" />
     <script src="./vendor/react.production.min.js" crossorigin="anonymous"></script>
     <script src="./vendor/react-dom.production.min.js" crossorigin="anonymous"></script>
     <script src="./vendor/konva.min.js" crossorigin="anonymous"></script>
-    <script src="./dist/editor.bundle.js"></script>
+    <script>
+      (function loadEditorBundle() {
+        const manifestUrl = './dist/asset-manifest.json';
+        const ensureStylesheet = (href) => {
+          if (!href) {
+            return;
+          }
+
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = href;
+          document.head.appendChild(link);
+        };
+
+        const injectScript = (src) => {
+          const script = document.createElement('script');
+          script.src = src;
+          script.crossOrigin = 'anonymous';
+          script.onerror = () => {
+            console.error('Failed to load editor bundle script:', src);
+          };
+          document.body.appendChild(script);
+        };
+
+        fetch(`${manifestUrl}?t=${Date.now()}`, { cache: 'no-cache' })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`Unexpected ${response.status} response when requesting asset manifest.`);
+            }
+            return response.json();
+          })
+          .then((manifest) => {
+            const distPath = (file) => (file ? `./dist/${file}` : null);
+            ensureStylesheet(distPath(manifest.css));
+
+            if (!manifest.js) {
+              throw new Error('The asset manifest did not include a JavaScript bundle.');
+            }
+
+            injectScript(distPath(manifest.js));
+          })
+          .catch((error) => {
+            console.error('Unable to load the editor bundle.', error);
+            const container = document.getElementById('image-editor-root');
+            if (container) {
+              const message = document.createElement('div');
+              message.style.padding = '16px';
+              message.style.backgroundColor = 'rgba(220, 20, 60, 0.1)';
+              message.style.borderRadius = '8px';
+              message.style.color = '#ff6b6b';
+              message.style.fontFamily = 'monospace';
+              message.textContent = 'Failed to load the editor bundle. Ensure `npm run build` or `npm run watch` has completed successfully.';
+              container.appendChild(message);
+            }
+          });
+      })();
+    </script>
   </body>
 </html>

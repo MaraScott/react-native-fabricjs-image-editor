@@ -19,7 +19,7 @@ npm install
 npm run build
 ```
 
-The build command produces `dist/editor.bundle.js`, which is loaded by `index.html`. During local development you can use `npm run watch` for incremental builds.
+The build command now emits hashed JS/CSS assets recorded in `dist/asset-manifest.json`, which `index.html` reads to inject the latest bundle. During local development you can use `npm run watch` for incremental builds.
 
 ### Project structure
 
