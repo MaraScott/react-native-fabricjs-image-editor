@@ -126,8 +126,8 @@ body,
   flex: 1;
   min-width: 0;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  justify-content: flex-start;
+  align-items: stretch;
   background: radial-gradient(circle at center, color-mix(in srgb, var(--color, #ffffff) 8%, transparent), color-mix(in srgb, var(--background, rgba(15, 17, 21, 0.95)) 95%, transparent));
   border: 1px solid color-mix(in srgb, var(--borderColor, #1d2533) 80%, transparent);
   border-radius: 14px;
@@ -140,6 +140,13 @@ body,
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
   border-radius: 12px;
   position: relative;
+  display: flex;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  box-sizing: border-box;
   overflow: hidden;
 }
 
@@ -160,6 +167,7 @@ body,
 .stage-ruler-horizontal {
   top: 0;
   left: 24px;
+  right: 0;
   height: 24px;
   background-image: linear-gradient(to right, color-mix(in srgb, var(--color, rgba(226, 232, 240, 0.2)) 60%, transparent) 1px, transparent 1px);
   background-size: 32px 100%;
@@ -168,6 +176,7 @@ body,
 .stage-ruler-vertical {
   top: 24px;
   left: 0;
+  bottom: 0;
   width: 24px;
   background-image: linear-gradient(to bottom, color-mix(in srgb, var(--color, rgba(226, 232, 240, 0.2)) 60%, transparent) 1px, transparent 1px);
   background-size: 100% 32px;
@@ -177,6 +186,9 @@ body,
   position: relative;
   overflow: hidden;
   border-radius: 8px;
+  flex: 1;
+  width: 100%;
+  height: 100%;
 }
 
 .editor-sidebar {
