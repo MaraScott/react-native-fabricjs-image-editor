@@ -112,14 +112,23 @@ function createAssetManifestPlugin({ mode }) {
         let cssFile = null;
 
         for (const [outputPath, outputMeta] of Object.entries(result.metafile.outputs)) {
-          if (outputMeta.entryPoint !== entryFile) {
+          const fileName = path.basename(outputPath);
+
+          if (
+            outputMeta.entryPoint &&
+            path.resolve(projectRoot, outputMeta.entryPoint) !== entryFile
+          ) {
             continue;
           }
 
-          if (outputPath.endsWith('.js')) {
-            jsFile = path.basename(outputPath);
-          } else if (outputPath.endsWith('.css')) {
-            cssFile = path.basename(outputPath);
+          if (!outputMeta.entryPoint && !fileName.startsWith(`${bundleBaseName}.`)) {
+            continue;
+          }
+
+          if (outputPath.endsWith('.js') && fileName.startsWith(`${bundleBaseName}.`)) {
+            jsFile = fileName;
+          } else if (outputPath.endsWith('.css') && fileName.startsWith(`${bundleBaseName}.`)) {
+            cssFile = fileName;
           }
         }
 
