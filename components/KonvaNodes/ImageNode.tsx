@@ -6,6 +6,7 @@ import useImage from '../../hooks/useImage';
 import {
   TRANSFORMER_PROPS,
   shouldListen,
+  useApplyZIndex,
   useAttachTransformer,
   type BaseNodeProps,
 } from './common';
@@ -17,12 +18,14 @@ export function ImageNode({
   onSelect,
   onChange,
   dragBoundFunc,
+  zIndex,
 }: BaseNodeProps<ImageElement>) {
   const shapeRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
   const [image] = useImage(shape.src, 'anonymous');
 
   useAttachTransformer(isSelected, selectionEnabled, shapeRef, transformerRef);
+  useApplyZIndex(zIndex, shapeRef);
 
   const draggable = selectionEnabled && shape.draggable && !shape.locked;
 

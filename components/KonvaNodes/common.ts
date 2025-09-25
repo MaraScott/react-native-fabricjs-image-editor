@@ -8,6 +8,7 @@ export interface BaseNodeProps<T> {
   onSelect: () => void;
   onChange: (attributes: Partial<T>) => void;
   dragBoundFunc?: (position: Vector2d) => Vector2d;
+  zIndex: number;
 }
 
 export const TRANSFORMER_PROPS = {
@@ -36,4 +37,19 @@ export function useAttachTransformer<
 
 export function shouldListen(draggable: boolean, visible: boolean): boolean {
   return visible || draggable;
+}
+
+type ZIndexNode = {
+  zIndex: (index: number) => unknown;
+  getLayer?: () => { batchDraw: () => void } | null;
+};
+
+export function useApplyZIndex<T extends ZIndexNode>(zIndex: number, shapeRef: RefObject<T | null>) {
+  useEffect(() => {
+    const node = shapeRef.current;
+    if (!node) return;
+    node.zIndex(zIndex);
+    const layer = typeof node.getLayer === 'function' ? node.getLayer() : null;
+    layer?.batchDraw();
+  }, [zIndex, shapeRef]);
 }

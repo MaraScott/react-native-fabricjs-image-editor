@@ -5,6 +5,7 @@ import type { CircleElement } from '../../types/editor';
 import {
   TRANSFORMER_PROPS,
   shouldListen,
+  useApplyZIndex,
   useAttachTransformer,
   type BaseNodeProps,
 } from './common';
@@ -16,11 +17,13 @@ export function CircleNode({
   onSelect,
   onChange,
   dragBoundFunc,
+  zIndex,
 }: BaseNodeProps<CircleElement>) {
   const shapeRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
 
   useAttachTransformer(isSelected, selectionEnabled, shapeRef, transformerRef);
+  useApplyZIndex(zIndex, shapeRef);
 
   const draggable = selectionEnabled && shape.draggable && !shape.locked;
 

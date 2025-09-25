@@ -5,6 +5,7 @@ import type { RectElement } from '../../types/editor';
 import {
   TRANSFORMER_PROPS,
   shouldListen,
+  useApplyZIndex,
   useAttachTransformer,
   type BaseNodeProps,
 } from './common';
@@ -16,11 +17,13 @@ export function RectNode({
   onSelect,
   onChange,
   dragBoundFunc,
+  zIndex,
 }: BaseNodeProps<RectElement>) {
   const shapeRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
 
   useAttachTransformer(isSelected, selectionEnabled, shapeRef, transformerRef);
+  useApplyZIndex(zIndex, shapeRef);
 
   const draggable = selectionEnabled && shape.draggable && !shape.locked;
 

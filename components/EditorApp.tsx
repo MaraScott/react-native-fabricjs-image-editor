@@ -1730,7 +1730,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                     >
                                         <Layer>
                                             {options.showGuides &&
-                                                guides.map((guide) => (
+                                                guides.map((guide, guideIndex) => (
                                                     <GuideNode
                                                         key={guide.id}
                                                         shape={guide}
@@ -1738,9 +1738,11 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                         selectionEnabled={activeTool === 'select'}
                                                         onSelect={() => handleSelectElement(guide.id)}
                                                         onChange={(attributes) => updateElement(guide.id, attributes)}
+                                                        zIndex={guideIndex}
                                                     />
                                                 ))}
-                                            {contentElements.map((element) => {
+                                            {contentElements.map((element, elementIndex) => {
+                                                const zIndex = guides.length + elementIndex;
                                                 const isSelected = selectedIds.includes(element.id);
                                                 const selectionEnabled = activeTool === 'select';
                                                 const dragBound = dragBoundFactory(element);
@@ -1756,6 +1758,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onSelect={() => handleSelectElement(element.id)}
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
+                                                                zIndex={zIndex}
                                                             />
                                                         );
                                                     case 'frame':
@@ -1768,6 +1771,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onSelect={() => handleSelectElement(element.id)}
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
+                                                                zIndex={zIndex}
                                                             />
                                                         );
                                                     case 'circle':
@@ -1780,6 +1784,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onSelect={() => handleSelectElement(element.id)}
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
+                                                                zIndex={zIndex}
                                                             />
                                                         );
                                                     case 'ellipse':
@@ -1792,6 +1797,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onSelect={() => handleSelectElement(element.id)}
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
+                                                                zIndex={zIndex}
                                                             />
                                                         );
                                                     case 'triangle':
@@ -1804,6 +1810,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onSelect={() => handleSelectElement(element.id)}
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
+                                                                zIndex={zIndex}
                                                             />
                                                         );
                                                     case 'line':
@@ -1816,6 +1823,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onSelect={() => handleSelectElement(element.id)}
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
+                                                                zIndex={zIndex}
                                                             />
                                                         );
                                                     case 'path':
@@ -1828,6 +1836,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onSelect={() => handleSelectElement(element.id)}
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
+                                                                zIndex={zIndex}
                                                             />
                                                         );
                                                     case 'pencil':
@@ -1839,6 +1848,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 selectionEnabled={selectionEnabled}
                                                                 onSelect={() => handleSelectElement(element.id)}
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
+                                                                dragBoundFunc={dragBound}
+                                                                zIndex={zIndex}
                                                             />
                                                         );
                                                     case 'text':
@@ -1851,6 +1862,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onSelect={() => handleSelectElement(element.id)}
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
+                                                                zIndex={zIndex}
                                                             />
                                                         );
                                                     case 'image':
@@ -1863,6 +1875,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onSelect={() => handleSelectElement(element.id)}
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
+                                                                zIndex={zIndex}
                                                             />
                                                         );
                                                     default:

@@ -5,6 +5,7 @@ import type { PencilElement } from '../../types/editor';
 import {
   TRANSFORMER_PROPS,
   shouldListen,
+  useApplyZIndex,
   useAttachTransformer,
   type BaseNodeProps,
 } from './common';
@@ -15,11 +16,14 @@ export function PencilNode({
   selectionEnabled,
   onSelect,
   onChange,
+  dragBoundFunc,
+  zIndex,
 }: BaseNodeProps<PencilElement>) {
   const shapeRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
 
   useAttachTransformer(isSelected, selectionEnabled, shapeRef, transformerRef);
+  useApplyZIndex(zIndex, shapeRef);
 
   const draggable = selectionEnabled && shape.draggable && !shape.locked;
 
@@ -36,6 +40,7 @@ export function PencilNode({
         rotation={shape.rotation}
         visible={shape.visible}
         draggable={draggable}
+        dragBoundFunc={dragBoundFunc}
         listening={shouldListen(draggable, shape.visible)}
         lineCap={shape.lineCap}
         lineJoin={shape.lineJoin}

@@ -1,9 +1,18 @@
+import { useRef } from 'react';
 import { Line as LineShape } from 'react-konva';
 import type { KonvaEventObject, Vector2d } from '../../types/konva';
 import type { GuideElement } from '../../types/editor';
-import type { BaseNodeProps } from './common';
+import { useApplyZIndex, type BaseNodeProps } from './common';
 
-export function GuideNode({ shape, isSelected, selectionEnabled, onSelect, onChange }: BaseNodeProps<GuideElement>) {
+export function GuideNode({
+  shape,
+  isSelected,
+  selectionEnabled,
+  onSelect,
+  onChange,
+  zIndex,
+}: BaseNodeProps<GuideElement>) {
+  const shapeRef = useRef<any>(null);
   const orientation = shape.orientation;
   const draggable = selectionEnabled && !shape.locked;
 
@@ -14,8 +23,11 @@ export function GuideNode({ shape, isSelected, selectionEnabled, onSelect, onCha
     return { x: position.x, y: shape.y };
   };
 
+  useApplyZIndex(zIndex, shapeRef);
+
   return (
     <LineShape
+      ref={shapeRef}
       x={shape.x}
       y={shape.y}
       points={orientation === 'horizontal' ? [0, 0, shape.length, 0] : [0, 0, 0, shape.length]}
