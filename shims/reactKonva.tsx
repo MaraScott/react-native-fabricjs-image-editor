@@ -301,3 +301,4 @@ export const RegularPolygon = createKonvaComponent(() => new Konva.RegularPolygo
 export const Text = createKonvaComponent(() => new Konva.Text());
 export const Transformer = createKonvaComponent(() => new Konva.Transformer());
 export const Image = createKonvaComponent(() => new Konva.Image());
+export const Group = createKonvaComponent(() => new Konva.Group());
