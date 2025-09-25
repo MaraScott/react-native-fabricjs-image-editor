@@ -15,7 +15,8 @@
     "paths": {
       "react-konva": ["./shims/reactKonva"],
       "react/jsx-runtime": ["./shims/jsxRuntime"],
-      "its-fine": ["./shims/itsFine"]
+      "its-fine": ["./shims/itsFine"],
+      "tamagui": ["./shims/tamagui"]
     }
   },
   "include": [".", "utils", "hooks", "components", "global.d.ts", "index.tsx"],
