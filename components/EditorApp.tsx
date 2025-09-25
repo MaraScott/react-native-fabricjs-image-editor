@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Layer, Stage } from 'react-konva';
-import { Separator, YStack } from 'tamagui';
+import { Button, Heading, Image, Input, Label, Paragraph, Separator, Stack, Text, XStack, YStack } from 'tamagui';
 import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
 import LayersPanel from './LayersPanel';
 import PropertiesPanel from './PropertiesPanel';
@@ -1370,120 +1370,119 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const zoomedHeight = Math.round(options.height * options.zoom);
 
     return (
-        <YStack asChild backgroundColor="$background" color="$color">
-            <div className="editor-shell">
-                <div className="editor-navbar">
-                    <div className="toolbar-group">
-                        <img
-                            src="https://uat.marascott.ai/wp-content/uploads/mascotte-remotedsi-tinyartistgradient-square-150x150.png"
+        <YStack className="editor-root">
+            <YStack className="editor-shell">
+                <YStack className="editor-header">
+                    <XStack className="logo">
+                        <Image
+                            src="https://raw.githubusercontent.com/Everduin94/react-native-vector-icons/master/assets/images/TinyArtist.png"
+                            alt="TinyArtist logo"
                             width="40"
                             height="40"
                         />
-                        <span>
-                            TinyArtist Editor
-                        </span>
-                    </div>
-                </div>
-                <div className="editor-shell-layout">
-                    <div className="editor-toolbar">
-                        <div className="toolbar-group">
-                            <button type="button" className={activeTool === 'select' ? 'active' : ''} onClick={() => setActiveTool('select')}>
+                        <Text>TinyArtist Editor</Text>
+                    </XStack>
+                </YStack>
+                <Stack className="editor-shell-layout">
+                    <YStack className="editor-toolbar">
+                        <XStack className="toolbar-group">
+                            <Button type="button" className={activeTool === 'select' ? 'active' : ''} onPress={() => setActiveTool('select')}>
                                 Select
-                            </button>
-                            <button type="button" className={activeTool === 'draw' ? 'active' : ''} onClick={handleAddDraw}>
+                            </Button>
+                            <Button type="button" className={activeTool === 'draw' ? 'active' : ''} onPress={handleAddDraw}>
                                 Draw
-                            </button>
-                            <button type="button" className={activeTool === 'path' ? 'active' : ''} onClick={handleAddPath}>
+                            </Button>
+                            <Button type="button" className={activeTool === 'path' ? 'active' : ''} onPress={handleAddPath}>
                                 Path
-                            </button>
-                        </div>
-                        <div className="toolbar-group">
-                            <button type="button" onClick={handleAddRect}>
+                            </Button>
+                        </XStack>
+                        <XStack className="toolbar-group">
+                            <Button type="button" onPress={handleAddRect}>
                                 Rectangle
-                            </button>
-                            <button type="button" onClick={handleAddCircle}>
+                            </Button>
+                            <Button type="button" onPress={handleAddCircle}>
                                 Circle
-                            </button>
-                            <button type="button" onClick={handleAddEllipse}>
+                            </Button>
+                            <Button type="button" onPress={handleAddEllipse}>
                                 Ellipse
-                            </button>
-                            <button type="button" onClick={handleAddTriangle}>
+                            </Button>
+                            <Button type="button" onPress={handleAddTriangle}>
                                 Triangle
-                            </button>
-                            <button type="button" onClick={handleAddLine}>
+                            </Button>
+                            <Button type="button" onPress={handleAddLine}>
                                 Line
-                            </button>
-                            <button type="button" onClick={handleAddText}>
+                            </Button>
+                            <Button type="button" onPress={handleAddText}>
                                 Text
-                            </button>
-                            <button type="button" onClick={handleRequestImage}>
+                            </Button>
+                            <Button type="button" onPress={handleRequestImage}>
                                 Image
-                            </button>
-                            <button type="button" onClick={() => handleAddGuide('horizontal')}>
+                            </Button>
+                            <Button type="button" onPress={() => handleAddGuide('horizontal')}>
                                 H-Guide
-                            </button>
-                            <button type="button" onClick={() => handleAddGuide('vertical')}>
+                            </Button>
+                            <Button type="button" onPress={() => handleAddGuide('vertical')}>
                                 V-Guide
-                            </button>
-                        </div>
-                        <div className="toolbar-group">
-                            <button type="button" onClick={undo} disabled={!canUndo}>
+                            </Button>
+                        </XStack>
+                        <XStack className="toolbar-group">
+                            <Button type="button" onPress={undo} disabled={!canUndo}>
                                 Undo
-                            </button>
-                            <button type="button" onClick={redo} disabled={!canRedo}>
+                            </Button>
+                            <Button type="button" onPress={redo} disabled={!canRedo}>
                                 Redo
-                            </button>
-                            <button type="button" onClick={handleCopy} disabled={selectedIds.length === 0}>
+                            </Button>
+                            <Button type="button" onPress={handleCopy} disabled={selectedIds.length === 0}>
                                 Copy
-                            </button>
-                            <button type="button" onClick={handlePaste} disabled={!clipboard || clipboard.length === 0}>
+                            </Button>
+                            <Button type="button" onPress={handlePaste} disabled={!clipboard || clipboard.length === 0}>
                                 Paste
-                            </button>
-                            <button type="button" onClick={handleDuplicate} disabled={selectedIds.length === 0}>
+                            </Button>
+                            <Button type="button" onPress={handleDuplicate} disabled={selectedIds.length === 0}>
                                 Duplicate
-                            </button>
-                            <button type="button" onClick={removeSelected} disabled={selectedIds.length === 0}>
+                            </Button>
+                            <Button type="button" onPress={removeSelected} disabled={selectedIds.length === 0}>
                                 Delete
-                            </button>
-                            <button type="button" onClick={handleClear}>
+                            </Button>
+                            <Button type="button" onPress={handleClear}>
                                 Clear
-                            </button>
-                        </div>
-                        <div className="toolbar-group">
-                            <button type="button" onClick={handleSave}>
+                            </Button>
+                        </XStack>
+                        <XStack className="toolbar-group">
+                            <Button type="button" onPress={handleSave}>
                                 Save
-                            </button>
-                            <button type="button" onClick={handleLoadFromBrowser}>
+                            </Button>
+                            <Button type="button" onPress={handleLoadFromBrowser}>
                                 Load
-                            </button>
-                            <button type="button" onClick={() => handleExport('png')}>
+                            </Button>
+                            <Button type="button" onPress={() => handleExport('png')}>
                                 Export PNG
-                            </button>
-                            <button type="button" onClick={() => handleExport('jpeg')}>
+                            </Button>
+                            <Button type="button" onPress={() => handleExport('jpeg')}>
                                 Export JPEG
-                            </button>
-                            <button type="button" onClick={() => handleExport('svg')}>
+                            </Button>
+                            <Button type="button" onPress={() => handleExport('svg')}>
                                 Export SVG
-                            </button>
-                            <button type="button" onClick={() => handleExport('json')}>
+                            </Button>
+                            <Button type="button" onPress={() => handleExport('json')}>
                                 Export JSON
-                            </button>
-                        </div>
-                    </div>
+                            </Button>
+                        </XStack>
+                    </YStack>
 
-                    <aside className="editor-sidebar">
-                        <h2>Canvas</h2>
-                        <div className="canvas-stats">
-                            <span>
+                    <Stack tag="aside" className="editor-sidebar">
+                        <Heading tag="h2">Canvas</Heading>
+                        <XStack className="canvas-stats">
+                            <Text>
                                 {options.width} × {options.height} px
-                            </span>
-                            <span>{contentElements.length} layers</span>
-                        </div>
+                            </Text>
+                            <Text>{contentElements.length} layers</Text>
+                        </XStack>
                         <Separator marginVertical="$2" opacity={0.35} />
-                        <div className="properties-grid">
-                            <label>
+                        <YStack className="properties-grid">
+                            <Label>
                                 Width
-                                <input
+                                <Input
                                     type="number"
                                     min={100}
                                     value={Math.round(options.width)}
@@ -1495,10 +1494,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                     }
                                     disabled={options.canvasSizeLocked}
                                 />
-                            </label>
-                            <label>
+                            </Label>
+                            <Label>
                                 Height
-                                <input
+                                <Input
                                     type="number"
                                     min={100}
                                     value={Math.round(options.height)}
@@ -1510,26 +1509,26 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                     }
                                     disabled={options.canvasSizeLocked}
                                 />
-                            </label>
-                            <label className="full-width">
+                            </Label>
+                            <Label className="full-width">
                                 Background
-                                <input
+                                <Input
                                     type="color"
                                     value={options.backgroundColor}
                                     onChange={(event) => setOptions((current) => ({ ...current, backgroundColor: event.target.value }))}
                                 />
-                            </label>
-                            <label>
+                            </Label>
+                            <Label>
                                 Show grid
-                                <input
+                                <Input
                                     type="checkbox"
                                     checked={options.showGrid}
                                     onChange={(event) => setOptions((current) => ({ ...current, showGrid: event.target.checked }))}
                                 />
-                            </label>
-                            <label>
+                            </Label>
+                            <Label>
                                 Grid size
-                                <input
+                                <Input
                                     type="number"
                                     min={4}
                                     value={options.gridSize}
@@ -1540,42 +1539,42 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         })
                                     }
                                 />
-                            </label>
-                            <label>
+                            </Label>
+                            <Label>
                                 Snap to grid
-                                <input
+                                <Input
                                     type="checkbox"
                                     checked={options.snapToGrid}
                                     onChange={(event) => setOptions((current) => ({ ...current, snapToGrid: event.target.checked }))}
                                 />
-                            </label>
-                            <label>
+                            </Label>
+                            <Label>
                                 Snap to guides
-                                <input
+                                <Input
                                     type="checkbox"
                                     checked={options.snapToGuides}
                                     onChange={(event) => setOptions((current) => ({ ...current, snapToGuides: event.target.checked }))}
                                 />
-                            </label>
-                            <label>
+                            </Label>
+                            <Label>
                                 Show guides
-                                <input
+                                <Input
                                     type="checkbox"
                                     checked={options.showGuides}
                                     onChange={(event) => setOptions((current) => ({ ...current, showGuides: event.target.checked }))}
                                 />
-                            </label>
-                            <label>
+                            </Label>
+                            <Label>
                                 Show rulers
-                                <input
+                                <Input
                                     type="checkbox"
                                     checked={options.showRulers}
                                     onChange={(event) => setOptions((current) => ({ ...current, showRulers: event.target.checked }))}
                                 />
-                            </label>
-                            <label>
+                            </Label>
+                            <Label>
                                 Zoom
-                                <input
+                                <Input
                                     type="range"
                                     min={0.25}
                                     max={2}
@@ -1583,22 +1582,22 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                     value={options.zoom}
                                     onChange={(event) => handleZoomChange(Number(event.target.value))}
                                 />
-                            </label>
-                        </div>
+                            </Label>
+                        </YStack>
 
-                        <h2>Draw tools</h2>
-                        <div className="properties-grid">
-                            <label>
+                        <Heading tag="h2">Draw tools</Heading>
+                        <YStack className="properties-grid">
+                            <Label>
                                 Draw colour
-                                <input
+                                <Input
                                     type="color"
                                     value={drawSettings.color}
                                     onChange={(event) => setDrawSettings((current) => ({ ...current, color: event.target.value }))}
                                 />
-                            </label>
-                            <label>
+                            </Label>
+                            <Label>
                                 Draw width
-                                <input
+                                <Input
                                     type="number"
                                     min={1}
                                     value={drawSettings.width}
@@ -1607,18 +1606,18 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         setDrawSettings((current) => ({ ...current, width: Number.isFinite(value) ? Math.max(1, value) : current.width }));
                                     }}
                                 />
-                            </label>
-                            <label>
+                            </Label>
+                            <Label>
                                 Path colour
-                                <input
+                                <Input
                                     type="color"
                                     value={pathSettings.color}
                                     onChange={(event) => setPathSettings((current) => ({ ...current, color: event.target.value }))}
                                 />
-                            </label>
-                            <label>
+                            </Label>
+                            <Label>
                                 Path width
-                                <input
+                                <Input
                                     type="number"
                                     min={1}
                                     value={pathSettings.width}
@@ -1627,56 +1626,12 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         setPathSettings((current) => ({ ...current, width: Number.isFinite(value) ? Math.max(1, value) : current.width }));
                                     }}
                                 />
-                            </label>
-                        </div>
+                            </Label>
+                        </YStack>
 
-                        <h2>Templates</h2>
-                        <div className="template-list">
-                            {templates.map((template) => (
-                                <button
-                                    type="button"
-                                    key={template.id}
-                                    className="template-item"
-                                    onClick={() => handleApplyTemplate(template)}
-                                >
-                                    <strong>{template.name}</strong>
-                                    <span>{template.description}</span>
-                                </button>
-                            ))}
-                        </div>
-
-                        <h2>Frames</h2>
-                        <div className="template-list">
-                            {frames.map((frame) => (
-                                <button
-                                    type="button"
-                                    key={frame.id}
-                                    className="template-item"
-                                    onClick={() => handleAddFrame(frame)}
-                                >
-                                    <strong>{frame.name}</strong>
-                                    <span>
-                                        {Math.round(frame.width)} × {Math.round(frame.height)}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
-
-                        <h2>Images</h2>
-                        <div className="image-library">
-                            {DEFAULT_IMAGES.map((image) => (
-                                <button type="button" key={image.id} onClick={() => handleAddImage(image.src, { name: image.name })}>
-                                    {image.name}
-                                </button>
-                            ))}
-                            <button type="button" onClick={() => fileInputRef.current?.click()}>
-                                Upload…
-                            </button>
-                        </div>
-
-                        <h2>Layers</h2>
+                        <Heading tag="h2">Layers</Heading>
                         <LayersPanel
-                            elements={elements}
+                            elements={design.elements}
                             selectedIds={selectedIds}
                             onSelect={handleSelectElement}
                             onToggleVisibility={handleToggleVisibility}
@@ -1688,7 +1643,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                             onMove={handleLayerMove}
                         />
 
-                        <h2>Selection</h2>
+                        <Heading tag="h2">Selection</Heading>
                         {selectedElement ? (
                             <PropertiesPanel
                                 element={selectedElement}
@@ -1696,17 +1651,16 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                 onRemove={removeSelected}
                             />
                         ) : (
-                            <p className="empty-selection">Select an element to edit its properties.</p>
+                            <Paragraph className="empty-selection">Select an element to edit its properties.</Paragraph>
                         )}
-                    </aside>
+                    </Stack>
 
-                    <div className="editor-layout">
-
-                        <div className="editor-canvas">
-                            <div className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={{ width: zoomedWidth, height: zoomedHeight }}>
-                                {options.showRulers && <div className="stage-ruler stage-ruler-horizontal" style={{ width: zoomedWidth }} />}
-                                {options.showRulers && <div className="stage-ruler stage-ruler-vertical" style={{ height: zoomedHeight }} />}
-                                <div className="stage-canvas" style={{ width: zoomedWidth, height: zoomedHeight, ...gridBackground }}>
+                    <YStack className="editor-layout">
+                        <YStack className="editor-canvas">
+                            <Stack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={{ width: zoomedWidth, height: zoomedHeight }}>
+                                {options.showRulers && <Stack className="stage-ruler stage-ruler-horizontal" style={{ width: zoomedWidth }} />}
+                                {options.showRulers && <Stack className="stage-ruler stage-ruler-vertical" style={{ height: zoomedHeight }} />}
+                                <Stack className="stage-canvas" style={{ width: zoomedWidth, height: zoomedHeight, ...gridBackground }}>
                                     <Stage
                                         ref={stageRef}
                                         width={options.width}
@@ -1863,21 +1817,20 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             })}
                                         </Layer>
                                     </Stage>
-                                </div>
-                            </div>
-                        </div>
+                                </Stack>
+                            </Stack>
+                        </YStack>
+                    </YStack>
+                </Stack>
 
-                    </div>
-                </div>
-
-                <input
+                <Input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
                     style={{ display: 'none' }}
                     onChange={handleUploadFile}
                 />
-            </div>
+            </YStack>
         </YStack>
     );
 }
