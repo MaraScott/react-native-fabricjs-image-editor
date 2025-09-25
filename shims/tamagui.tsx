@@ -1,6 +1,5 @@
 import {
   createElement,
-  forwardRef,
   type ButtonHTMLAttributes,
   type CSSProperties,
   type HTMLAttributes,
@@ -13,9 +12,9 @@ import {
 
 type ElementTag = keyof JSX.IntrinsicElements;
 
-type PrimitiveProps = HTMLAttributes<HTMLElement> & {
+export interface PrimitiveProps extends HTMLAttributes<HTMLElement> {
   tag?: ElementTag;
-};
+}
 
 function mergeStyles(base: CSSProperties | undefined, style: CSSProperties | undefined): CSSProperties | undefined {
   if (base && style) {
@@ -27,67 +26,91 @@ function mergeStyles(base: CSSProperties | undefined, style: CSSProperties | und
   return style ? { ...style } : undefined;
 }
 
-function createPrimitive(defaultTag: ElementTag, baseStyle?: CSSProperties) {
-  return forwardRef<HTMLElement, PrimitiveProps>(({ tag, style, ...rest }, ref) => {
-    const elementTag = tag ?? defaultTag;
-    const mergedStyle = mergeStyles(baseStyle, style as CSSProperties | undefined);
-    return createElement(elementTag, { ...rest, style: mergedStyle, ref });
-  });
+function renderPrimitive(
+  defaultTag: ElementTag,
+  baseStyle: CSSProperties | undefined,
+  { tag, style, ...rest }: PrimitiveProps,
+) {
+  const elementTag = tag ?? defaultTag;
+  const mergedStyle = mergeStyles(baseStyle, style as CSSProperties | undefined);
+  return createElement(elementTag, { ...rest, style: mergedStyle });
 }
 
-export interface TamaguiProviderProps extends PropsWithChildren<{ config?: unknown; defaultTheme?: string | null }>, PrimitiveProps {}
+export interface TamaguiProviderProps
+  extends PropsWithChildren<{ config?: unknown; defaultTheme?: string | null }>,
+    PrimitiveProps {}
 
-export const TamaguiProvider = ({ children, tag, ...rest }: TamaguiProviderProps) => {
+export function TamaguiProvider({ children, tag, ...rest }: TamaguiProviderProps) {
   if (tag) {
     return createElement(tag, rest, children);
   }
   return <>{children}</>;
-};
+}
 
 export interface ThemeProps extends PropsWithChildren<{ name?: string | null }>, PrimitiveProps {}
 
-export const Theme = ({ children, tag, ...rest }: ThemeProps) => {
+export function Theme({ children, tag, ...rest }: ThemeProps) {
   if (tag) {
     return createElement(tag, rest, children);
   }
   return <>{children}</>;
-};
+}
 
-export const Stack = createPrimitive('div');
+export function Stack(props: PrimitiveProps) {
+  return renderPrimitive('div', undefined, props);
+}
 
-export const XStack = createPrimitive('div', { display: 'flex', flexDirection: 'row' });
+export function XStack(props: PrimitiveProps) {
+  return renderPrimitive('div', { display: 'flex', flexDirection: 'row' }, props);
+}
 
-export const YStack = createPrimitive('div', { display: 'flex', flexDirection: 'column' });
+export function YStack(props: PrimitiveProps) {
+  return renderPrimitive('div', { display: 'flex', flexDirection: 'column' }, props);
+}
 
-export const Heading = createPrimitive('h2');
+export function Heading(props: PrimitiveProps) {
+  return renderPrimitive('h2', undefined, props);
+}
 
-export const Paragraph = createPrimitive('p');
+export function Paragraph(props: PrimitiveProps) {
+  return renderPrimitive('p', undefined, props);
+}
 
-export const Text = createPrimitive('span');
+export function Text(props: PrimitiveProps) {
+  return renderPrimitive('span', undefined, props);
+}
 
-export const Separator = createPrimitive('hr', { border: 'none', borderBottom: '1px solid currentColor', margin: 0 });
+export function Separator(props: PrimitiveProps) {
+  return renderPrimitive('hr', { border: 'none', borderBottom: '1px solid currentColor', margin: 0 }, props);
+}
 
 export interface ButtonProps extends PropsWithChildren<ButtonHTMLAttributes<HTMLButtonElement>> {
   onPress?: ((event: MouseEvent<HTMLButtonElement>) => void) | null;
 }
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({ onPress, onClick, type = 'button', ...rest }, ref) => (
-  <button ref={ref} type={type} onClick={onClick ?? onPress ?? undefined} {...rest} />
-));
+export function Button({ onPress, onClick, type = 'button', ...rest }: ButtonProps) {
+  return createElement('button', { type, onClick: onClick ?? onPress ?? undefined, ...rest });
+}
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {}
 
-export const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => <input ref={ref} {...props} />);
+export function Input(props: InputProps) {
+  return createElement('input', props);
+}
 
 export interface LabelProps extends LabelHTMLAttributes<HTMLLabelElement> {}
 
-export const Label = forwardRef<HTMLLabelElement, LabelProps>((props, ref) => <label ref={ref} {...props} />);
+export function Label(props: LabelProps) {
+  return createElement('label', props);
+}
 
 export interface ImageProps extends ImgHTMLAttributes<HTMLImageElement> {}
 
-export const Image = forwardRef<HTMLImageElement, ImageProps>((props, ref) => <img ref={ref} {...props} />);
+export function Image(props: ImageProps) {
+  return createElement('img', props);
+}
 
-export default {
+const TamaguiShim = {
   TamaguiProvider,
   Theme,
   Stack,
@@ -102,3 +125,5 @@ export default {
   Label,
   Image,
 };
+
+export default TamaguiShim;
