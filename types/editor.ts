@@ -22,6 +22,7 @@ export interface BaseElement {
   draggable: boolean;
   visible: boolean;
   locked: boolean;
+  layerId?: string | null;
   metadata?: Record<string, unknown> | null;
 }
 
@@ -139,8 +140,16 @@ export type EditorElement =
   | ImageElement
   | GuideElement;
 
+export interface EditorLayer {
+  id: string;
+  name: string;
+  visible: boolean;
+  locked: boolean;
+}
+
 export interface EditorDocument {
   elements: EditorElement[];
+  layers: EditorLayer[];
   metadata?: Record<string, unknown> | null;
 }
 

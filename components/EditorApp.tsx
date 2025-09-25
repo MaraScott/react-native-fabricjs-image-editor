@@ -22,6 +22,7 @@ import { useHistory } from '../hooks/useHistory';
 import type {
     EditorDocument,
     EditorElement,
+    EditorLayer,
     EditorOptions,
     FrameElement,
     GuideElement,
@@ -33,6 +34,7 @@ import type {
     TextElement,
 } from '../types/editor';
 import { createEmptyDesign, parseDesign, stringifyDesign } from '../utils/design';
+import { createEditorId } from '../utils/ids';
 
 type Tool = 'select' | 'draw' | 'path';
 
@@ -78,25 +80,87 @@ const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
     },
 ];
 
-function createId(prefix: string): string {
-    return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 function createBaseElement(type: EditorElement['type'], init: BaseElementInit): BaseElementInit & {
     id: string;
     type: EditorElement['type'];
     draggable: boolean;
     visible: boolean;
     locked: boolean;
+    layerId: null;
 } {
     return {
-        id: createId(type),
+        id: createEditorId(type),
         type,
         draggable: true,
         visible: true,
         locked: false,
+        layerId: null,
         ...init,
     };
+}
+
+function createLayerDefinition(name: string): EditorLayer {
+    return {
+        id: createEditorId('layer'),
+        name,
+        visible: true,
+        locked: false,
+    } satisfies EditorLayer;
+}
+
+function assignElementsToLayer<T extends EditorElement>(elements: T[], layerId: string): T[] {
+    return elements.map((element) => ({ ...element, layerId }));
+}
+
+function getNextLayerName(layers: EditorLayer[]): string {
+    const existing = new Set(layers.map((layer) => layer.name));
+    let index = layers.length + 1;
+    let candidate = `Layer ${index}`;
+    while (existing.has(candidate)) {
+        index += 1;
+        candidate = `Layer ${index}`;
+    }
+    return candidate;
+}
+
+function orderElementsByLayer(elements: EditorElement[], layers: EditorLayer[]): EditorElement[] {
+    if (layers.length === 0) {
+        return elements;
+    }
+
+    const layerIds = new Set(layers.map((layer) => layer.id));
+    const guides: EditorElement[] = [];
+    const buckets = new Map<string, EditorElement[]>();
+    const unassigned: EditorElement[] = [];
+
+    elements.forEach((element) => {
+        if (element.type === 'guide') {
+            guides.push(element);
+            return;
+        }
+
+        if (element.layerId && layerIds.has(element.layerId)) {
+            const existing = buckets.get(element.layerId) ?? [];
+            existing.push(element);
+            buckets.set(element.layerId, existing);
+            return;
+        }
+
+        unassigned.push(element);
+    });
+
+    const ordered: EditorElement[] = [...guides];
+    layers.forEach((layer) => {
+        const entries = buckets.get(layer.id);
+        if (entries && entries.length > 0) {
+            ordered.push(...entries);
+        }
+    });
+    if (unassigned.length > 0) {
+        ordered.push(...unassigned);
+    }
+
+    return ordered;
 }
 
 function createRect(options: EditorOptions, overrides: Partial<RectElement> = {}): RectElement {
@@ -309,12 +373,13 @@ function createGuide(options: EditorOptions, orientation: GuideElement['orientat
 function cloneElement(element: EditorElement): EditorElement {
     const base = {
         ...element,
-        id: createId(element.type),
+        id: createEditorId(element.type),
         name: `${element.name} copy`,
         x: element.x + 24,
         y: element.y + 24,
         metadata: element.metadata ? { ...element.metadata } : null,
         locked: false,
+        layerId: element.layerId ?? null,
     } as EditorElement;
 
     switch (element.type) {
@@ -338,7 +403,7 @@ function cloneElement(element: EditorElement): EditorElement {
         case 'image':
             return { ...base, type: 'image', width: element.width, height: element.height };
         case 'guide':
-            return { ...element, id: createId('guide') };
+            return { ...element, id: createEditorId('guide'), layerId: null };
         default:
             return base;
     }
@@ -586,9 +651,16 @@ function createDefaultTemplates(options: EditorOptions): TemplateDefinition[] {
                     fill: '#0f172a',
                 });
 
+                const layer = createLayerDefinition('Layer 1');
+                const assigned = assignElementsToLayer(
+                    [background, circle, heading, subheading, button, buttonText],
+                    layer.id,
+                );
+
                 return {
                     design: {
-                        elements: [background, circle, heading, subheading, button, buttonText],
+                        elements: assigned,
+                        layers: [layer],
                         metadata: null,
                     },
                     options: {
@@ -639,9 +711,13 @@ function createDefaultTemplates(options: EditorOptions): TemplateDefinition[] {
                     y: frame.y + 40,
                 });
 
+                const layer = createLayerDefinition('Layer 1');
+                const assigned = assignElementsToLayer([frame, quote, author, accent], layer.id);
+
                 return {
                     design: {
-                        elements: [frame, quote, author, accent],
+                        elements: assigned,
+                        layers: [layer],
                         metadata: null,
                     },
                     options: {
@@ -694,9 +770,13 @@ function createDefaultTemplates(options: EditorOptions): TemplateDefinition[] {
                     fill: '#38bdf8',
                 });
 
+                const layer = createLayerDefinition('Layer 1');
+                const assigned = assignElementsToLayer([frame, caption, callout, calloutText], layer.id);
+
                 return {
                     design: {
-                        elements: [frame, caption, callout, calloutText],
+                        elements: assigned,
+                        layers: [layer],
                         metadata: null,
                     },
                     options: {
@@ -793,8 +873,10 @@ function useBridge() {
 }
 
 function cloneDocument(document: EditorDocument): EditorDocument {
+    const sourceLayers = document.layers && document.layers.length > 0 ? document.layers : [createLayerDefinition('Layer 1')];
     return {
         elements: document.elements.map((element) => cloneElement(element)),
+        layers: sourceLayers.map((layer) => ({ ...layer })),
         metadata: document.metadata ? { ...document.metadata } : null,
     } satisfies EditorDocument;
 }
@@ -814,15 +896,79 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         useHistory<EditorDocument>(initialDocument);
 
     const elements = design.elements;
-    const guides = useMemo(() => elements.filter((element) => element.type === 'guide') as GuideElement[], [elements]);
-    const contentElements = useMemo(() => elements.filter((element) => element.type !== 'guide'), [elements]);
+    const layers = design.layers;
+    const orderedElements = useMemo(() => orderElementsByLayer(elements, layers), [elements, layers]);
+    const guides = useMemo(
+        () => orderedElements.filter((element) => element.type === 'guide') as GuideElement[],
+        [orderedElements],
+    );
+    const contentElements = useMemo(
+        () => orderedElements.filter((element) => element.type !== 'guide'),
+        [orderedElements],
+    );
 
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
     const [activeTool, setActiveTool] = useState<Tool>('draw');
     const [drawingState, setDrawingState] = useState<DrawingState | null>(null);
     const [clipboard, setClipboard] = useState<EditorElement[] | null>(null);
     const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
     const [pathSettings, setPathSettings] = useState(DEFAULT_PATH);
+
+    useEffect(() => {
+        if (layers.length === 0) {
+            return;
+        }
+
+        if (!activeLayerId || !layers.some((layer) => layer.id === activeLayerId)) {
+            setActiveLayerId(layers[layers.length - 1].id);
+        }
+    }, [layers, activeLayerId]);
+
+    useEffect(() => {
+        if (layers.length === 0) {
+            return;
+        }
+
+        const layerIds = new Set(layers.map((layer) => layer.id));
+        const fallbackLayer = layers[layers.length - 1];
+        if (!fallbackLayer) {
+            return;
+        }
+
+        const requiresUpdate = elements.some(
+            (element) => element.type !== 'guide' && (!element.layerId || !layerIds.has(element.layerId)),
+        );
+
+        if (!requiresUpdate) {
+            return;
+        }
+
+        setDesign((current) => {
+            const nextLayers = current.layers.length > 0 ? current.layers : layers;
+            const fallback = nextLayers[nextLayers.length - 1];
+            if (!fallback) {
+                return current;
+            }
+
+            const validIds = new Set(nextLayers.map((layer) => layer.id));
+            const updatedElements = current.elements.map((element) => {
+                if (element.type === 'guide') {
+                    return element.layerId === null ? element : { ...element, layerId: null };
+                }
+                if (element.layerId && validIds.has(element.layerId)) {
+                    return element;
+                }
+                return { ...element, layerId: fallback.id };
+            });
+
+            return {
+                ...current,
+                layers: nextLayers,
+                elements: orderElementsByLayer(updatedElements, nextLayers),
+            };
+        });
+    }, [layers, elements, setDesign]);
 
     const dragBoundFactory = useMemo(() => createDragBound(options, guides), [options, guides]);
 
@@ -834,21 +980,85 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const templates = useMemo(() => createDefaultTemplates(options), [options.width, options.height, options.backgroundColor]);
     const frames = useMemo(() => createDefaultFrames(options), [options.width, options.height]);
 
+    const layerMap = useMemo(() => {
+        const map = new Map<string, EditorLayer>();
+        layers.forEach((layer) => {
+            map.set(layer.id, layer);
+        });
+        return map;
+    }, [layers]);
+
     const { postMessage } = useBridge();
 
     const updateElements = useCallback(
         (updater: (elements: EditorElement[]) => EditorElement[]) => {
-            setDesign((current) => ({ ...current, elements: updater(current.elements) }));
+            setDesign((current) => {
+                const nextLayers = current.layers.length > 0 ? current.layers : [createLayerDefinition('Layer 1')];
+                const updatedElements = updater(current.elements);
+                return {
+                    ...current,
+                    layers: nextLayers,
+                    elements: orderElementsByLayer(updatedElements, nextLayers),
+                };
+            });
+        },
+        [setDesign],
+    );
+
+    const updateLayers = useCallback(
+        (updater: (layers: EditorLayer[]) => EditorLayer[]) => {
+            setDesign((current) => {
+                const baseLayers = current.layers.length > 0 ? current.layers : [createLayerDefinition('Layer 1')];
+                const nextLayers = updater(baseLayers);
+                return {
+                    ...current,
+                    layers: nextLayers,
+                    elements: orderElementsByLayer(current.elements, nextLayers),
+                };
+            });
         },
         [setDesign],
     );
 
     const addElement = useCallback(
         (element: EditorElement) => {
-            updateElements((current) => [...current, element]);
-            setSelectedIds([element.id]);
+            let assigned: EditorElement | null = null;
+            let targetLayerId: string | null = null;
+
+            setDesign((current) => {
+                let nextLayers = current.layers;
+                if (nextLayers.length === 0) {
+                    nextLayers = [createLayerDefinition('Layer 1')];
+                }
+
+                if (element.type !== 'guide') {
+                    const activeExists = activeLayerId && nextLayers.some((layer) => layer.id === activeLayerId);
+                    targetLayerId = activeExists ? activeLayerId! : nextLayers[nextLayers.length - 1].id;
+                }
+
+                const layer = targetLayerId ? nextLayers.find((candidate) => candidate.id === targetLayerId) ?? null : null;
+                assigned =
+                    element.type === 'guide'
+                        ? { ...element, layerId: null }
+                        : {
+                              ...element,
+                              layerId: targetLayerId,
+                              visible: layer ? element.visible && layer.visible : element.visible,
+                              locked: layer ? element.locked || layer.locked : element.locked,
+                          };
+
+                const updatedElements = orderElementsByLayer([...current.elements, assigned!], nextLayers);
+                return { ...current, layers: nextLayers, elements: updatedElements };
+            });
+
+            if (assigned) {
+                setSelectedIds([assigned.id]);
+            }
+            if (targetLayerId && targetLayerId !== activeLayerId) {
+                setActiveLayerId(targetLayerId);
+            }
         },
-        [updateElements],
+        [activeLayerId, setDesign, setSelectedIds],
     );
 
     const updateElement = useCallback(
@@ -986,72 +1196,175 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         setSelectedIds([]);
     }, [updateElements]);
 
+    const handleAddLayer = useCallback(() => {
+        const name = getNextLayerName(layers);
+        const newLayer = createLayerDefinition(name);
+        updateLayers((current) => [...current, newLayer]);
+        setActiveLayerId(newLayer.id);
+    }, [layers, updateLayers]);
+
+    const handleRemoveLayer = useCallback(
+        (layerId: string) => {
+            if (layers.length <= 1) {
+                return;
+            }
+
+            const removedIds = new Set(
+                elements.filter((element) => element.layerId === layerId).map((element) => element.id),
+            );
+            setDesign((current) => {
+                if (current.layers.length <= 1) {
+                    return current;
+                }
+                const filteredLayers = current.layers.filter((layer) => layer.id !== layerId);
+                const nextLayers = filteredLayers.length > 0 ? filteredLayers : [createLayerDefinition('Layer 1')];
+                const filteredElements = current.elements.filter((element) => element.layerId !== layerId);
+                return {
+                    ...current,
+                    layers: nextLayers,
+                    elements: orderElementsByLayer(filteredElements, nextLayers),
+                };
+            });
+            if (removedIds.size > 0) {
+                setSelectedIds((current) => current.filter((id) => !removedIds.has(id)));
+            }
+            if (activeLayerId === layerId) {
+                const remaining = layers.filter((layer) => layer.id !== layerId);
+                setActiveLayerId(remaining.length > 0 ? remaining[remaining.length - 1].id : null);
+            }
+        },
+        [activeLayerId, elements, layers, setDesign, setSelectedIds],
+    );
+
+    const handleSelectLayer = useCallback((layerId: string) => {
+        setActiveLayerId(layerId);
+    }, []);
+
     const handleLayerMove = useCallback(
-        (id: string, direction: 'up' | 'down' | 'top' | 'bottom') => {
-            updateElements((current) => {
-                const index = current.findIndex((element) => element.id === id);
-                if (index === -1) return current;
-                const next = [...current];
+        (layerId: string, direction: 'up' | 'down' | 'top' | 'bottom') => {
+            setDesign((current) => {
+                const index = current.layers.findIndex((layer) => layer.id === layerId);
+                if (index === -1) {
+                    return current;
+                }
+                const nextLayers = [...current.layers];
+                let nextIndex = index;
                 switch (direction) {
                     case 'up':
-                        if (index < next.length - 1) {
-                            const temp = next[index + 1];
-                            next[index + 1] = next[index];
-                            next[index] = temp;
+                        if (index < nextLayers.length - 1) {
+                            [nextLayers[index], nextLayers[index + 1]] = [nextLayers[index + 1], nextLayers[index]];
+                            nextIndex = index + 1;
                         }
                         break;
                     case 'down':
                         if (index > 0) {
-                            const temp = next[index - 1];
-                            next[index - 1] = next[index];
-                            next[index] = temp;
+                            [nextLayers[index], nextLayers[index - 1]] = [nextLayers[index - 1], nextLayers[index]];
+                            nextIndex = index - 1;
                         }
                         break;
                     case 'top':
-                        if (index < next.length - 1) {
-                            const [item] = next.splice(index, 1);
-                            next.push(item);
+                        if (index < nextLayers.length - 1) {
+                            const [layer] = nextLayers.splice(index, 1);
+                            nextLayers.push(layer);
+                            nextIndex = nextLayers.length - 1;
                         }
                         break;
                     case 'bottom':
                         if (index > 0) {
-                            const [item] = next.splice(index, 1);
-                            next.unshift(item);
+                            const [layer] = nextLayers.splice(index, 1);
+                            nextLayers.unshift(layer);
+                            nextIndex = 0;
                         }
                         break;
                     default:
                         break;
                 }
-                return next;
+                if (nextIndex === index) {
+                    return current;
+                }
+                const ordered = orderElementsByLayer(current.elements, nextLayers);
+                return { ...current, layers: nextLayers, elements: ordered };
             });
         },
-        [updateElements],
+        [setDesign],
     );
 
     const handleToggleVisibility = useCallback(
-        (id: string) => {
-            const target = elements.find((element) => element.id === id);
-            if (!target) return;
-            updateElement(id, { visible: !target.visible });
+        (layerId: string) => {
+            const layer = layers.find((item) => item.id === layerId);
+            if (!layer) return;
+            const nextVisible = !layer.visible;
+            setDesign((current) => {
+                const index = current.layers.findIndex((item) => item.id === layerId);
+                if (index === -1) {
+                    return current;
+                }
+                const nextLayers = [...current.layers];
+                nextLayers[index] = { ...nextLayers[index], visible: nextVisible };
+                const nextElements = current.elements.map((element) =>
+                    element.layerId === layerId ? { ...element, visible: nextVisible } : element,
+                );
+                return {
+                    ...current,
+                    layers: nextLayers,
+                    elements: orderElementsByLayer(nextElements, nextLayers),
+                };
+            });
+            if (!nextVisible) {
+                const idsToRemove = new Set(
+                    elements.filter((element) => element.layerId === layerId).map((element) => element.id),
+                );
+                if (idsToRemove.size > 0) {
+                    setSelectedIds((current) => current.filter((id) => !idsToRemove.has(id)));
+                }
+            }
         },
-        [elements, updateElement],
+        [elements, layers, setDesign, setSelectedIds],
     );
 
     const handleToggleLock = useCallback(
-        (id: string) => {
-            const target = elements.find((element) => element.id === id);
-            if (!target) return;
-            updateElement(id, { locked: !target.locked });
+        (layerId: string) => {
+            const layer = layers.find((item) => item.id === layerId);
+            if (!layer) return;
+            const nextLocked = !layer.locked;
+            setDesign((current) => {
+                const index = current.layers.findIndex((item) => item.id === layerId);
+                if (index === -1) {
+                    return current;
+                }
+                const nextLayers = [...current.layers];
+                nextLayers[index] = { ...nextLayers[index], locked: nextLocked };
+                const nextElements = current.elements.map((element) =>
+                    element.layerId === layerId ? { ...element, locked: nextLocked } : element,
+                );
+                return {
+                    ...current,
+                    layers: nextLayers,
+                    elements: orderElementsByLayer(nextElements, nextLayers),
+                };
+            });
+            if (nextLocked) {
+                const idsToRemove = new Set(
+                    elements.filter((element) => element.layerId === layerId).map((element) => element.id),
+                );
+                if (idsToRemove.size > 0) {
+                    setSelectedIds((current) => current.filter((id) => !idsToRemove.has(id)));
+                }
+            }
         },
-        [elements, updateElement],
+        [elements, layers, setDesign, setSelectedIds],
     );
 
     const handleSelectElement = useCallback(
         (id: string) => {
+            const element = elements.find((item) => item.id === id) ?? null;
+            if (element?.layerId) {
+                setActiveLayerId(element.layerId);
+            }
             setSelectedIds([id]);
             setActiveTool('select');
         },
-        [],
+        [elements, setActiveTool, setActiveLayerId, setSelectedIds],
     );
 
     const handleStagePointerDown = useCallback(
@@ -1530,7 +1843,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                             <Text>
                                 {options.width} × {options.height} px
                             </Text>
-                            <Text>{contentElements.length} layers</Text>
+                            <Text>{layers.length} layers</Text>
                         </XStack>
                         <Separator marginVertical="$2" opacity={0.35} />
                         <YStack className="properties-grid">
@@ -1685,16 +1998,16 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
                         <Heading tag="h2">Layers</Heading>
                         <LayersPanel
-                            elements={design.elements}
-                            selectedIds={selectedIds}
-                            onSelect={handleSelectElement}
+                            layers={layers}
+                            elements={contentElements}
+                            activeLayerId={activeLayerId}
+                            selectedElementIds={selectedIds}
+                            onSelectLayer={handleSelectLayer}
                             onToggleVisibility={handleToggleVisibility}
                             onToggleLock={handleToggleLock}
-                            onRemove={(id) => {
-                                setSelectedIds((current) => current.filter((selected) => selected !== id));
-                                updateElements((current) => current.filter((element) => element.id !== id));
-                            }}
-                            onMove={handleLayerMove}
+                            onRemoveLayer={handleRemoveLayer}
+                            onMoveLayer={handleLayerMove}
+                            onAddLayer={handleAddLayer}
                         />
 
                         <Heading tag="h2">Selection</Heading>
@@ -1743,8 +2056,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                 ))}
                                             {contentElements.map((element, elementIndex) => {
                                                 const zIndex = guides.length + elementIndex;
+                                                const layer = element.layerId ? layerMap.get(element.layerId) ?? null : null;
+                                                const isLayerLocked = layer?.locked ?? false;
                                                 const isSelected = selectedIds.includes(element.id);
-                                                const selectionEnabled = activeTool === 'select';
+                                                const selectionEnabled = activeTool === 'select' && !isLayerLocked;
                                                 const dragBound = dragBoundFactory(element);
 
                                                 switch (element.type) {

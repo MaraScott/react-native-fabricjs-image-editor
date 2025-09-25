@@ -1,105 +1,121 @@
-import type { EditorElement } from '../types/editor';
+import { useMemo } from 'react';
+import type { EditorElement, EditorLayer } from '../types/editor';
+import LayerPreview from './LayerPreview';
 
 interface LayersPanelProps {
+  layers: EditorLayer[];
   elements: EditorElement[];
-  selectedIds: string[];
-  onSelect: (id: string) => void;
-  onToggleVisibility: (id: string) => void;
-  onToggleLock: (id: string) => void;
-  onRemove: (id: string) => void;
-  onMove: (id: string, direction: 'up' | 'down' | 'top' | 'bottom') => void;
-}
-
-function getIconForElement(element: EditorElement): string {
-  switch (element.type) {
-    case 'rect':
-      return '▭';
-    case 'frame':
-      return '⬚';
-    case 'circle':
-      return '◯';
-    case 'ellipse':
-      return '⬭';
-    case 'triangle':
-      return '△';
-    case 'line':
-      return '/';
-    case 'path':
-      return '〰';
-    case 'pencil':
-      return '✏️';
-    case 'text':
-      return 'T';
-    case 'image':
-      return '🖼';
-    case 'guide':
-      return element.orientation === 'horizontal' ? '▬' : '▮';
-    default:
-      return '⬤';
-  }
+  activeLayerId: string | null;
+  selectedElementIds: string[];
+  onSelectLayer: (layerId: string) => void;
+  onToggleVisibility: (layerId: string) => void;
+  onToggleLock: (layerId: string) => void;
+  onRemoveLayer: (layerId: string) => void;
+  onMoveLayer: (layerId: string, direction: 'up' | 'down' | 'top' | 'bottom') => void;
+  onAddLayer: () => void;
 }
 
 export default function LayersPanel({
+  layers,
   elements,
-  selectedIds,
-  onSelect,
+  activeLayerId,
+  selectedElementIds,
+  onSelectLayer,
   onToggleVisibility,
   onToggleLock,
-  onRemove,
-  onMove,
+  onRemoveLayer,
+  onMoveLayer,
+  onAddLayer,
 }: LayersPanelProps) {
-  if (elements.length === 0) {
-    return <p className="layers-empty">No layers yet.</p>;
-  }
+  const selectedSet = useMemo(() => new Set(selectedElementIds), [selectedElementIds]);
+  const elementsByLayer = useMemo(() => {
+    const map = new Map<string, EditorElement[]>();
+    elements.forEach((element) => {
+      if (!element.layerId) return;
+      const current = map.get(element.layerId) ?? [];
+      current.push(element);
+      map.set(element.layerId, current);
+    });
+    return map;
+  }, [elements]);
 
-  const ordered = [...elements].reverse();
+  const orderedLayers = useMemo(() => [...layers].reverse(), [layers]);
+  const canRemoveLayer = layers.length > 1;
 
   return (
     <div className="layers-panel">
-      <ul>
-        {ordered.map((element) => {
-          const isSelected = selectedIds.includes(element.id);
-          const visible = element.visible !== false;
-          const locked = Boolean(element.locked);
+      <button type="button" className="add-layer-button" onClick={onAddLayer} title="Add layer">
+        <span aria-hidden="true">＋</span>
+        <span>Add layer</span>
+      </button>
+      {layers.length === 0 ? (
+        <p className="layers-empty">No layers yet.</p>
+      ) : (
+        <ul>
+          {orderedLayers.map((layer) => {
+            const layerElements = elementsByLayer.get(layer.id) ?? [];
+            const containsSelection = layerElements.some((element) => selectedSet.has(element.id));
+            const isActive = activeLayerId === layer.id;
+            const rowClass = [
+              'layer-row',
+              isActive || containsSelection ? 'selected' : '',
+              !layer.visible ? 'muted' : '',
+            ]
+              .filter(Boolean)
+              .join(' ');
 
-          return (
-            <li
-              key={element.id}
-              className={['layer-row', isSelected ? 'selected' : '', !visible ? 'muted' : ''].filter(Boolean).join(' ')}
-            >
-              <button type="button" className="layer-main" onClick={() => onSelect(element.id)}>
-                <span className="layer-icon" aria-hidden="true">
-                  {getIconForElement(element)}
-                </span>
-                <span className="layer-name">{element.name || element.type}</span>
-              </button>
-              <div className="layer-actions">
-                <button type="button" onClick={() => onToggleVisibility(element.id)} title="Toggle visibility">
-                  {visible ? '👁' : '🚫'}
+            return (
+              <li key={layer.id} className={rowClass}>
+                <button
+                  type="button"
+                  className="layer-main"
+                  onClick={() => onSelectLayer(layer.id)}
+                  title={`Select ${layer.name}`}
+                >
+                  <LayerPreview elements={layerElements} hidden={!layer.visible} locked={layer.locked} />
+                  <span className="layer-name">{layer.name}</span>
                 </button>
-                <button type="button" onClick={() => onToggleLock(element.id)} title="Toggle lock">
-                  {locked ? '🔒' : '🔓'}
-                </button>
-                <button type="button" onClick={() => onMove(element.id, 'up')} title="Move forward">
-                  ↑
-                </button>
-                <button type="button" onClick={() => onMove(element.id, 'down')} title="Move backward">
-                  ↓
-                </button>
-                <button type="button" onClick={() => onMove(element.id, 'top')} title="Move to front">
-                  ⤒
-                </button>
-                <button type="button" onClick={() => onMove(element.id, 'bottom')} title="Move to back">
-                  ⤓
-                </button>
-                <button type="button" onClick={() => onRemove(element.id)} title="Delete layer">
-                  ✕
-                </button>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                <div className="layer-actions">
+                  <button
+                    type="button"
+                    onClick={() => onToggleVisibility(layer.id)}
+                    title={layer.visible ? 'Hide layer' : 'Show layer'}
+                  >
+                    {layer.visible ? '👁' : '🚫'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onToggleLock(layer.id)}
+                    title={layer.locked ? 'Unlock layer' : 'Lock layer'}
+                  >
+                    {layer.locked ? '🔒' : '🔓'}
+                  </button>
+                  <button type="button" onClick={() => onMoveLayer(layer.id, 'up')} title="Move up">
+                    ↑
+                  </button>
+                  <button type="button" onClick={() => onMoveLayer(layer.id, 'down')} title="Move down">
+                    ↓
+                  </button>
+                  <button type="button" onClick={() => onMoveLayer(layer.id, 'top')} title="Move to top">
+                    ⤒
+                  </button>
+                  <button type="button" onClick={() => onMoveLayer(layer.id, 'bottom')} title="Move to bottom">
+                    ⤓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveLayer(layer.id)}
+                    title="Delete layer"
+                    disabled={!canRemoveLayer}
+                  >
+                    ✕
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

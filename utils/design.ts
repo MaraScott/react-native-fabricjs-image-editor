@@ -3,6 +3,7 @@ import type {
   EditorDocument,
   EditorElement,
   EditorElementType,
+  EditorLayer,
   GuideElement,
   ImageElement,
   LineElement,
@@ -12,12 +13,71 @@ import type {
   TextElement,
   TriangleElement,
 } from '../types/editor';
+import { createEditorId } from './ids';
 
 function ensureId(type: EditorElementType, id?: string): string {
   if (typeof id === 'string' && id.trim().length > 0) {
     return id;
   }
   return `${type}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function createLayer(name: string, id?: string): EditorLayer {
+  return {
+    id: typeof id === 'string' && id.trim().length > 0 ? id : createEditorId('layer'),
+    name: name.trim().length > 0 ? name : 'Layer',
+    visible: true,
+    locked: false,
+  } satisfies EditorLayer;
+}
+
+function normaliseLayer(layer: any, index: number): EditorLayer {
+  if (!layer || typeof layer !== 'object') {
+    return createLayer(`Layer ${index + 1}`);
+  }
+
+  const id = typeof layer.id === 'string' && layer.id.trim().length > 0 ? layer.id : createEditorId('layer');
+  const name = typeof layer.name === 'string' && layer.name.trim().length > 0 ? layer.name : `Layer ${index + 1}`;
+
+  return {
+    id,
+    name,
+    visible: typeof layer.visible === 'boolean' ? layer.visible : true,
+    locked: typeof layer.locked === 'boolean' ? layer.locked : false,
+  } satisfies EditorLayer;
+}
+
+function ensureLayers(
+  elements: EditorElement[],
+  layersInput?: EditorLayer[] | null,
+): { elements: EditorElement[]; layers: EditorLayer[] } {
+  const layers = Array.isArray(layersInput) && layersInput.length > 0
+    ? layersInput.map((layer, index) => normaliseLayer(layer, index))
+    : [createLayer('Layer 1')];
+
+  const validLayerIds = new Set(layers.map((layer) => layer.id));
+  const fallbackLayerId = layers[layers.length - 1]?.id ?? null;
+
+  const patchedElements = elements.map((element) => {
+    if (element.type === 'guide') {
+      if (element.layerId !== null) {
+        return { ...element, layerId: null };
+      }
+      return element;
+    }
+
+    if (element.layerId && validLayerIds.has(element.layerId)) {
+      return element;
+    }
+
+    if (fallbackLayerId) {
+      return { ...element, layerId: fallbackLayerId };
+    }
+
+    return element;
+  });
+
+  return { elements: patchedElements, layers };
 }
 
 function toNumber(value: unknown, fallback: number): number {
@@ -45,6 +105,10 @@ function normaliseBase(element: Partial<EditorElement>, type: EditorElementType)
     draggable: typeof element.draggable === 'boolean' ? element.draggable : true,
     visible: typeof element.visible === 'boolean' ? element.visible : true,
     locked: typeof element.locked === 'boolean' ? element.locked : false,
+    layerId:
+      typeof element.layerId === 'string' && element.layerId.trim().length > 0
+        ? element.layerId
+        : null,
     metadata: element.metadata ?? null,
   };
 }
@@ -243,12 +307,14 @@ function normaliseElement(element: any): EditorElement | null {
 }
 
 export function createEmptyDesign(): EditorDocument {
-  return { elements: [], metadata: null };
+  const baseLayer = createLayer('Layer 1');
+  return { elements: [], layers: [baseLayer], metadata: null };
 }
 
 export function serializeDesign(document: EditorDocument): EditorDesign {
   return {
     elements: document.elements.map((element) => ({ ...element })),
+    layers: document.layers.map((layer) => ({ ...layer })),
     metadata: document.metadata ?? null,
   };
 }
@@ -266,15 +332,18 @@ export function parseDesign(design: string | EditorDesign | null | undefined): E
     const raw = typeof design === 'string' ? JSON.parse(design) : design;
     if (Array.isArray(raw)) {
       const normalised = raw.map((element) => normaliseElement(element)).filter(Boolean) as EditorElement[];
-      return { elements: normalised, metadata: null };
+      const { elements: withLayers, layers } = ensureLayers(normalised, null);
+      return { elements: withLayers, layers, metadata: null };
     }
     if (typeof raw === 'object' && raw !== null && Array.isArray((raw as EditorDesign).elements)) {
       const incoming = raw as EditorDesign;
       const normalised = (incoming.elements ?? [])
         .map((element) => normaliseElement(element))
         .filter(Boolean) as EditorElement[];
+      const { elements: withLayers, layers } = ensureLayers(normalised, incoming.layers ?? null);
       return {
-        elements: normalised,
+        elements: withLayers,
+        layers,
         metadata: incoming.metadata ?? null,
       } satisfies EditorDocument;
     }
