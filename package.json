@@ -7,5 +7,7 @@
     "watch": "node scripts/watch.js"
   },
   "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {
+    "esbuild": "^0.19.12"
+  }
 }

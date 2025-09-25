@@ -43,7 +43,7 @@ if (container) {
   root.render(
     <StrictMode>
       <TamaguiProvider config={tamaguiConfig} defaultTheme="light">
-        <Theme name="gold">
+        <Theme name="gold" key="theme-gold">
           <EditorApp initialDesign={resolveInitialDesign()} initialOptions={resolveInitialOptions()} />
         </Theme>
       </TamaguiProvider>
