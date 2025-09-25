@@ -1,4 +1,4 @@
-import { memo, type ReactNode, type SVGAttributes } from 'react';
+import { type ReactNode, type SVGAttributes } from 'react';
 
 export type MaterialCommunityIconName =
     | 'cursor-default'
@@ -283,12 +283,15 @@ const icons: Record<MaterialCommunityIconName, IconRenderer> = {
         ),
 };
 
-export const MaterialCommunityIcons = memo<MaterialCommunityIconsProps>(
-    ({ name, size = 20, color = '#0f172a', ...rest }) => {
-        const renderer = icons[name] ?? noopIcon;
-        const renderProps: RenderContext = { size, color, ...rest };
-        return renderer(renderProps);
-    },
-);
+export function MaterialCommunityIcons({
+    name,
+    size = 20,
+    color = '#0f172a',
+    ...rest
+}: MaterialCommunityIconsProps) {
+    const renderer = icons[name] ?? noopIcon;
+    const renderProps: RenderContext = { size, color, ...rest };
+    return renderer(renderProps);
+}
 
 MaterialCommunityIcons.displayName = 'MaterialCommunityIcons';
