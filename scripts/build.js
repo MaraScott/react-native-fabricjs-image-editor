@@ -7,6 +7,7 @@ const {
   manifestFile,
   ensureEntryFile,
   ensureOutDir,
+  updateIndexHtml,
   createBuildOptions,
 } = require('./buildShared');
 
@@ -22,6 +23,7 @@ async function buildBundle() {
   await esbuild.build(options);
 
   const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+  updateIndexHtml(manifest);
   const outputs = [manifest.js, manifest.css].filter(Boolean).join(', ');
   console.log(`Build completed. Emitted ${outputs}`);
 }

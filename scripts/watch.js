@@ -2,7 +2,14 @@
 
 const fs = require('fs');
 const esbuild = require('esbuild');
-const { outDir, manifestFile, ensureEntryFile, ensureOutDir, createBuildOptions } = require('./buildShared');
+const {
+  outDir,
+  manifestFile,
+  ensureEntryFile,
+  ensureOutDir,
+  updateIndexHtml,
+  createBuildOptions,
+} = require('./buildShared');
 
 const modeArg = process.argv.find((arg) => arg.startsWith('--mode='));
 const mode = modeArg ? modeArg.split('=')[1] : 'development';
@@ -23,9 +30,11 @@ async function startWatch() {
 
       try {
         const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+        updateIndexHtml(manifest);
         const outputs = [manifest.js, manifest.css].filter(Boolean).join(', ');
         console.log(`Rebuilt assets: ${outputs}`);
       } catch (readError) {
+        updateIndexHtml();
         console.error('Rebuild completed, but the asset manifest could not be read.', readError);
       }
     },
@@ -33,9 +42,11 @@ async function startWatch() {
 
   try {
     const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+    updateIndexHtml(manifest);
     const outputs = [manifest.js, manifest.css].filter(Boolean).join(', ');
     console.log(`Watching for changes... Latest assets: ${outputs}`);
   } catch (error) {
+    updateIndexHtml();
     console.log('Watching for changes...');
   }
 

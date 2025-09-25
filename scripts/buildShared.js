@@ -8,6 +8,8 @@ const bundleBaseName = 'editor.bundle';
 const manifestFile = path.join(outDir, 'asset-manifest.json');
 const fallbackJsFile = `${bundleBaseName}.js`;
 const fallbackCssFile = `${bundleBaseName}.css`;
+const indexTemplateFile = path.resolve(projectRoot, 'index.template.html');
+const indexHtmlFile = path.resolve(projectRoot, 'index.html');
 
 const aliasMap = {
   'react-native': 'react-native-web-lite',
@@ -175,6 +177,52 @@ function createAssetManifestPlugin({ mode }) {
   };
 }
 
+function resolveAssetHref(assetFile, fallbackFileName) {
+  if (assetFile) {
+    return `./dist/${assetFile}`;
+  }
+
+  if (!fallbackFileName) {
+    return null;
+  }
+
+  return `./dist/${fallbackFileName}`;
+}
+
+function renderIndexHtml({ jsFile, cssFile } = {}) {
+  if (!fs.existsSync(indexTemplateFile)) {
+    console.warn('index.template.html not found. Skipping index.html generation.');
+    return null;
+  }
+
+  const template = fs.readFileSync(indexTemplateFile, 'utf8');
+  const jsHref = resolveAssetHref(jsFile, fallbackJsFile);
+  if (!jsHref) {
+    console.warn('Unable to determine editor bundle script.');
+    return null;
+  }
+
+  const cssHref = resolveAssetHref(cssFile, fallbackCssFile);
+  const cssTag = cssHref ? `<link rel="stylesheet" href="${cssHref}" />` : '';
+
+  return template.replace(/{{CSS_LINK}}/g, cssTag).replace(/{{JS_SRC}}/g, jsHref);
+}
+
+function updateIndexHtml(manifest = null) {
+  const html = renderIndexHtml({ jsFile: manifest?.js, cssFile: manifest?.css });
+  if (!html) {
+    return;
+  }
+
+  fs.writeFileSync(indexHtmlFile, html);
+
+  if (manifest?.js) {
+    console.log(`Updated index.html for ${manifest.js}`);
+  } else {
+    console.log('Updated index.html with fallback assets.');
+  }
+}
+
 function createBuildOptions({ mode = 'production' } = {}) {
   const isProd = mode !== 'development';
 
@@ -209,5 +257,6 @@ module.exports = {
   ensureEntryFile,
   ensureOutDir,
   manifestFile,
+  updateIndexHtml,
   createBuildOptions,
 };
