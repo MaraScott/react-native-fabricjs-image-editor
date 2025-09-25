@@ -6,7 +6,9 @@
     "build": "node scripts/build.js",
     "watch": "node scripts/watch.js"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@expo/vector-icons": "^13.0.0"
+  },
   "devDependencies": {
     "esbuild": "^0.19.12"
   }

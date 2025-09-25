@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Layer, Stage } from 'react-konva';
 import { Button, Heading, Image, Input, Label, Paragraph, Separator, Stack, Text, XStack, YStack } from 'tamagui';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
 import LayersPanel from './LayersPanel';
 import PropertiesPanel from './PropertiesPanel';
@@ -57,6 +58,7 @@ const STORAGE_KEY = 'konva-image-editor-design';
 
 const DEFAULT_DRAW = { color: '#2563eb', width: 5 };
 const DEFAULT_PATH = { color: '#0f172a', width: 3 };
+const TOOLBAR_ICON_SIZE = 20;
 
 const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
     {
@@ -1386,86 +1388,138 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 <Stack className="editor-shell-layout">
                     <YStack className="editor-toolbar">
                         <XStack className="toolbar-group">
-                            <Button type="button" className={activeTool === 'select' ? 'active' : ''} onPress={() => setActiveTool('select')}>
-                                Select
+                            <Button
+                                type="button"
+                                className={activeTool === 'select' ? 'active' : ''}
+                                onPress={() => setActiveTool('select')}
+                                aria-label="Select"
+                                title="Select"
+                            >
+                                <MaterialCommunityIcons name="cursor-default" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                            <Button type="button" className={activeTool === 'draw' ? 'active' : ''} onPress={handleAddDraw}>
-                                Draw
+                            <Button
+                                type="button"
+                                className={activeTool === 'draw' ? 'active' : ''}
+                                onPress={handleAddDraw}
+                                aria-label="Draw"
+                                title="Draw"
+                            >
+                                <MaterialCommunityIcons name="pencil-outline" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                            <Button type="button" className={activeTool === 'path' ? 'active' : ''} onPress={handleAddPath}>
-                                Path
-                            </Button>
-                        </XStack>
-                        <XStack className="toolbar-group">
-                            <Button type="button" onPress={handleAddRect}>
-                                Rectangle
-                            </Button>
-                            <Button type="button" onPress={handleAddCircle}>
-                                Circle
-                            </Button>
-                            <Button type="button" onPress={handleAddEllipse}>
-                                Ellipse
-                            </Button>
-                            <Button type="button" onPress={handleAddTriangle}>
-                                Triangle
-                            </Button>
-                            <Button type="button" onPress={handleAddLine}>
-                                Line
-                            </Button>
-                            <Button type="button" onPress={handleAddText}>
-                                Text
-                            </Button>
-                            <Button type="button" onPress={handleRequestImage}>
-                                Image
-                            </Button>
-                            <Button type="button" onPress={() => handleAddGuide('horizontal')}>
-                                H-Guide
-                            </Button>
-                            <Button type="button" onPress={() => handleAddGuide('vertical')}>
-                                V-Guide
+                            <Button
+                                type="button"
+                                className={activeTool === 'path' ? 'active' : ''}
+                                onPress={handleAddPath}
+                                aria-label="Path"
+                                title="Path"
+                            >
+                                <MaterialCommunityIcons name="vector-polyline" size={TOOLBAR_ICON_SIZE} />
                             </Button>
                         </XStack>
                         <XStack className="toolbar-group">
-                            <Button type="button" onPress={undo} disabled={!canUndo}>
-                                Undo
+                            <Button type="button" onPress={handleAddRect} aria-label="Add rectangle" title="Add rectangle">
+                                <MaterialCommunityIcons name="rectangle-outline" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                            <Button type="button" onPress={redo} disabled={!canRedo}>
-                                Redo
+                            <Button type="button" onPress={handleAddCircle} aria-label="Add circle" title="Add circle">
+                                <MaterialCommunityIcons name="circle-outline" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                            <Button type="button" onPress={handleCopy} disabled={selectedIds.length === 0}>
-                                Copy
+                            <Button type="button" onPress={handleAddEllipse} aria-label="Add ellipse" title="Add ellipse">
+                                <MaterialCommunityIcons name="ellipse-outline" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                            <Button type="button" onPress={handlePaste} disabled={!clipboard || clipboard.length === 0}>
-                                Paste
+                            <Button type="button" onPress={handleAddTriangle} aria-label="Add triangle" title="Add triangle">
+                                <MaterialCommunityIcons name="triangle-outline" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                            <Button type="button" onPress={handleDuplicate} disabled={selectedIds.length === 0}>
-                                Duplicate
+                            <Button type="button" onPress={handleAddLine} aria-label="Add line" title="Add line">
+                                <MaterialCommunityIcons name="ray-start-end" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                            <Button type="button" onPress={removeSelected} disabled={selectedIds.length === 0}>
-                                Delete
+                            <Button type="button" onPress={handleAddText} aria-label="Add text" title="Add text">
+                                <MaterialCommunityIcons name="format-text" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                            <Button type="button" onPress={handleClear}>
-                                Clear
+                            <Button type="button" onPress={handleRequestImage} aria-label="Add image" title="Add image">
+                                <MaterialCommunityIcons name="image-outline" size={TOOLBAR_ICON_SIZE} />
+                            </Button>
+                            <Button
+                                type="button"
+                                onPress={() => handleAddGuide('horizontal')}
+                                aria-label="Add horizontal guide"
+                                title="Add horizontal guide"
+                            >
+                                <MaterialCommunityIcons name="arrow-collapse-horizontal" size={TOOLBAR_ICON_SIZE} />
+                            </Button>
+                            <Button
+                                type="button"
+                                onPress={() => handleAddGuide('vertical')}
+                                aria-label="Add vertical guide"
+                                title="Add vertical guide"
+                            >
+                                <MaterialCommunityIcons name="arrow-collapse-vertical" size={TOOLBAR_ICON_SIZE} />
                             </Button>
                         </XStack>
                         <XStack className="toolbar-group">
-                            <Button type="button" onPress={handleSave}>
-                                Save
+                            <Button type="button" onPress={undo} disabled={!canUndo} aria-label="Undo" title="Undo">
+                                <MaterialCommunityIcons name="undo" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                            <Button type="button" onPress={handleLoadFromBrowser}>
-                                Load
+                            <Button type="button" onPress={redo} disabled={!canRedo} aria-label="Redo" title="Redo">
+                                <MaterialCommunityIcons name="redo" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                            <Button type="button" onPress={() => handleExport('png')}>
-                                Export PNG
+                            <Button
+                                type="button"
+                                onPress={handleCopy}
+                                disabled={selectedIds.length === 0}
+                                aria-label="Copy"
+                                title="Copy"
+                            >
+                                <MaterialCommunityIcons name="content-copy" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                            <Button type="button" onPress={() => handleExport('jpeg')}>
-                                Export JPEG
+                            <Button
+                                type="button"
+                                onPress={handlePaste}
+                                disabled={!clipboard || clipboard.length === 0}
+                                aria-label="Paste"
+                                title="Paste"
+                            >
+                                <MaterialCommunityIcons name="content-paste" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                            <Button type="button" onPress={() => handleExport('svg')}>
-                                Export SVG
+                            <Button
+                                type="button"
+                                onPress={handleDuplicate}
+                                disabled={selectedIds.length === 0}
+                                aria-label="Duplicate"
+                                title="Duplicate"
+                            >
+                                <MaterialCommunityIcons name="content-duplicate" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                            <Button type="button" onPress={() => handleExport('json')}>
-                                Export JSON
+                            <Button
+                                type="button"
+                                onPress={removeSelected}
+                                disabled={selectedIds.length === 0}
+                                aria-label="Delete"
+                                title="Delete"
+                            >
+                                <MaterialCommunityIcons name="trash-can-outline" size={TOOLBAR_ICON_SIZE} />
+                            </Button>
+                            <Button type="button" onPress={handleClear} aria-label="Clear canvas" title="Clear canvas">
+                                <MaterialCommunityIcons name="eraser-variant" size={TOOLBAR_ICON_SIZE} />
+                            </Button>
+                        </XStack>
+                        <XStack className="toolbar-group">
+                            <Button type="button" onPress={handleSave} aria-label="Save" title="Save">
+                                <MaterialCommunityIcons name="content-save-outline" size={TOOLBAR_ICON_SIZE} />
+                            </Button>
+                            <Button type="button" onPress={handleLoadFromBrowser} aria-label="Load" title="Load">
+                                <MaterialCommunityIcons name="folder-open-outline" size={TOOLBAR_ICON_SIZE} />
+                            </Button>
+                            <Button type="button" onPress={() => handleExport('png')} aria-label="Export PNG" title="Export PNG">
+                                <MaterialCommunityIcons name="file-image" size={TOOLBAR_ICON_SIZE} />
+                            </Button>
+                            <Button type="button" onPress={() => handleExport('jpeg')} aria-label="Export JPEG" title="Export JPEG">
+                                <MaterialCommunityIcons name="file-jpg-box" size={TOOLBAR_ICON_SIZE} />
+                            </Button>
+                            <Button type="button" onPress={() => handleExport('svg')} aria-label="Export SVG" title="Export SVG">
+                                <MaterialCommunityIcons name="svg" size={TOOLBAR_ICON_SIZE} />
+                            </Button>
+                            <Button type="button" onPress={() => handleExport('json')} aria-label="Export JSON" title="Export JSON">
+                                <MaterialCommunityIcons name="code-json" size={TOOLBAR_ICON_SIZE} />
                             </Button>
                         </XStack>
                     </YStack>
