@@ -1,7 +1,11 @@
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { TamaguiProvider, Theme } from 'tamagui';
+import { tamaguiConfig } from '../../../../tamagui.config';
 import EditorApp from './components/EditorApp';
 import type { EditorDocument, EditorOptions } from './types/editor';
 import { createEmptyDesign, parseDesign } from './utils/design';
+import '../../tamagui/tamagui.css';
 import './styles.css';
 
 const DEFAULT_OPTIONS: EditorOptions = {
@@ -36,5 +40,13 @@ const container = document.getElementById('image-editor-root');
 
 if (container) {
   const root = createRoot(container);
-  root.render(<EditorApp initialDesign={resolveInitialDesign()} initialOptions={resolveInitialOptions()} />);
+  root.render(
+    <StrictMode>
+      <TamaguiProvider config={tamaguiConfig} defaultTheme="light">
+        <Theme name="gold">
+          <EditorApp initialDesign={resolveInitialDesign()} initialOptions={resolveInitialOptions()} />
+        </Theme>
+      </TamaguiProvider>
+    </StrictMode>,
+  );
 }
