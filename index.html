@@ -30,6 +30,11 @@
     <script>
       (function loadEditorBundle() {
         const manifestUrl = './dist/asset-manifest.json';
+        const fallbackAssets = {
+          js: './dist/editor.bundle.js',
+          css: './dist/editor.bundle.css',
+        };
+
         const ensureStylesheet = (href) => {
           if (!href) {
             return;
@@ -41,14 +46,46 @@
           document.head.appendChild(link);
         };
 
-        const injectScript = (src) => {
+        const injectScript = (src, { onError } = {}) => {
           const script = document.createElement('script');
           script.src = src;
           script.crossOrigin = 'anonymous';
           script.onerror = () => {
             console.error('Failed to load editor bundle script:', src);
+            if (typeof onError === 'function') {
+              onError();
+            }
           };
           document.body.appendChild(script);
+        };
+
+        const displayFailureMessage = () => {
+          const container = document.getElementById('image-editor-root');
+          if (!container) {
+            return;
+          }
+
+          if (container.querySelector('[data-editor-load-error]')) {
+            return;
+          }
+
+          const message = document.createElement('div');
+          message.style.padding = '16px';
+          message.style.backgroundColor = 'rgba(220, 20, 60, 0.1)';
+          message.style.borderRadius = '8px';
+          message.style.color = '#ff6b6b';
+          message.style.fontFamily = 'monospace';
+          message.textContent = 'Failed to load the editor bundle. Ensure `npm run build` or `npm run watch` has completed successfully.';
+          message.dataset.editorLoadError = 'true';
+          container.appendChild(message);
+        };
+
+        const useFallbackAssets = (reason) => {
+          console.warn('Falling back to static editor bundle assets.', reason);
+          ensureStylesheet(fallbackAssets.css);
+          injectScript(fallbackAssets.js, {
+            onError: displayFailureMessage,
+          });
         };
 
         fetch(`${manifestUrl}?t=${Date.now()}`, { cache: 'no-cache' })
@@ -66,21 +103,13 @@
               throw new Error('The asset manifest did not include a JavaScript bundle.');
             }
 
-            injectScript(distPath(manifest.js));
+            injectScript(distPath(manifest.js), {
+              onError: () => useFallbackAssets(new Error('The hashed editor bundle failed to load.')),
+            });
           })
           .catch((error) => {
-            console.error('Unable to load the editor bundle.', error);
-            const container = document.getElementById('image-editor-root');
-            if (container) {
-              const message = document.createElement('div');
-              message.style.padding = '16px';
-              message.style.backgroundColor = 'rgba(220, 20, 60, 0.1)';
-              message.style.borderRadius = '8px';
-              message.style.color = '#ff6b6b';
-              message.style.fontFamily = 'monospace';
-              message.textContent = 'Failed to load the editor bundle. Ensure `npm run build` or `npm run watch` has completed successfully.';
-              container.appendChild(message);
-            }
+            console.error('Unable to load the editor bundle manifest.', error);
+            useFallbackAssets(error);
           });
       })();
     </script>

@@ -6,6 +6,8 @@ const entryFile = path.resolve(projectRoot, 'index.tsx');
 const outDir = path.resolve(projectRoot, 'dist');
 const bundleBaseName = 'editor.bundle';
 const manifestFile = path.join(outDir, 'asset-manifest.json');
+const fallbackJsFile = `${bundleBaseName}.js`;
+const fallbackCssFile = `${bundleBaseName}.css`;
 
 const aliasMap = {
   'react-native': 'react-native-web-lite',
@@ -136,6 +138,29 @@ function createAssetManifestPlugin({ mode }) {
 
         fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
         console.log(`Generated asset manifest for ${jsFile}`);
+
+        const persistFallbackAsset = (assetFile, fallbackFileName) => {
+          if (!assetFile) {
+            return;
+          }
+
+          const assetPath = path.join(outDir, assetFile);
+          const fallbackPath = path.join(outDir, fallbackFileName);
+
+          if (assetPath === fallbackPath) {
+            return;
+          }
+
+          try {
+            fs.copyFileSync(assetPath, fallbackPath);
+            console.log(`Updated fallback asset ${fallbackFileName}`);
+          } catch (error) {
+            console.warn(`Failed to update fallback asset ${fallbackFileName}:`, error);
+          }
+        };
+
+        persistFallbackAsset(jsFile, fallbackJsFile);
+        persistFallbackAsset(cssFile, fallbackCssFile);
       });
     },
   };
