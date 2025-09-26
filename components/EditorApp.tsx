@@ -8,7 +8,7 @@ import {
     type ChangeEvent,
     type CSSProperties,
 } from 'react';
-import { Layer, Stage } from 'react-konva';
+import { Group, Layer, Stage } from 'react-konva';
 import { Button, Heading, Image, Input, Label, Paragraph, Separator, Stack, Text, XStack, YStack, useWindowDimensions, Theme } from 'tamagui';
 import { MaterialCommunityIcons } from './icons/MaterialCommunityIcons';
 import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
@@ -186,7 +186,7 @@ function getElementBounds(element: EditorElement, position: Vector2d): ElementBo
     }
 }
 
-function createDragBound(options: EditorOptions, guides: GuideElement[]): DragBoundFactory {
+function createDragBound(options: EditorOptions, guides: GuideElement[], viewportScale: number): DragBoundFactory {
     if (!options.snapToGrid && (!options.snapToGuides || guides.length === 0)) {
         return () => undefined;
     }
@@ -194,11 +194,14 @@ function createDragBound(options: EditorOptions, guides: GuideElement[]): DragBo
     const verticalGuides = guides.filter((guide) => guide.orientation === 'vertical').map((guide) => guide.x);
     const horizontalGuides = guides.filter((guide) => guide.orientation === 'horizontal').map((guide) => guide.y);
 
+    const scale = Number.isFinite(viewportScale) && viewportScale > 0 ? viewportScale : 1;
+
     return (element: EditorElement) => {
         if (element.type === 'guide') return undefined;
 
         return (position: Vector2d) => {
-            let { x, y } = position;
+            let x = position.x / scale;
+            let y = position.y / scale;
 
             if (options.snapToGrid) {
                 const grid = Math.max(2, options.gridSize);
@@ -281,7 +284,7 @@ function createDragBound(options: EditorOptions, guides: GuideElement[]): DragBo
                 }
             }
 
-            return { x, y };
+            return { x: x * scale, y: y * scale };
         };
     };
 }
@@ -565,14 +568,16 @@ function syncStagePointer(stage: StageType, event: MouseEvent | TouchLikeEvent) 
     }
 }
 
-function getStagePointer(stage: StageType): Vector2d | null {
+function getStagePointer(stage: StageType, viewportScale: number): Vector2d | null {
     const pointer = stage.getPointerPosition();
     if (!pointer) {
         return null;
     }
     const transform = stage.getAbsoluteTransform().copy();
     transform.invert();
-    return transform.point(pointer);
+    const point = transform.point(pointer);
+    const scale = Number.isFinite(viewportScale) && viewportScale > 0 ? viewportScale : 1;
+    return { x: point.x / scale, y: point.y / scale };
 }
 
 function getInitialOptions(options?: Partial<EditorOptions>): EditorOptions {
@@ -662,6 +667,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
     const [pathSettings, setPathSettings] = useState(DEFAULT_PATH);
     const [stagePosition, setStagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+    const [viewportSize, setViewportSize] = useState<{ width: number; height: number }>(() => ({
+        width: DEFAULT_OPTIONS.width,
+        height: DEFAULT_OPTIONS.height,
+    }));
     const stagePositionRef = useRef(stagePosition);
     const panStateRef = useRef<{
         startPointer: Vector2d;
@@ -704,10 +713,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     }, []);
 
     useLayoutEffect(() => {
-        if (options.fixedCanvas) {
-            return;
-        }
-
         if (typeof window === 'undefined') {
             return;
         }
@@ -724,11 +729,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             const nextWidth = Math.max(1, Math.round(element.clientWidth - paddingX));
             const nextHeight = Math.max(1, Math.round(element.clientHeight - paddingY));
 
-            setOptions((current) => {
-                if (current.fixedCanvas) {
-                    return current;
-                }
-
+            setViewportSize((current) => {
                 const widthChanged = Math.abs(current.width - nextWidth) > 0.5;
                 const heightChanged = Math.abs(current.height - nextHeight) > 0.5;
 
@@ -736,7 +737,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     return current;
                 }
 
-                return { ...current, width: nextWidth, height: nextHeight };
+                return { width: nextWidth, height: nextHeight };
             });
         };
 
@@ -770,7 +771,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 window.cancelAnimationFrame(frame);
             }
         };
-    }, [options.fixedCanvas, setOptions]);
+    }, []);
 
     useEffect(() => {
         const stage = stageRef.current;
@@ -904,7 +905,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         });
     }, [layers, elements, setDesign]);
 
-    const dragBoundFactory = useMemo(() => createDragBound(options, guides), [options, guides]);
+    const dragBoundFactory = useMemo(
+        () => createDragBound(options, guides, computedViewportScale),
+        [computedViewportScale, guides, options],
+    );
 
     const selectedElement = useMemo(
         () => contentElements.find((element) => selectedIds.includes(element.id)) ?? null,
@@ -1341,7 +1345,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 return;
             }
 
-            const pointer = getStagePointer(stage);
+            const pointer = getStagePointer(stage, viewportScaleRef.current);
             if (!pointer) return;
 
             if (activeTool === 'draw' || activeTool === 'path') {
@@ -1419,7 +1423,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             }
 
             if (!drawingState) return;
-            const pointer = getStagePointer(stage);
+            const pointer = getStagePointer(stage, viewportScaleRef.current);
             if (!pointer) return;
 
             updateElements((current) =>
@@ -1474,7 +1478,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 return;
             }
             const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
-            const dataUrl = stage.toDataURL({ mimeType, quality: format === 'jpeg' ? 0.92 : undefined });
+            const viewportScale = viewportScaleRef.current;
+            const pixelRatio = viewportScale > 0 ? 1 / viewportScale : 1;
+            const dataUrl = stage.toDataURL({
+                mimeType,
+                quality: format === 'jpeg' ? 0.92 : undefined,
+                pixelRatio,
+            });
             postMessage('export', { format, dataUrl });
         },
         [design, postMessage],
@@ -1538,11 +1548,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 const offsetY = resolvedAnchor.clientY - containerBounds.top;
                 const currentX = stage.x();
                 const currentY = stage.y();
-                const anchorStageX = (offsetX - currentX) / previousZoom;
-                const anchorStageY = (offsetY - currentY) / previousZoom;
+                const viewportScale = viewportScaleRef.current;
+                const anchorScale = viewportScale > 0 ? viewportScale : 1;
+                const anchorStageX = (offsetX - currentX) / (previousZoom * anchorScale);
+                const anchorStageY = (offsetY - currentY) / (previousZoom * anchorScale);
                 const nextPosition = {
-                    x: offsetX - anchorStageX * nextZoom,
-                    y: offsetY - anchorStageY * nextZoom,
+                    x: offsetX - anchorStageX * nextZoom * anchorScale,
+                    y: offsetY - anchorStageY * nextZoom * anchorScale,
                 };
                 stage.position(nextPosition);
                 stage.batchDraw();
@@ -1772,23 +1784,45 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         };
     }, [design, handleAddImage, handleClear, handleExport, postMessage, redo, resetDesign, undo]);
 
-    const stageWidth = Math.round(options.width);
-    const stageHeight = Math.round(options.height);
-    const rulerStep = Math.max(1, 32 * options.zoom);
+    const canvasWidth = Math.max(1, Math.round(options.width));
+    const canvasHeight = Math.max(1, Math.round(options.height));
+    const computedViewportScale = useMemo(() => {
+        if (options.fixedCanvas) {
+            return 1;
+        }
+
+        const widthRatio = viewportSize.width / canvasWidth;
+        const heightRatio = viewportSize.height / canvasHeight;
+        const nextScale = Math.min(widthRatio, heightRatio);
+
+        if (!Number.isFinite(nextScale) || nextScale <= 0) {
+            return 1;
+        }
+
+        return nextScale;
+    }, [canvasHeight, canvasWidth, options.fixedCanvas, viewportSize.height, viewportSize.width]);
+    const stageWidth = Math.max(1, Math.round(canvasWidth * computedViewportScale));
+    const stageHeight = Math.max(1, Math.round(canvasHeight * computedViewportScale));
+    const viewportScaleRef = useRef(1);
+    useEffect(() => {
+        viewportScaleRef.current = computedViewportScale > 0 ? computedViewportScale : 1;
+    }, [computedViewportScale]);
+    const displayScale = options.zoom * computedViewportScale;
+    const rulerStep = Math.max(1, 32 * displayScale);
     const gridBackground = useMemo(() => {
         if (!options.showGrid) {
             return {
                 backgroundColor: options.backgroundColor,
             } as const;
         }
-        const scaledGrid = Math.max(1, options.gridSize * options.zoom);
+        const scaledGrid = Math.max(1, options.gridSize * displayScale);
         return {
             backgroundColor: options.backgroundColor,
             backgroundImage:
                 'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)',
             backgroundSize: `${scaledGrid}px ${scaledGrid}px`,
         } as const;
-    }, [options.backgroundColor, options.gridSize, options.showGrid, options.zoom]);
+    }, [displayScale, options.backgroundColor, options.gridSize, options.showGrid]);
     const zoomPercentage = useMemo(() => Math.round(options.zoom * 100), [options.zoom]);
     const stageCursor = isPanning ? 'grabbing' : isPanMode ? 'grab' : undefined;
     const stageCanvasStyle = useMemo(() => {
@@ -2233,29 +2267,30 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         onTouchCancel={handleStagePointerUp}
                                     >
                                         <Layer>
-                                            {options.showGuides &&
-                                                guides.map((guide, guideIndex) => (
-                                                    <GuideNode
-                                                        key={guide.id}
-                                                        shape={guide}
-                                                        isSelected={selectedIds.includes(guide.id)}
-                                                        selectionEnabled={activeTool === 'select'}
-                                                        onSelect={() => handleSelectElement(guide.id)}
-                                                        onChange={(attributes) => updateElement(guide.id, attributes)}
-                                                        zIndex={guideIndex}
-                                                    />
-                                                ))}
-                                            {contentElements.map((element, elementIndex) => {
-                                                const zIndex = guides.length + elementIndex;
-                                                const layer = element.layerId ? layerMap.get(element.layerId) ?? null : null;
-                                                const isLayerLocked = layer?.locked ?? false;
-                                                const isSelected = selectedIds.includes(element.id);
-                                                const selectionEnabled = activeTool === 'select' && !isLayerLocked;
-                                                const dragBound = dragBoundFactory(element);
+                                            <Group scaleX={computedViewportScale} scaleY={computedViewportScale}>
+                                                {options.showGuides &&
+                                                    guides.map((guide, guideIndex) => (
+                                                        <GuideNode
+                                                            key={guide.id}
+                                                            shape={guide}
+                                                            isSelected={selectedIds.includes(guide.id)}
+                                                            selectionEnabled={activeTool === 'select'}
+                                                            onSelect={() => handleSelectElement(guide.id)}
+                                                            onChange={(attributes) => updateElement(guide.id, attributes)}
+                                                            zIndex={guideIndex}
+                                                        />
+                                                    ))}
+                                                {contentElements.map((element, elementIndex) => {
+                                                    const zIndex = guides.length + elementIndex;
+                                                    const layer = element.layerId ? layerMap.get(element.layerId) ?? null : null;
+                                                    const isLayerLocked = layer?.locked ?? false;
+                                                    const isSelected = selectedIds.includes(element.id);
+                                                    const selectionEnabled = activeTool === 'select' && !isLayerLocked;
+                                                    const dragBound = dragBoundFactory(element);
 
-                                                switch (element.type) {
-                                                    case 'rect':
-                                                        return (
+                                                    switch (element.type) {
+                                                        case 'rect':
+                                                            return (
                                                             <RectNode
                                                                 key={element.id}
                                                                 shape={element}
@@ -2388,6 +2423,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                         return null;
                                                 }
                                             })}
+                                            </Group>
                                         </Layer>
                                     </Stage>
                                 </Stack>
