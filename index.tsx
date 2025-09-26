@@ -9,8 +9,8 @@ import '../../tamagui/tamagui.css';
 import './styles.css';
 
 const DEFAULT_OPTIONS: EditorOptions = {
-  width: 960,
-  height: 540,
+  width: 1024,
+  height: 1024,
   backgroundColor: '#ffffff',
   showGrid: true,
   gridSize: 32,

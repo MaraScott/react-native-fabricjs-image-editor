@@ -1327,11 +1327,11 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             const stage = event.target.getStage();
             if (!stage) return;
 
-            const nativeEvent = event.evt;
+            const nativeEvent = event.evt as MouseEvent | TouchEvent | PointerEvent;
             if (isTouchLikeEvent(nativeEvent)) {
                 preventDefaultIfSupported(nativeEvent);
-                syncStagePointer(stage, nativeEvent);
             }
+            syncStagePointer(stage, nativeEvent as MouseEvent | TouchLikeEvent);
 
             if (isPanMode) {
                 const pointerPosition = stage.getPointerPosition();
@@ -1349,9 +1349,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             if (!pointer) return;
 
             if (activeTool === 'draw' || activeTool === 'path') {
-                if (!isTouchLikeEvent(nativeEvent)) {
-                    syncStagePointer(stage, nativeEvent);
-                }
                 const type = activeTool === 'draw' ? 'pencil' : 'path';
                 const element: PencilElement | PathElement =
                     type === 'pencil'
@@ -1405,11 +1402,11 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             const stage = event.target.getStage();
             if (!stage) return;
 
-            const nativeEvent = event.evt;
+            const nativeEvent = event.evt as MouseEvent | TouchEvent | PointerEvent;
             if (isTouchLikeEvent(nativeEvent)) {
                 preventDefaultIfSupported(nativeEvent);
-                syncStagePointer(stage, nativeEvent);
             }
+            syncStagePointer(stage, nativeEvent as MouseEvent | TouchLikeEvent);
 
             if (panStateRef.current) {
                 const pointerPosition = stage.getPointerPosition();
