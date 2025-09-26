@@ -169,6 +169,11 @@ body {
     position: relative;
     overflow: hidden;
     border-radius: 8px;
+    touch-action: none;
+}
+
+.stage-canvas canvas {
+    touch-action: none;
 }
 
 .editor-sidebar {

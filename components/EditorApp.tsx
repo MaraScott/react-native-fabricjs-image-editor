@@ -1316,6 +1316,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             if (!pointer) return;
 
             if (activeTool === 'draw' || activeTool === 'path') {
+                event.evt.preventDefault();
                 const type = activeTool === 'draw' ? 'pencil' : 'path';
                 const element: PencilElement | PathElement =
                     type === 'pencil'
