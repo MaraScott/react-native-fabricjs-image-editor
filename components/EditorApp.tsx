@@ -9,7 +9,7 @@ import {
     type CSSProperties,
 } from 'react';
 import { Layer, Stage } from 'react-konva';
-import { Button, Heading, Image, Input, Label, Paragraph, Separator, Stack, Text, XStack, YStack } from 'tamagui';
+import { Button, Heading, Image, Input, Label, Paragraph, Separator, Stack, Text, XStack, YStack, useWindowDimensions } from 'tamagui';
 import { MaterialCommunityIcons } from './icons/MaterialCommunityIcons';
 import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
 import LayersPanel from './LayersPanel';
@@ -59,6 +59,15 @@ import {
     orderElementsByLayer,
 } from '../utils/editorElements';
 import { createEmptyDesign, parseDesign, stringifyDesign } from '../utils/design';
+
+import {
+    SidebarContainer,
+    SidebarPanel,
+    SidebarScroll,
+    SidebarToggle,
+    SidebarToggleLabel,
+    SidebarContent,
+} from '../../../../theme/ui/styles'
 
 type Tool = 'select' | 'draw' | 'path';
 
@@ -639,6 +648,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const previousCursorRef = useRef<{ inline: string; hadInline: boolean } | null>(null);
     const [isPanMode, setIsPanMode] = useState(false);
     const [isPanning, setIsPanning] = useState(false);
+
+    const { width } = useWindowDimensions();
+    const isSmall = width < 600;
+    const collapsedWidth = isSmall ? 30 : 10
+    const sidebarWidth = isSmall ? width - 30 : 90
+    // const sidebarImageSize = isSmall ? 120 : 80
+    const [leftOpen, setLeftOpen] = useState(false);
 
     const restoreStageCursor = useCallback(() => {
         const stage = stageRef.current;
@@ -1749,6 +1765,26 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
     return (
         <YStack className="editor-shell">
+            <SidebarContainer left={0}>
+                {isSmall ? (
+                    <SidebarToggle
+                        onPress={() => setLeftOpen((prev) => !prev)}
+                        width={collapsedWidth}
+                        backgroundColor="$backgroundHover"
+                    >
+                        <SidebarToggleLabel color="$color10">{leftOpen ? '◀' : '▶'}</SidebarToggleLabel>
+                    </SidebarToggle>
+                ) : null}
+                {leftOpen ? (
+                    <SidebarPanel width={sidebarWidth} padding="0">
+                        <SidebarScroll>
+                            <SidebarContent>
+                                <YStack>TEST</YStack>
+                            </SidebarContent>
+                        </SidebarScroll>
+                    </SidebarPanel>
+                ) : null}
+            </SidebarContainer>            
             <XStack className="editor-header">
                 <XStack className="logo">
                     <Image
