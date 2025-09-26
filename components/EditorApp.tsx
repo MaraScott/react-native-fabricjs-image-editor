@@ -627,7 +627,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
     const [activeTool, setActiveTool] = useState<Tool>('draw');
-    const [drawingState, setDrawingState] = useState<DrawingState | null>(null);
+    const drawingStateRef = useRef<DrawingState | null>(null);
     const [clipboard, setClipboard] = useState<EditorElement[] | null>(null);
     const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
     const [stagePosition, setStagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -776,6 +776,28 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     useEffect(() => {
         stagePositionRef.current = stagePosition;
     }, [stagePosition]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return undefined;
+        }
+
+        const handlePointerRelease = () => {
+            if (drawingStateRef.current) {
+                drawingStateRef.current = null;
+            }
+        };
+
+        window.addEventListener('mouseup', handlePointerRelease);
+        window.addEventListener('touchend', handlePointerRelease);
+        window.addEventListener('touchcancel', handlePointerRelease);
+
+        return () => {
+            window.removeEventListener('mouseup', handlePointerRelease);
+            window.removeEventListener('touchend', handlePointerRelease);
+            window.removeEventListener('touchcancel', handlePointerRelease);
+        };
+    }, []);
 
     useEffect(() => {
         const isSpaceEvent = (event: KeyboardEvent) => {
@@ -1294,8 +1316,11 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     lineCap: 'round',
                     lineJoin: 'round',
                 };
+                drawingStateRef.current = {
+                    id: element.id,
+                    origin: { x: pointer.x, y: pointer.y },
+                };
                 addElement(element);
-                setDrawingState({ id: element.id, origin: { x: pointer.x, y: pointer.y } });
                 return;
             }
 
@@ -1323,6 +1348,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 return;
             }
 
+            const drawingState = drawingStateRef.current;
             if (!drawingState) return;
             const pointer = getStagePointer(stage);
             if (!pointer) return;
@@ -1339,7 +1365,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 }),
             );
         },
-        [drawingState, setStagePosition, updateElements],
+        [setStagePosition, updateElements],
     );
 
     const handleStagePointerUp = useCallback(() => {
@@ -1348,9 +1374,9 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             setIsPanning(false);
             return;
         }
-        if (!drawingState) return;
-        setDrawingState(null);
-    }, [drawingState, setIsPanning]);
+        if (!drawingStateRef.current) return;
+        drawingStateRef.current = null;
+    }, [setIsPanning]);
 
     const handleSave = useCallback(() => {
         postMessage('save', { json: stringifyDesign(design) });
