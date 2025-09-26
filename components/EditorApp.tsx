@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+    type ChangeEvent,
+    type CSSProperties,
+} from 'react';
 import { Layer, Stage } from 'react-konva';
 import { Button, Heading, Image, Input, Label, Paragraph, Separator, Stack, Text, XStack, YStack } from 'tamagui';
 import { MaterialCommunityIcons } from './icons/MaterialCommunityIcons';
@@ -1074,8 +1083,18 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     }, [stagePosition]);
 
     useEffect(() => {
+        const isSpaceEvent = (event: KeyboardEvent) => {
+            if (event.code === 'Space') {
+                return true;
+            }
+            if (event.key === ' ' || event.key === 'Spacebar') {
+                return true;
+            }
+            return false;
+        };
+
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.code !== 'Space') {
+            if (!isSpaceEvent(event)) {
                 return;
             }
 
@@ -1090,7 +1109,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         };
 
         const handleKeyUp = (event: KeyboardEvent) => {
-            if (event.code !== 'Space') {
+            if (!isSpaceEvent(event)) {
                 return;
             }
 
@@ -2032,6 +2051,17 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     }, [options.backgroundColor, options.gridSize, options.showGrid, options.zoom]);
     const zoomPercentage = useMemo(() => Math.round(options.zoom * 100), [options.zoom]);
     const stageCursor = isPanning ? 'grabbing' : isPanMode ? 'grab' : undefined;
+    const stageCanvasStyle = useMemo(() => {
+        const baseStyle: CSSProperties = {
+            width: stageWidth,
+            height: stageHeight,
+            ...gridBackground,
+        };
+        if (stageCursor) {
+            return { ...baseStyle, cursor: stageCursor };
+        }
+        return baseStyle;
+    }, [gridBackground, stageCursor, stageHeight, stageWidth]);
 
     return (
         <YStack className="editor-root">
@@ -2399,10 +2429,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         style={{ height: stageHeight, backgroundSize: `100% ${rulerStep}px` }}
                                     />
                                 )}
-                                <Stack
-                                    className="stage-canvas"
-                                    style={{ width: stageWidth, height: stageHeight, cursor: stageCursor, ...gridBackground }}
-                                >
+                                <Stack className="stage-canvas" style={stageCanvasStyle}>
                                     <Stage
                                         ref={stageRef}
                                         width={stageWidth}
