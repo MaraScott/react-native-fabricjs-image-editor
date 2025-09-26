@@ -44,6 +44,7 @@ import type {
 import {
     assignElementsToLayer,
     cloneElement,
+    createBaseElement,
     createCircle,
     createFrame,
     createImage,
