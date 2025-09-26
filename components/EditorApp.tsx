@@ -1592,7 +1592,17 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         (value: number | ((current: number) => number), anchor?: { clientX: number; clientY: number } | null) => {
             const stage = stageRef.current;
             const container = typeof stage?.container === 'function' ? stage.container() : null;
+            const containerBounds = container?.getBoundingClientRect() ?? null;
             const scrollParent = editorCanvasRef.current;
+            let resolvedAnchor = anchor ?? null;
+
+            if (!resolvedAnchor && containerBounds) {
+                resolvedAnchor = {
+                    clientX: containerBounds.left + containerBounds.width / 2,
+                    clientY: containerBounds.top + containerBounds.height / 2,
+                };
+            }
+
             let previousZoom: number | null = null;
             let nextZoom: number | null = null;
 
@@ -1610,16 +1620,15 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             });
 
             if (
-                anchor &&
+                resolvedAnchor &&
                 previousZoom !== null &&
                 nextZoom !== null &&
-                container &&
+                containerBounds &&
                 scrollParent &&
                 typeof scrollParent.scrollBy === 'function'
             ) {
-                const bounds = container.getBoundingClientRect();
-                const offsetX = anchor.clientX - bounds.left;
-                const offsetY = anchor.clientY - bounds.top;
+                const offsetX = resolvedAnchor.clientX - containerBounds.left;
+                const offsetY = resolvedAnchor.clientY - containerBounds.top;
                 const ratio = nextZoom / previousZoom;
                 scrollParent.scrollBy(offsetX * (ratio - 1), offsetY * (ratio - 1));
             }
