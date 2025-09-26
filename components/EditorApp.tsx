@@ -61,6 +61,9 @@ const STORAGE_KEY = 'konva-image-editor-design';
 const DEFAULT_DRAW = { color: '#2563eb', width: 5 };
 const DEFAULT_PATH = { color: '#0f172a', width: 3 };
 const TOOLBAR_ICON_SIZE = 20;
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 3;
+const ZOOM_STEP = 0.05;
 
 const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
     {
@@ -829,6 +832,13 @@ const DEFAULT_OPTIONS: EditorOptions = {
     canvasSizeLocked: false,
 };
 
+function clampZoom(value: number): number {
+    if (!Number.isFinite(value)) {
+        return ZOOM_MIN;
+    }
+    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
+}
+
 function getInitialOptions(options?: Partial<EditorOptions>): EditorOptions {
     return { ...DEFAULT_OPTIONS, ...(options ?? {}) };
 }
@@ -1568,9 +1578,59 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         }
     }, [resetDesign]);
 
-    const handleZoomChange = useCallback((value: number) => {
-        setOptions((current) => ({ ...current, zoom: value }));
-    }, []);
+    const applyZoom = useCallback(
+        (value: number | ((current: number) => number), anchor?: { clientX: number; clientY: number } | null) => {
+            const stage = stageRef.current;
+            const container = typeof stage?.container === 'function' ? stage.container() : null;
+            const scrollParent = editorCanvasRef.current;
+            let previousZoom: number | null = null;
+            let nextZoom: number | null = null;
+
+            setOptions((current) => {
+                const resolved = typeof value === 'function' ? value(current.zoom) : value;
+                const clamped = clampZoom(resolved);
+                if (clamped === current.zoom) {
+                    previousZoom = null;
+                    nextZoom = null;
+                    return current;
+                }
+                previousZoom = current.zoom;
+                nextZoom = clamped;
+                return { ...current, zoom: clamped };
+            });
+
+            if (
+                anchor &&
+                previousZoom !== null &&
+                nextZoom !== null &&
+                container &&
+                scrollParent &&
+                typeof scrollParent.scrollBy === 'function'
+            ) {
+                const bounds = container.getBoundingClientRect();
+                const offsetX = anchor.clientX - bounds.left;
+                const offsetY = anchor.clientY - bounds.top;
+                const ratio = nextZoom / previousZoom;
+                scrollParent.scrollBy(offsetX * (ratio - 1), offsetY * (ratio - 1));
+            }
+        },
+        [setOptions],
+    );
+
+    const handleZoomChange = useCallback(
+        (value: number) => {
+            applyZoom(value);
+        },
+        [applyZoom],
+    );
+
+    const handleZoomOut = useCallback(() => {
+        applyZoom((current) => current - ZOOM_STEP);
+    }, [applyZoom]);
+
+    const handleZoomIn = useCallback(() => {
+        applyZoom((current) => current + ZOOM_STEP);
+    }, [applyZoom]);
 
     useEffect(() => {
         postMessage('ready', { options });
@@ -1599,6 +1659,18 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.target && (event.target as HTMLElement).tagName === 'INPUT') return;
             if (event.target && (event.target as HTMLElement).tagName === 'TEXTAREA') return;
+
+            if ((event.ctrlKey || event.metaKey) && (event.key === '=' || event.key === '+' || event.key === 'Add')) {
+                event.preventDefault();
+                handleZoomIn();
+                return;
+            }
+
+            if ((event.ctrlKey || event.metaKey) && (event.key === '-' || event.key === '_' || event.key === 'Subtract')) {
+                event.preventDefault();
+                handleZoomOut();
+                return;
+            }
 
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
                 event.preventDefault();
@@ -1649,7 +1721,35 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [handleCopy, handleDuplicate, handlePaste, redo, removeSelected, selectedIds.length, undo]);
+    }, [handleCopy, handleDuplicate, handlePaste, handleZoomIn, handleZoomOut, redo, removeSelected, selectedIds.length, undo]);
+
+    useEffect(() => {
+        const stage = stageRef.current;
+        if (!stage || typeof stage.container !== 'function') {
+            return;
+        }
+        const container = stage.container();
+        if (!container) {
+            return;
+        }
+
+        const handleWheel = (event: WheelEvent) => {
+            if (!(event.ctrlKey || event.metaKey)) {
+                return;
+            }
+            event.preventDefault();
+            const delta = event.deltaY === 0 ? 0 : event.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+            if (delta === 0) {
+                return;
+            }
+            applyZoom((current) => current + delta, { clientX: event.clientX, clientY: event.clientY });
+        };
+
+        container.addEventListener('wheel', handleWheel, { passive: false });
+        return () => {
+            container.removeEventListener('wheel', handleWheel);
+        };
+    }, [applyZoom]);
 
     useEffect(() => {
         const listener = (event: MessageEvent) => {
@@ -1753,6 +1853,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
     const zoomedWidth = Math.round(options.width * options.zoom);
     const zoomedHeight = Math.round(options.height * options.zoom);
+    const zoomPercentage = useMemo(() => Math.round(options.zoom * 100), [options.zoom]);
 
     return (
         <YStack className="editor-root">
@@ -2009,16 +2110,29 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                     onChange={(event) => setOptions((current) => ({ ...current, showRulers: event.target.checked }))}
                                 />
                             </Label>
-                            <Label>
+                            <Label className="full-width">
                                 Zoom
-                                <Input
-                                    type="range"
-                                    min={0.25}
-                                    max={2}
-                                    step={0.05}
-                                    value={options.zoom}
-                                    onChange={(event) => handleZoomChange(Number(event.target.value))}
-                                />
+                                <XStack className="zoom-control">
+                                    <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
+                                        <MaterialCommunityIcons name="minus" size={TOOLBAR_ICON_SIZE - 6} />
+                                    </Button>
+                                    <Input
+                                        type="range"
+                                        min={ZOOM_MIN}
+                                        max={ZOOM_MAX}
+                                        step={ZOOM_STEP}
+                                        value={options.zoom}
+                                        onChange={(event) => handleZoomChange(Number(event.target.value))}
+                                        aria-label="Zoom level"
+                                        className="zoom-slider"
+                                    />
+                                    <Text className="zoom-value" aria-live="polite">
+                                        {zoomPercentage}%
+                                    </Text>
+                                    <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
+                                        <MaterialCommunityIcons name="plus" size={TOOLBAR_ICON_SIZE - 6} />
+                                    </Button>
+                                </XStack>
                             </Label>
                         </YStack>
 

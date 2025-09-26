@@ -247,6 +247,29 @@ body,
   grid-column: 1 / -1;
 }
 
+.zoom-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zoom-control button {
+  padding: 6px;
+  min-width: 0;
+}
+
+.zoom-slider {
+  flex: 1;
+  min-width: 0;
+}
+
+.zoom-value {
+  min-width: 52px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--color, #e2e8f0) 75%, transparent);
+}
+
 .export-panel {
   margin-top: 16px;
   display: flex;
