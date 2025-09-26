@@ -21,6 +21,10 @@ body,
   display: flex;
 }
 
+.editor-root {
+    display: flex;
+}
+
 .editor-shell {
   display: flex;
   gap: 12px;
@@ -34,7 +38,7 @@ body,
   padding: 0;
 }
 
-.editor-navbar,
+.editor-header,
 .editor-toolbar {
   display: flex;
   flex-wrap: nowrap;
@@ -43,9 +47,8 @@ body,
   flex-direction: column;
   overflow-y: auto;
 }
-.editor-navbar {
+.editor-header {
   flex-wrap: wrap;
-  width: 100vw;
   background-color: var(--background, #111317);
   border: 1px solid color-mix(in srgb, var(--borderColor, #283345) 60%, transparent);
   border-radius: 12px;
@@ -57,7 +60,7 @@ body,
     flex-direction: column;
 }
 
-.editor-navbar .toolbar-group,
+.editor-header .toolbar-group,
 .editor-toolbar .toolbar-group {
   display: flex;
   gap: 6px;
@@ -69,19 +72,19 @@ body,
   flex-direction: column;
   box-shadow: 0 12px 30px rgba(15, 17, 21, 0.35);
 }
-.editor-navbar .toolbar-group {
+.editor-header .toolbar-group {
   flex-direction: row;
 }
 .editor-toolbar .toolbar-group {
   width: 100%;
 }
 
-.editor-navbar .toolbar-spacer,
+.editor-header .toolbar-spacer,
 .editor-toolbar .toolbar-spacer {
   flex: 1 1 auto;
 }
 
-.editor-navbar button,
+.editor-header button,
 .editor-toolbar button {
   background: var(--backgroundHover, #1f2633);
   border: 1px solid var(--borderColor, #283345);
@@ -93,7 +96,7 @@ body,
   transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
 }
 
-.editor-navbar button.active,
+.editor-header button.active,
 .editor-toolbar button.active {
   background: var(--accentBackground, #2563eb);
   border-color: var(--accentColor, #3b82f6);
@@ -101,14 +104,14 @@ body,
   box-shadow: 0 6px 18px color-mix(in srgb, var(--accentBackground, #2563eb) 45%, transparent);
 }
 
-.editor-navbar button:hover,
+.editor-header button:hover,
 .editor-toolbar button:hover {
   background: var(--backgroundFocus, #273044);
   border-color: var(--borderColorHover, #3b4961);
   transform: translateY(-1px);
 }
 
-.editor-navbar button:disabled,
+.editor-header button:disabled,
 .editor-toolbar button:disabled {
   opacity: 0.45;
   cursor: not-allowed;

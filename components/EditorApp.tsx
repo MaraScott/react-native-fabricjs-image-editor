@@ -933,11 +933,11 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     element.type === 'guide'
                         ? { ...element, layerId: null }
                         : {
-                              ...element,
-                              layerId: targetLayerId,
-                              visible: layer ? element.visible && layer.visible : element.visible,
-                              locked: layer ? element.locked || layer.locked : element.locked,
-                          };
+                            ...element,
+                            layerId: targetLayerId,
+                            visible: layer ? element.visible && layer.visible : element.visible,
+                            locked: layer ? element.locked || layer.locked : element.locked,
+                        };
 
                 const updatedElements = orderElementsByLayer([...current.elements, assigned!], nextLayers);
                 return { ...current, layers: nextLayers, elements: updatedElements };
@@ -1748,9 +1748,9 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     }, [gridBackground, stageCursor, stageHeight, stageWidth]);
 
     return (
-        <YStack className="editor-root">
+        <XStack className="editor-root">
             <YStack className="editor-shell">
-                <YStack className="editor-header">
+                <XStack className="editor-header">
                     <XStack className="logo">
                         <Image
                             src="https://raw.githubusercontent.com/Everduin94/react-native-vector-icons/master/assets/images/TinyArtist.png"
@@ -1760,10 +1760,78 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                         />
                         <Text>TinyArtist Editor</Text>
                     </XStack>
-                </YStack>
-                <Stack className="editor-shell-layout">
+                    <XStack className="toolbar-group">
+                        <Button type="button" onPress={undo} disabled={!canUndo} aria-label="Undo" title="Undo">
+                            <MaterialCommunityIcons name="undo" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button type="button" onPress={redo} disabled={!canRedo} aria-label="Redo" title="Redo">
+                            <MaterialCommunityIcons name="redo" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button
+                            type="button"
+                            onPress={handleCopy}
+                            disabled={selectedIds.length === 0}
+                            aria-label="Copy"
+                            title="Copy"
+                        >
+                            <MaterialCommunityIcons name="content-copy" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button
+                            type="button"
+                            onPress={handlePaste}
+                            disabled={!clipboard || clipboard.length === 0}
+                            aria-label="Paste"
+                            title="Paste"
+                        >
+                            <MaterialCommunityIcons name="content-paste" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button
+                            type="button"
+                            onPress={handleDuplicate}
+                            disabled={selectedIds.length === 0}
+                            aria-label="Duplicate"
+                            title="Duplicate"
+                        >
+                            <MaterialCommunityIcons name="content-duplicate" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button
+                            type="button"
+                            onPress={removeSelected}
+                            disabled={selectedIds.length === 0}
+                            aria-label="Delete"
+                            title="Delete"
+                        >
+                            <MaterialCommunityIcons name="trash-can-outline" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button type="button" onPress={handleClear} aria-label="Clear canvas" title="Clear canvas">
+                            <MaterialCommunityIcons name="eraser-variant" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                    </XStack>
+                    <XStack className="toolbar-group">
+                        <Button type="button" onPress={handleSave} aria-label="Save" title="Save">
+                            <MaterialCommunityIcons name="content-save-outline" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button type="button" onPress={handleLoadFromBrowser} aria-label="Load" title="Load">
+                            <MaterialCommunityIcons name="folder-open-outline" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button type="button" onPress={() => handleExport('png')} aria-label="Export PNG" title="Export PNG">
+                            <MaterialCommunityIcons name="file-image" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button type="button" onPress={() => handleExport('jpeg')} aria-label="Export JPEG" title="Export JPEG">
+                            <MaterialCommunityIcons name="file-jpg-box" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button type="button" onPress={() => handleExport('svg')} aria-label="Export SVG" title="Export SVG">
+                            <MaterialCommunityIcons name="svg" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button type="button" onPress={() => handleExport('json')} aria-label="Export JSON" title="Export JSON">
+                            <MaterialCommunityIcons name="code-json" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                    </XStack>
+
+                </XStack>
+                <XStack className="editor-shell-layout">
                     <YStack className="editor-toolbar">
-                        <XStack className="toolbar-group">
+                        <YStack className="toolbar-group">
                             <Button
                                 type="button"
                                 className={activeTool === 'select' ? 'active' : ''}
@@ -1791,8 +1859,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                             >
                                 <MaterialCommunityIcons name="vector-polyline" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                        </XStack>
-                        <XStack className="toolbar-group">
+                        </YStack>
+                        <YStack className="toolbar-group">
                             <Button type="button" onPress={handleAddRect} aria-label="Add rectangle" title="Add rectangle">
                                 <MaterialCommunityIcons name="rectangle-outline" size={TOOLBAR_ICON_SIZE} />
                             </Button>
@@ -1830,77 +1898,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                             >
                                 <MaterialCommunityIcons name="arrow-collapse-vertical" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                        </XStack>
-                        <XStack className="toolbar-group">
-                            <Button type="button" onPress={undo} disabled={!canUndo} aria-label="Undo" title="Undo">
-                                <MaterialCommunityIcons name="undo" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={redo} disabled={!canRedo} aria-label="Redo" title="Redo">
-                                <MaterialCommunityIcons name="redo" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button
-                                type="button"
-                                onPress={handleCopy}
-                                disabled={selectedIds.length === 0}
-                                aria-label="Copy"
-                                title="Copy"
-                            >
-                                <MaterialCommunityIcons name="content-copy" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button
-                                type="button"
-                                onPress={handlePaste}
-                                disabled={!clipboard || clipboard.length === 0}
-                                aria-label="Paste"
-                                title="Paste"
-                            >
-                                <MaterialCommunityIcons name="content-paste" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button
-                                type="button"
-                                onPress={handleDuplicate}
-                                disabled={selectedIds.length === 0}
-                                aria-label="Duplicate"
-                                title="Duplicate"
-                            >
-                                <MaterialCommunityIcons name="content-duplicate" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button
-                                type="button"
-                                onPress={removeSelected}
-                                disabled={selectedIds.length === 0}
-                                aria-label="Delete"
-                                title="Delete"
-                            >
-                                <MaterialCommunityIcons name="trash-can-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={handleClear} aria-label="Clear canvas" title="Clear canvas">
-                                <MaterialCommunityIcons name="eraser-variant" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                        </XStack>
-                        <XStack className="toolbar-group">
-                            <Button type="button" onPress={handleSave} aria-label="Save" title="Save">
-                                <MaterialCommunityIcons name="content-save-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={handleLoadFromBrowser} aria-label="Load" title="Load">
-                                <MaterialCommunityIcons name="folder-open-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={() => handleExport('png')} aria-label="Export PNG" title="Export PNG">
-                                <MaterialCommunityIcons name="file-image" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={() => handleExport('jpeg')} aria-label="Export JPEG" title="Export JPEG">
-                                <MaterialCommunityIcons name="file-jpg-box" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={() => handleExport('svg')} aria-label="Export SVG" title="Export SVG">
-                                <MaterialCommunityIcons name="svg" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={() => handleExport('json')} aria-label="Export JSON" title="Export JSON">
-                                <MaterialCommunityIcons name="code-json" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                        </XStack>
+                        </YStack>
                     </YStack>
 
-                    <Stack tag="aside" className="editor-sidebar">
+                    <YStack tag="aside" className="editor-sidebar">
                         <Heading tag="h2">Canvas</Heading>
                         <XStack className="canvas-stats">
                             <Text>
@@ -2096,10 +2097,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                         ) : (
                             <Paragraph className="empty-selection">Select an element to edit its properties.</Paragraph>
                         )}
-                    </Stack>
+                    </YStack>
 
                     <YStack className="editor-layout">
-                        <YStack ref={editorCanvasRef} className="editor-canvas">
+                        <XStack ref={editorCanvasRef} className="editor-canvas">
                             <Stack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={{ width: stageWidth, height: stageHeight }}>
                                 {options.showRulers && (
                                     <Stack
@@ -2292,9 +2293,9 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                     </Stage>
                                 </Stack>
                             </Stack>
-                        </YStack>
+                        </XStack>
                     </YStack>
-                </Stack>
+                </XStack>
 
                 <Input
                     ref={fileInputRef}
@@ -2304,7 +2305,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     onChange={handleUploadFile}
                 />
             </YStack>
-        </YStack>
+        </XStack>
     );
 }
 
