@@ -1,11 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { TamaguiProvider, Theme } from 'tamagui';
-import { tamaguiConfig } from '../../../../tamagui.config';
+import { TamaguiProvider } from 'tamagui';
 import EditorApp from './components/EditorApp';
 import type { EditorDocument, EditorOptions } from './types/editor';
 import { createEmptyDesign, parseDesign } from './utils/design';
-import '../../tamagui/tamagui.css';
 import './styles.css';
 
 const DEFAULT_OPTIONS: EditorOptions = {
@@ -42,10 +40,8 @@ if (container) {
   const root = createRoot(container);
   root.render(
     <StrictMode>
-      <TamaguiProvider config={tamaguiConfig} defaultTheme="light">
-        <Theme name="gold" key="theme-gold">
-          <EditorApp initialDesign={resolveInitialDesign()} initialOptions={resolveInitialOptions()} />
-        </Theme>
+      <TamaguiProvider config={{}} defaultTheme="light">
+        <EditorApp initialDesign={resolveInitialDesign()} initialOptions={resolveInitialOptions()} />
       </TamaguiProvider>
     </StrictMode>,
   );

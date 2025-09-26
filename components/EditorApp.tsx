@@ -10,7 +10,7 @@ import {
     type CSSProperties,
 } from 'react';
 import { Group, Layer, Stage } from 'react-konva';
-import { Button, Heading, Image, Input, Label, Paragraph, Separator, Stack, Text, XStack, YStack, useWindowDimensions, Theme } from 'tamagui';
+import { Button, Heading, Image, Input, Label, Paragraph, Separator, Stack, Text, XStack, YStack, useWindowDimensions } from 'tamagui';
 import { MaterialCommunityIcons } from './icons/MaterialCommunityIcons';
 import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
 import LayersPanel from './LayersPanel';
@@ -62,14 +62,6 @@ import {
 } from '../utils/editorElements';
 import { createEmptyDesign, parseDesign, stringifyDesign } from '../utils/design';
 
-import {
-    SidebarContainer,
-    SidebarPanel,
-    SidebarScroll,
-    SidebarToggle,
-    SidebarToggleLabel,
-    SidebarContent,
-} from '../../../../theme/ui/styles'
 
 type Tool = 'select' | 'draw' | 'path';
 
@@ -687,8 +679,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     // const { width } = Dimensions.get('window')
     const isSmall = width < 600;
     const mainLayoutWidth = isSmall ? width - 30 : width - 90
-    const collapsedWidth = isSmall ? 30 : 10
-    const sidebarWidth = isSmall ? width - 30 : 90
     // const sidebarImageSize = isSmall ? 120 : 80
     const [leftOpen, setLeftOpen] = useState(false);
 
@@ -1802,9 +1792,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const stageWidth = Math.max(1, Math.round(canvasWidth * computedViewportScale));
     const stageHeight = Math.max(1, Math.round(canvasHeight * computedViewportScale));
     const viewportScaleRef = useRef(1);
-    useEffect(() => {
-        viewportScaleRef.current = computedViewportScale > 0 ? computedViewportScale : 1;
-    }, [computedViewportScale]);
+    viewportScaleRef.current = computedViewportScale > 0 ? computedViewportScale : 1;
     const displayScale = options.zoom * computedViewportScale;
     const rulerStep = Math.max(1, 32 * displayScale);
     const gridBackground = useMemo(() => {
@@ -1917,31 +1905,25 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
     return (
         <YStack>
-            <Theme name="emerald">
-                <SidebarContainer left={0}>
-                    {leftOpen ? (
-                        <SidebarPanel width={sidebarWidth} padding="0">
-                            <SidebarScroll>
-                                <SidebarContent>
-                                    <YStack className="editor-header">
-                                        <EditorTools />
-                                        <EditorSave />
-                                    </YStack>
-                                </SidebarContent>
-                            </SidebarScroll>
-                        </SidebarPanel>
-                    ) : null}
-                    {isSmall ? (
-                        <SidebarToggle
-                            onPress={() => setLeftOpen((prev) => !prev)}
-                            width={collapsedWidth}
-                            backgroundColor="$backgroundHover"
-                        >
-                            <SidebarToggleLabel color="$color10">{leftOpen ? '◀' : '▶'}</SidebarToggleLabel>
-                        </SidebarToggle>
-                    ) : null}
-                </SidebarContainer>
-            </Theme>
+            {isSmall && (
+                <YStack className="editor-mobile-toolbar">
+                    {leftOpen && (
+                        <YStack className="editor-header">
+                            <EditorTools />
+                            <EditorSave />
+                        </YStack>
+                    )}
+                    <Button
+                        type="button"
+                        className="editor-mobile-toggle"
+                        onPress={() => setLeftOpen((prev) => !prev)}
+                        aria-label={leftOpen ? 'Hide toolbar' : 'Show toolbar'}
+                        title={leftOpen ? 'Hide toolbar' : 'Show toolbar'}
+                    >
+                        {leftOpen ? '◀' : '▶'}
+                    </Button>
+                </YStack>
+            )}
             <YStack className="editor-shell">
                 <XStack className="editor-header">
                     <XStack className="logo">

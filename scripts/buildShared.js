@@ -16,6 +16,7 @@ const aliasMap = {
   'react-konva': path.resolve(projectRoot, 'shims/reactKonva.tsx'),
   'react/jsx-runtime': path.resolve(projectRoot, 'shims/jsxRuntime.ts'),
   'its-fine': path.resolve(projectRoot, 'shims/itsFine.ts'),
+  tamagui: path.resolve(projectRoot, 'shims/tamagui.tsx'),
   konva: path.resolve(projectRoot, 'shims/konvaGlobal.ts'),
 };
 

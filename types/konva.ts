@@ -15,6 +15,7 @@ export type KonvaEventObject<T extends Event = Event> = {
     scale?: (scale: { x: number; y: number }) => void;
     tension?: () => number;
     bezier?: () => boolean;
+    getStage?: () => StageType | null;
   } & Record<string, any>;
   evt: T;
 };
@@ -23,8 +24,10 @@ export type StageType = {
   width: () => number;
   height: () => number;
   scale: () => { x: number; y: number };
+  scaleX: () => number;
+  scaleY: () => number;
   absoluteToRelative: (point: Vector2d) => Vector2d;
-  container: () => HTMLDivElement;
+  container: () => HTMLDivElement | null;
   x: () => number;
   y: () => number;
   batchDraw: () => void;
@@ -35,6 +38,7 @@ export type StageType = {
       point: (point: Vector2d) => Vector2d;
     };
   };
+  position: (point: { x: number; y: number }) => void;
   setPointersPositions?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
 };
 
