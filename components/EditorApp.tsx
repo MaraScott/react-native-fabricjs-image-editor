@@ -936,6 +936,15 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
     const [pathSettings, setPathSettings] = useState(DEFAULT_PATH);
     const [stagePosition, setStagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+    const stagePositionRef = useRef(stagePosition);
+    const panStateRef = useRef<{
+        startPointer: Vector2d;
+        startPosition: { x: number; y: number };
+    } | null>(null);
+    const spacePressedRef = useRef(false);
+    const stageHoverRef = useRef(false);
+    const [isPanMode, setIsPanMode] = useState(false);
+    const [isPanning, setIsPanning] = useState(false);
 
     useLayoutEffect(() => {
         if (options.fixedCanvas) {
@@ -1015,6 +1024,49 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             setActiveLayerId(layers[layers.length - 1].id);
         }
     }, [layers, activeLayerId]);
+
+    useEffect(() => {
+        stagePositionRef.current = stagePosition;
+    }, [stagePosition]);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.code !== 'Space') {
+                return;
+            }
+
+            if (!spacePressedRef.current) {
+                spacePressedRef.current = true;
+            }
+
+            if (stageHoverRef.current) {
+                event.preventDefault();
+                setIsPanMode(true);
+            }
+        };
+
+        const handleKeyUp = (event: KeyboardEvent) => {
+            if (event.code !== 'Space') {
+                return;
+            }
+
+            spacePressedRef.current = false;
+            setIsPanMode(false);
+
+            if (panStateRef.current) {
+                panStateRef.current = null;
+                setIsPanning(false);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, []);
 
     useEffect(() => {
         if (layers.length === 0) {
@@ -1458,10 +1510,40 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         [elements, setActiveTool, setActiveLayerId, setSelectedIds],
     );
 
+    const handleStageMouseEnter = useCallback(() => {
+        stageHoverRef.current = true;
+        if (spacePressedRef.current) {
+            setIsPanMode(true);
+        }
+    }, [setIsPanMode]);
+
+    const handleStageMouseLeave = useCallback(() => {
+        stageHoverRef.current = false;
+        if (panStateRef.current) {
+            panStateRef.current = null;
+            setIsPanning(false);
+        }
+        setIsPanMode(false);
+    }, [setIsPanMode, setIsPanning]);
+
     const handleStagePointerDown = useCallback(
         (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
             const stage = event.target.getStage();
             if (!stage) return;
+
+            if (isPanMode) {
+                event.evt.preventDefault();
+                const pointerPosition = stage.getPointerPosition();
+                if (!pointerPosition) return;
+                const startPosition = stagePositionRef.current;
+                panStateRef.current = {
+                    startPointer: { x: pointerPosition.x, y: pointerPosition.y },
+                    startPosition: { x: startPosition.x, y: startPosition.y },
+                };
+                setIsPanning(true);
+                return;
+            }
+
             const pointer = getStagePointer(stage);
             if (!pointer) return;
 
@@ -1511,14 +1593,26 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 setActiveTool('select');
             }
         },
-        [activeTool, addElement, drawSettings, pathSettings],
+        [activeTool, addElement, drawSettings, isPanMode, pathSettings],
     );
 
     const handleStagePointerMove = useCallback(
         (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
-            if (!drawingState) return;
             const stage = event.target.getStage();
             if (!stage) return;
+
+            if (panStateRef.current) {
+                const pointerPosition = stage.getPointerPosition();
+                if (!pointerPosition) return;
+                const { startPointer, startPosition } = panStateRef.current;
+                setStagePosition({
+                    x: startPosition.x + (pointerPosition.x - startPointer.x),
+                    y: startPosition.y + (pointerPosition.y - startPointer.y),
+                });
+                return;
+            }
+
+            if (!drawingState) return;
             const pointer = getStagePointer(stage);
             if (!pointer) return;
 
@@ -1538,13 +1632,18 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 }),
             );
         },
-        [drawingState, updateElements],
+        [drawingState, setStagePosition, updateElements],
     );
 
     const handleStagePointerUp = useCallback(() => {
+        if (panStateRef.current) {
+            panStateRef.current = null;
+            setIsPanning(false);
+            return;
+        }
         if (!drawingState) return;
         setDrawingState(null);
-    }, [drawingState]);
+    }, [drawingState, setIsPanning]);
 
     const handleSave = useCallback(() => {
         postMessage('save', { json: stringifyDesign(design) });
@@ -1882,6 +1981,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         } as const;
     }, [options.backgroundColor, options.gridSize, options.showGrid, options.zoom]);
     const zoomPercentage = useMemo(() => Math.round(options.zoom * 100), [options.zoom]);
+    const stageCursor = isPanning ? 'grabbing' : isPanMode ? 'grab' : undefined;
 
     return (
         <YStack className="editor-root">
@@ -2249,7 +2349,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         style={{ height: stageHeight, backgroundSize: `100% ${rulerStep}px` }}
                                     />
                                 )}
-                                <Stack className="stage-canvas" style={{ width: stageWidth, height: stageHeight, ...gridBackground }}>
+                                <Stack
+                                    className="stage-canvas"
+                                    style={{ width: stageWidth, height: stageHeight, cursor: stageCursor, ...gridBackground }}
+                                >
                                     <Stage
                                         ref={stageRef}
                                         width={stageWidth}
@@ -2258,12 +2361,15 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         y={stagePosition.y}
                                         scaleX={options.zoom}
                                         scaleY={options.zoom}
+                                        onMouseEnter={handleStageMouseEnter}
+                                        onMouseLeave={handleStageMouseLeave}
                                         onMouseDown={handleStagePointerDown}
                                         onTouchStart={handleStagePointerDown}
                                         onMouseMove={handleStagePointerMove}
                                         onTouchMove={handleStagePointerMove}
                                         onMouseUp={handleStagePointerUp}
                                         onTouchEnd={handleStagePointerUp}
+                                        onTouchCancel={handleStagePointerUp}
                                     >
                                         <Layer>
                                             {options.showGuides &&
