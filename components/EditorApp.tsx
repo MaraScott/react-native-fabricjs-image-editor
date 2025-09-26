@@ -1742,10 +1742,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             const containerBounds = container?.getBoundingClientRect() ?? null;
             let resolvedAnchor = anchor ?? null;
 
-            if (!resolvedAnchor && containerBounds) {
+            if (!resolvedAnchor && stage && containerBounds) {
+                const scale = stage.scaleX();
+                const stageWidth = stage.width();
+                const stageHeight = stage.height();
                 resolvedAnchor = {
-                    clientX: containerBounds.left + containerBounds.width / 2,
-                    clientY: containerBounds.top + containerBounds.height / 2,
+                    clientX: containerBounds.left + stage.x() + (stageWidth * scale) / 2,
+                    clientY: containerBounds.top + stage.y() + (stageHeight * scale) / 2,
                 };
             }
 
