@@ -909,11 +909,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         });
     }, [layers, elements, setDesign]);
 
-    const dragBoundFactory = useMemo(
-        () => createDragBound(options, guides, computedViewportScale),
-        [computedViewportScale, guides, options],
-    );
-
     const selectedElement = useMemo(
         () => contentElements.find((element) => selectedIds.includes(element.id)) ?? null,
         [contentElements, selectedIds],
@@ -1808,6 +1803,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     viewportScaleRef.current = computedViewportScale > 0 ? computedViewportScale : 1;
     const displayScale = options.zoom * computedViewportScale;
     const rulerStep = Math.max(1, 32 * displayScale);
+    const dragBoundFactory = useMemo(
+        () => createDragBound(options, guides, computedViewportScale),
+        [computedViewportScale, guides, options],
+    );
     const gridBackground = useMemo(() => {
         if (!options.showGrid) {
             return {
