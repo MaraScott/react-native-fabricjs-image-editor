@@ -947,6 +947,27 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const [isPanMode, setIsPanMode] = useState(false);
     const [isPanning, setIsPanning] = useState(false);
 
+    const restoreStageCursor = useCallback(() => {
+        const stage = stageRef.current;
+        const container = typeof stage?.container === 'function' ? stage.container() : null;
+        if (!container) {
+            return;
+        }
+
+        if (previousCursorRef.current) {
+            const { inline, hadInline } = previousCursorRef.current;
+            if (hadInline) {
+                container.style.cursor = inline;
+            } else {
+                container.style.removeProperty('cursor');
+            }
+        } else {
+            container.style.removeProperty('cursor');
+        }
+
+        previousCursorRef.current = null;
+    }, []);
+
     useLayoutEffect(() => {
         if (options.fixedCanvas) {
             return;
@@ -1035,19 +1056,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             return;
         }
 
-        if (previousCursorRef.current) {
-            const { inline, hadInline } = previousCursorRef.current;
-            if (hadInline) {
-                container.style.cursor = inline;
-            } else {
-                container.style.removeProperty('cursor');
-            }
-            previousCursorRef.current = null;
-            return;
-        }
-
-        container.style.removeProperty('cursor');
-    }, [isPanMode, isPanning]);
+        restoreStageCursor();
+    }, [isPanMode, isPanning, restoreStageCursor]);
 
     useEffect(() => {
         if (layers.length === 0) {
@@ -1091,6 +1101,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 panStateRef.current = null;
                 setIsPanning(false);
             }
+
+            restoreStageCursor();
         };
 
         window.addEventListener('keydown', handleKeyDown);
@@ -1100,7 +1112,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, []);
+    }, [restoreStageCursor]);
 
     useEffect(() => {
         if (layers.length === 0) {
@@ -1558,7 +1570,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             setIsPanning(false);
         }
         setIsPanMode(false);
-    }, [setIsPanMode, setIsPanning]);
+        restoreStageCursor();
+    }, [restoreStageCursor, setIsPanMode, setIsPanning]);
 
     const handleStagePointerDown = useCallback(
         (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
