@@ -1748,564 +1748,562 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     }, [gridBackground, stageCursor, stageHeight, stageWidth]);
 
     return (
-        <XStack className="editor-root">
-            <YStack className="editor-shell">
-                <XStack className="editor-header">
-                    <XStack className="logo">
-                        <Image
-                            src="https://raw.githubusercontent.com/Everduin94/react-native-vector-icons/master/assets/images/TinyArtist.png"
-                            alt="TinyArtist logo"
-                            width="40"
-                            height="40"
-                        />
-                        <Text>TinyArtist Editor</Text>
-                    </XStack>
-                    <XStack className="toolbar-group">
-                        <Button type="button" onPress={undo} disabled={!canUndo} aria-label="Undo" title="Undo">
-                            <MaterialCommunityIcons name="undo" size={TOOLBAR_ICON_SIZE} />
-                        </Button>
-                        <Button type="button" onPress={redo} disabled={!canRedo} aria-label="Redo" title="Redo">
-                            <MaterialCommunityIcons name="redo" size={TOOLBAR_ICON_SIZE} />
-                        </Button>
-                        <Button
-                            type="button"
-                            onPress={handleCopy}
-                            disabled={selectedIds.length === 0}
-                            aria-label="Copy"
-                            title="Copy"
-                        >
-                            <MaterialCommunityIcons name="content-copy" size={TOOLBAR_ICON_SIZE} />
-                        </Button>
-                        <Button
-                            type="button"
-                            onPress={handlePaste}
-                            disabled={!clipboard || clipboard.length === 0}
-                            aria-label="Paste"
-                            title="Paste"
-                        >
-                            <MaterialCommunityIcons name="content-paste" size={TOOLBAR_ICON_SIZE} />
-                        </Button>
-                        <Button
-                            type="button"
-                            onPress={handleDuplicate}
-                            disabled={selectedIds.length === 0}
-                            aria-label="Duplicate"
-                            title="Duplicate"
-                        >
-                            <MaterialCommunityIcons name="content-duplicate" size={TOOLBAR_ICON_SIZE} />
-                        </Button>
-                        <Button
-                            type="button"
-                            onPress={removeSelected}
-                            disabled={selectedIds.length === 0}
-                            aria-label="Delete"
-                            title="Delete"
-                        >
-                            <MaterialCommunityIcons name="trash-can-outline" size={TOOLBAR_ICON_SIZE} />
-                        </Button>
-                        <Button type="button" onPress={handleClear} aria-label="Clear canvas" title="Clear canvas">
-                            <MaterialCommunityIcons name="eraser-variant" size={TOOLBAR_ICON_SIZE} />
-                        </Button>
-                    </XStack>
-                    <XStack className="toolbar-group">
-                        <Button type="button" onPress={handleSave} aria-label="Save" title="Save">
-                            <MaterialCommunityIcons name="content-save-outline" size={TOOLBAR_ICON_SIZE} />
-                        </Button>
-                        <Button type="button" onPress={handleLoadFromBrowser} aria-label="Load" title="Load">
-                            <MaterialCommunityIcons name="folder-open-outline" size={TOOLBAR_ICON_SIZE} />
-                        </Button>
-                        <Button type="button" onPress={() => handleExport('png')} aria-label="Export PNG" title="Export PNG">
-                            <MaterialCommunityIcons name="file-image" size={TOOLBAR_ICON_SIZE} />
-                        </Button>
-                        <Button type="button" onPress={() => handleExport('jpeg')} aria-label="Export JPEG" title="Export JPEG">
-                            <MaterialCommunityIcons name="file-jpg-box" size={TOOLBAR_ICON_SIZE} />
-                        </Button>
-                        <Button type="button" onPress={() => handleExport('svg')} aria-label="Export SVG" title="Export SVG">
-                            <MaterialCommunityIcons name="svg" size={TOOLBAR_ICON_SIZE} />
-                        </Button>
-                        <Button type="button" onPress={() => handleExport('json')} aria-label="Export JSON" title="Export JSON">
-                            <MaterialCommunityIcons name="code-json" size={TOOLBAR_ICON_SIZE} />
-                        </Button>
-                    </XStack>
-
+        <YStack className="editor-shell">
+            <XStack className="editor-header">
+                <XStack className="logo">
+                    <Image
+                        src="https://raw.githubusercontent.com/Everduin94/react-native-vector-icons/master/assets/images/TinyArtist.png"
+                        alt="TinyArtist logo"
+                        width="40"
+                        height="40"
+                    />
+                    <Text>TinyArtist Editor</Text>
                 </XStack>
-                <XStack className="editor-shell-layout">
-                    <YStack className="editor-toolbar">
-                        <YStack className="toolbar-group">
-                            <Button
-                                type="button"
-                                className={activeTool === 'select' ? 'active' : ''}
-                                onPress={() => setActiveTool('select')}
-                                aria-label="Select"
-                                title="Select"
-                            >
-                                <MaterialCommunityIcons name="cursor-default" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button
-                                type="button"
-                                className={activeTool === 'draw' ? 'active' : ''}
-                                onPress={handleAddDraw}
-                                aria-label="Draw"
-                                title="Draw"
-                            >
-                                <MaterialCommunityIcons name="pencil-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button
-                                type="button"
-                                className={activeTool === 'path' ? 'active' : ''}
-                                onPress={handleAddPath}
-                                aria-label="Path"
-                                title="Path"
-                            >
-                                <MaterialCommunityIcons name="vector-polyline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                        </YStack>
-                        <YStack className="toolbar-group">
-                            <Button type="button" onPress={handleAddRect} aria-label="Add rectangle" title="Add rectangle">
-                                <MaterialCommunityIcons name="rectangle-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={handleAddCircle} aria-label="Add circle" title="Add circle">
-                                <MaterialCommunityIcons name="circle-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={handleAddEllipse} aria-label="Add ellipse" title="Add ellipse">
-                                <MaterialCommunityIcons name="ellipse-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={handleAddTriangle} aria-label="Add triangle" title="Add triangle">
-                                <MaterialCommunityIcons name="triangle-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={handleAddLine} aria-label="Add line" title="Add line">
-                                <MaterialCommunityIcons name="ray-start-end" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={handleAddText} aria-label="Add text" title="Add text">
-                                <MaterialCommunityIcons name="format-text" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={handleRequestImage} aria-label="Add image" title="Add image">
-                                <MaterialCommunityIcons name="image-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button
-                                type="button"
-                                onPress={() => handleAddGuide('horizontal')}
-                                aria-label="Add horizontal guide"
-                                title="Add horizontal guide"
-                            >
-                                <MaterialCommunityIcons name="arrow-collapse-horizontal" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button
-                                type="button"
-                                onPress={() => handleAddGuide('vertical')}
-                                aria-label="Add vertical guide"
-                                title="Add vertical guide"
-                            >
-                                <MaterialCommunityIcons name="arrow-collapse-vertical" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                        </YStack>
+                <XStack className="toolbar-group">
+                    <Button type="button" onPress={undo} disabled={!canUndo} aria-label="Undo" title="Undo">
+                        <MaterialCommunityIcons name="undo" size={TOOLBAR_ICON_SIZE} />
+                    </Button>
+                    <Button type="button" onPress={redo} disabled={!canRedo} aria-label="Redo" title="Redo">
+                        <MaterialCommunityIcons name="redo" size={TOOLBAR_ICON_SIZE} />
+                    </Button>
+                    <Button
+                        type="button"
+                        onPress={handleCopy}
+                        disabled={selectedIds.length === 0}
+                        aria-label="Copy"
+                        title="Copy"
+                    >
+                        <MaterialCommunityIcons name="content-copy" size={TOOLBAR_ICON_SIZE} />
+                    </Button>
+                    <Button
+                        type="button"
+                        onPress={handlePaste}
+                        disabled={!clipboard || clipboard.length === 0}
+                        aria-label="Paste"
+                        title="Paste"
+                    >
+                        <MaterialCommunityIcons name="content-paste" size={TOOLBAR_ICON_SIZE} />
+                    </Button>
+                    <Button
+                        type="button"
+                        onPress={handleDuplicate}
+                        disabled={selectedIds.length === 0}
+                        aria-label="Duplicate"
+                        title="Duplicate"
+                    >
+                        <MaterialCommunityIcons name="content-duplicate" size={TOOLBAR_ICON_SIZE} />
+                    </Button>
+                    <Button
+                        type="button"
+                        onPress={removeSelected}
+                        disabled={selectedIds.length === 0}
+                        aria-label="Delete"
+                        title="Delete"
+                    >
+                        <MaterialCommunityIcons name="trash-can-outline" size={TOOLBAR_ICON_SIZE} />
+                    </Button>
+                    <Button type="button" onPress={handleClear} aria-label="Clear canvas" title="Clear canvas">
+                        <MaterialCommunityIcons name="eraser-variant" size={TOOLBAR_ICON_SIZE} />
+                    </Button>
+                </XStack>
+                <XStack className="toolbar-group">
+                    <Button type="button" onPress={handleSave} aria-label="Save" title="Save">
+                        <MaterialCommunityIcons name="content-save-outline" size={TOOLBAR_ICON_SIZE} />
+                    </Button>
+                    <Button type="button" onPress={handleLoadFromBrowser} aria-label="Load" title="Load">
+                        <MaterialCommunityIcons name="folder-open-outline" size={TOOLBAR_ICON_SIZE} />
+                    </Button>
+                    <Button type="button" onPress={() => handleExport('png')} aria-label="Export PNG" title="Export PNG">
+                        <MaterialCommunityIcons name="file-image" size={TOOLBAR_ICON_SIZE} />
+                    </Button>
+                    <Button type="button" onPress={() => handleExport('jpeg')} aria-label="Export JPEG" title="Export JPEG">
+                        <MaterialCommunityIcons name="file-jpg-box" size={TOOLBAR_ICON_SIZE} />
+                    </Button>
+                    <Button type="button" onPress={() => handleExport('svg')} aria-label="Export SVG" title="Export SVG">
+                        <MaterialCommunityIcons name="svg" size={TOOLBAR_ICON_SIZE} />
+                    </Button>
+                    <Button type="button" onPress={() => handleExport('json')} aria-label="Export JSON" title="Export JSON">
+                        <MaterialCommunityIcons name="code-json" size={TOOLBAR_ICON_SIZE} />
+                    </Button>
+                </XStack>
+
+            </XStack>
+            <XStack className="editor-shell-layout">
+                <YStack className="editor-toolbar">
+                    <YStack className="toolbar-group">
+                        <Button
+                            type="button"
+                            className={activeTool === 'select' ? 'active' : ''}
+                            onPress={() => setActiveTool('select')}
+                            aria-label="Select"
+                            title="Select"
+                        >
+                            <MaterialCommunityIcons name="cursor-default" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button
+                            type="button"
+                            className={activeTool === 'draw' ? 'active' : ''}
+                            onPress={handleAddDraw}
+                            aria-label="Draw"
+                            title="Draw"
+                        >
+                            <MaterialCommunityIcons name="pencil-outline" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button
+                            type="button"
+                            className={activeTool === 'path' ? 'active' : ''}
+                            onPress={handleAddPath}
+                            aria-label="Path"
+                            title="Path"
+                        >
+                            <MaterialCommunityIcons name="vector-polyline" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
                     </YStack>
+                    <YStack className="toolbar-group">
+                        <Button type="button" onPress={handleAddRect} aria-label="Add rectangle" title="Add rectangle">
+                            <MaterialCommunityIcons name="rectangle-outline" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button type="button" onPress={handleAddCircle} aria-label="Add circle" title="Add circle">
+                            <MaterialCommunityIcons name="circle-outline" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button type="button" onPress={handleAddEllipse} aria-label="Add ellipse" title="Add ellipse">
+                            <MaterialCommunityIcons name="ellipse-outline" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button type="button" onPress={handleAddTriangle} aria-label="Add triangle" title="Add triangle">
+                            <MaterialCommunityIcons name="triangle-outline" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button type="button" onPress={handleAddLine} aria-label="Add line" title="Add line">
+                            <MaterialCommunityIcons name="ray-start-end" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button type="button" onPress={handleAddText} aria-label="Add text" title="Add text">
+                            <MaterialCommunityIcons name="format-text" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button type="button" onPress={handleRequestImage} aria-label="Add image" title="Add image">
+                            <MaterialCommunityIcons name="image-outline" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button
+                            type="button"
+                            onPress={() => handleAddGuide('horizontal')}
+                            aria-label="Add horizontal guide"
+                            title="Add horizontal guide"
+                        >
+                            <MaterialCommunityIcons name="arrow-collapse-horizontal" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                        <Button
+                            type="button"
+                            onPress={() => handleAddGuide('vertical')}
+                            aria-label="Add vertical guide"
+                            title="Add vertical guide"
+                        >
+                            <MaterialCommunityIcons name="arrow-collapse-vertical" size={TOOLBAR_ICON_SIZE} />
+                        </Button>
+                    </YStack>
+                </YStack>
 
-                    <YStack tag="aside" className="editor-sidebar">
-                        <Heading tag="h2">Canvas</Heading>
-                        <XStack className="canvas-stats">
-                            <Text>
-                                {options.width} × {options.height} px
-                            </Text>
-                            <Text>{layers.length} layers</Text>
-                        </XStack>
-                        <Separator marginVertical="$2" opacity={0.35} />
-                        <YStack className="properties-grid">
-                            <Label>
-                                Width
-                                <Input
-                                    type="number"
-                                    min={100}
-                                    value={Math.round(options.width)}
-                                    onChange={(event) =>
-                                        setOptions((current) => {
-                                            const value = Number(event.target.value);
-                                            return { ...current, width: Number.isFinite(value) ? Math.max(100, value) : current.width };
-                                        })
-                                    }
-                                    disabled={options.canvasSizeLocked || !options.fixedCanvas}
-                                />
-                            </Label>
-                            <Label>
-                                Height
-                                <Input
-                                    type="number"
-                                    min={100}
-                                    value={Math.round(options.height)}
-                                    onChange={(event) =>
-                                        setOptions((current) => {
-                                            const value = Number(event.target.value);
-                                            return { ...current, height: Number.isFinite(value) ? Math.max(100, value) : current.height };
-                                        })
-                                    }
-                                    disabled={options.canvasSizeLocked || !options.fixedCanvas}
-                                />
-                            </Label>
-                            <Label className="full-width">
-                                Background
-                                <Input
-                                    type="color"
-                                    value={options.backgroundColor}
-                                    onChange={(event) => setOptions((current) => ({ ...current, backgroundColor: event.target.value }))}
-                                />
-                            </Label>
-                            <Label>
-                                Show grid
-                                <Input
-                                    type="checkbox"
-                                    checked={options.showGrid}
-                                    onChange={(event) => setOptions((current) => ({ ...current, showGrid: event.target.checked }))}
-                                />
-                            </Label>
-                            <Label>
-                                Grid size
-                                <Input
-                                    type="number"
-                                    min={4}
-                                    value={options.gridSize}
-                                    onChange={(event) =>
-                                        setOptions((current) => {
-                                            const value = Number(event.target.value);
-                                            return { ...current, gridSize: Number.isFinite(value) ? Math.max(4, value) : current.gridSize };
-                                        })
-                                    }
-                                />
-                            </Label>
-                            <Label>
-                                Snap to grid
-                                <Input
-                                    type="checkbox"
-                                    checked={options.snapToGrid}
-                                    onChange={(event) => setOptions((current) => ({ ...current, snapToGrid: event.target.checked }))}
-                                />
-                            </Label>
-                            <Label>
-                                Snap to guides
-                                <Input
-                                    type="checkbox"
-                                    checked={options.snapToGuides}
-                                    onChange={(event) => setOptions((current) => ({ ...current, snapToGuides: event.target.checked }))}
-                                />
-                            </Label>
-                            <Label>
-                                Show guides
-                                <Input
-                                    type="checkbox"
-                                    checked={options.showGuides}
-                                    onChange={(event) => setOptions((current) => ({ ...current, showGuides: event.target.checked }))}
-                                />
-                            </Label>
-                            <Label>
-                                Show rulers
-                                <Input
-                                    type="checkbox"
-                                    checked={options.showRulers}
-                                    onChange={(event) => setOptions((current) => ({ ...current, showRulers: event.target.checked }))}
-                                />
-                            </Label>
-                            <Label className="full-width">
-                                Zoom
-                                <XStack className="zoom-control">
-                                    <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
-                                        <MaterialCommunityIcons name="minus" size={TOOLBAR_ICON_SIZE - 6} />
-                                    </Button>
-                                    <Input
-                                        type="range"
-                                        min={ZOOM_MIN}
-                                        max={ZOOM_MAX}
-                                        step={ZOOM_STEP}
-                                        value={options.zoom}
-                                        onChange={(event) => handleZoomChange(Number(event.target.value))}
-                                        aria-label="Zoom level"
-                                        className="zoom-slider"
-                                    />
-                                    <Text className="zoom-value" aria-live="polite">
-                                        {zoomPercentage}%
-                                    </Text>
-                                    <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
-                                        <MaterialCommunityIcons name="plus" size={TOOLBAR_ICON_SIZE - 6} />
-                                    </Button>
-                                </XStack>
-                            </Label>
-                        </YStack>
-
-                        <Heading tag="h2">Draw tools</Heading>
-                        <YStack className="properties-grid">
-                            <Label>
-                                Draw colour
-                                <Input
-                                    type="color"
-                                    value={drawSettings.color}
-                                    onChange={(event) => setDrawSettings((current) => ({ ...current, color: event.target.value }))}
-                                />
-                            </Label>
-                            <Label>
-                                Draw width
-                                <Input
-                                    type="number"
-                                    min={1}
-                                    value={drawSettings.width}
-                                    onChange={(event) => {
+                <YStack tag="aside" className="editor-sidebar">
+                    <Heading tag="h2">Canvas</Heading>
+                    <XStack className="canvas-stats">
+                        <Text>
+                            {options.width} × {options.height} px
+                        </Text>
+                        <Text>{layers.length} layers</Text>
+                    </XStack>
+                    <Separator marginVertical="$2" opacity={0.35} />
+                    <YStack className="properties-grid">
+                        <Label>
+                            Width
+                            <Input
+                                type="number"
+                                min={100}
+                                value={Math.round(options.width)}
+                                onChange={(event) =>
+                                    setOptions((current) => {
                                         const value = Number(event.target.value);
-                                        setDrawSettings((current) => ({ ...current, width: Number.isFinite(value) ? Math.max(1, value) : current.width }));
-                                    }}
-                                />
-                            </Label>
-                            <Label>
-                                Path colour
-                                <Input
-                                    type="color"
-                                    value={pathSettings.color}
-                                    onChange={(event) => setPathSettings((current) => ({ ...current, color: event.target.value }))}
-                                />
-                            </Label>
-                            <Label>
-                                Path width
-                                <Input
-                                    type="number"
-                                    min={1}
-                                    value={pathSettings.width}
-                                    onChange={(event) => {
-                                        const value = Number(event.target.value);
-                                        setPathSettings((current) => ({ ...current, width: Number.isFinite(value) ? Math.max(1, value) : current.width }));
-                                    }}
-                                />
-                            </Label>
-                        </YStack>
-
-                        <Heading tag="h2">Layers</Heading>
-                        <LayersPanel
-                            layers={layers}
-                            elements={contentElements}
-                            activeLayerId={activeLayerId}
-                            selectedElementIds={selectedIds}
-                            onSelectLayer={handleSelectLayer}
-                            onToggleVisibility={handleToggleVisibility}
-                            onToggleLock={handleToggleLock}
-                            onRemoveLayer={handleRemoveLayer}
-                            onMoveLayer={handleLayerMove}
-                            onAddLayer={handleAddLayer}
-                        />
-
-                        <Heading tag="h2">Selection</Heading>
-                        {selectedElement ? (
-                            <PropertiesPanel
-                                element={selectedElement}
-                                onChange={(attributes) => updateElement(selectedElement.id, attributes)}
-                                onRemove={removeSelected}
+                                        return { ...current, width: Number.isFinite(value) ? Math.max(100, value) : current.width };
+                                    })
+                                }
+                                disabled={options.canvasSizeLocked || !options.fixedCanvas}
                             />
-                        ) : (
-                            <Paragraph className="empty-selection">Select an element to edit its properties.</Paragraph>
-                        )}
+                        </Label>
+                        <Label>
+                            Height
+                            <Input
+                                type="number"
+                                min={100}
+                                value={Math.round(options.height)}
+                                onChange={(event) =>
+                                    setOptions((current) => {
+                                        const value = Number(event.target.value);
+                                        return { ...current, height: Number.isFinite(value) ? Math.max(100, value) : current.height };
+                                    })
+                                }
+                                disabled={options.canvasSizeLocked || !options.fixedCanvas}
+                            />
+                        </Label>
+                        <Label className="full-width">
+                            Background
+                            <Input
+                                type="color"
+                                value={options.backgroundColor}
+                                onChange={(event) => setOptions((current) => ({ ...current, backgroundColor: event.target.value }))}
+                            />
+                        </Label>
+                        <Label>
+                            Show grid
+                            <Input
+                                type="checkbox"
+                                checked={options.showGrid}
+                                onChange={(event) => setOptions((current) => ({ ...current, showGrid: event.target.checked }))}
+                            />
+                        </Label>
+                        <Label>
+                            Grid size
+                            <Input
+                                type="number"
+                                min={4}
+                                value={options.gridSize}
+                                onChange={(event) =>
+                                    setOptions((current) => {
+                                        const value = Number(event.target.value);
+                                        return { ...current, gridSize: Number.isFinite(value) ? Math.max(4, value) : current.gridSize };
+                                    })
+                                }
+                            />
+                        </Label>
+                        <Label>
+                            Snap to grid
+                            <Input
+                                type="checkbox"
+                                checked={options.snapToGrid}
+                                onChange={(event) => setOptions((current) => ({ ...current, snapToGrid: event.target.checked }))}
+                            />
+                        </Label>
+                        <Label>
+                            Snap to guides
+                            <Input
+                                type="checkbox"
+                                checked={options.snapToGuides}
+                                onChange={(event) => setOptions((current) => ({ ...current, snapToGuides: event.target.checked }))}
+                            />
+                        </Label>
+                        <Label>
+                            Show guides
+                            <Input
+                                type="checkbox"
+                                checked={options.showGuides}
+                                onChange={(event) => setOptions((current) => ({ ...current, showGuides: event.target.checked }))}
+                            />
+                        </Label>
+                        <Label>
+                            Show rulers
+                            <Input
+                                type="checkbox"
+                                checked={options.showRulers}
+                                onChange={(event) => setOptions((current) => ({ ...current, showRulers: event.target.checked }))}
+                            />
+                        </Label>
+                        <Label className="full-width">
+                            Zoom
+                            <XStack className="zoom-control">
+                                <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
+                                    <MaterialCommunityIcons name="minus" size={TOOLBAR_ICON_SIZE - 6} />
+                                </Button>
+                                <Input
+                                    type="range"
+                                    min={ZOOM_MIN}
+                                    max={ZOOM_MAX}
+                                    step={ZOOM_STEP}
+                                    value={options.zoom}
+                                    onChange={(event) => handleZoomChange(Number(event.target.value))}
+                                    aria-label="Zoom level"
+                                    className="zoom-slider"
+                                />
+                                <Text className="zoom-value" aria-live="polite">
+                                    {zoomPercentage}%
+                                </Text>
+                                <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
+                                    <MaterialCommunityIcons name="plus" size={TOOLBAR_ICON_SIZE - 6} />
+                                </Button>
+                            </XStack>
+                        </Label>
                     </YStack>
 
-                    <YStack className="editor-layout">
-                        <XStack ref={editorCanvasRef} className="editor-canvas">
-                            <Stack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={{ width: stageWidth, height: stageHeight }}>
-                                {options.showRulers && (
-                                    <Stack
-                                        className="stage-ruler stage-ruler-horizontal"
-                                        style={{ width: stageWidth, backgroundSize: `${rulerStep}px 100%` }}
-                                    />
-                                )}
-                                {options.showRulers && (
-                                    <Stack
-                                        className="stage-ruler stage-ruler-vertical"
-                                        style={{ height: stageHeight, backgroundSize: `100% ${rulerStep}px` }}
-                                    />
-                                )}
-                                <Stack className="stage-canvas" style={stageCanvasStyle}>
-                                    <Stage
-                                        ref={stageRef}
-                                        width={stageWidth}
-                                        height={stageHeight}
-                                        x={stagePosition.x}
-                                        y={stagePosition.y}
-                                        scaleX={options.zoom}
-                                        scaleY={options.zoom}
-                                        onMouseEnter={handleStageMouseEnter}
-                                        onMouseLeave={handleStageMouseLeave}
-                                        onMouseDown={handleStagePointerDown}
-                                        onTouchStart={handleStagePointerDown}
-                                        onMouseMove={handleStagePointerMove}
-                                        onTouchMove={handleStagePointerMove}
-                                        onMouseUp={handleStagePointerUp}
-                                        onTouchEnd={handleStagePointerUp}
-                                        onTouchCancel={handleStagePointerUp}
-                                    >
-                                        <Layer>
-                                            {options.showGuides &&
-                                                guides.map((guide, guideIndex) => (
-                                                    <GuideNode
-                                                        key={guide.id}
-                                                        shape={guide}
-                                                        isSelected={selectedIds.includes(guide.id)}
-                                                        selectionEnabled={activeTool === 'select'}
-                                                        onSelect={() => handleSelectElement(guide.id)}
-                                                        onChange={(attributes) => updateElement(guide.id, attributes)}
-                                                        zIndex={guideIndex}
-                                                    />
-                                                ))}
-                                            {contentElements.map((element, elementIndex) => {
-                                                const zIndex = guides.length + elementIndex;
-                                                const layer = element.layerId ? layerMap.get(element.layerId) ?? null : null;
-                                                const isLayerLocked = layer?.locked ?? false;
-                                                const isSelected = selectedIds.includes(element.id);
-                                                const selectionEnabled = activeTool === 'select' && !isLayerLocked;
-                                                const dragBound = dragBoundFactory(element);
+                    <Heading tag="h2">Draw tools</Heading>
+                    <YStack className="properties-grid">
+                        <Label>
+                            Draw colour
+                            <Input
+                                type="color"
+                                value={drawSettings.color}
+                                onChange={(event) => setDrawSettings((current) => ({ ...current, color: event.target.value }))}
+                            />
+                        </Label>
+                        <Label>
+                            Draw width
+                            <Input
+                                type="number"
+                                min={1}
+                                value={drawSettings.width}
+                                onChange={(event) => {
+                                    const value = Number(event.target.value);
+                                    setDrawSettings((current) => ({ ...current, width: Number.isFinite(value) ? Math.max(1, value) : current.width }));
+                                }}
+                            />
+                        </Label>
+                        <Label>
+                            Path colour
+                            <Input
+                                type="color"
+                                value={pathSettings.color}
+                                onChange={(event) => setPathSettings((current) => ({ ...current, color: event.target.value }))}
+                            />
+                        </Label>
+                        <Label>
+                            Path width
+                            <Input
+                                type="number"
+                                min={1}
+                                value={pathSettings.width}
+                                onChange={(event) => {
+                                    const value = Number(event.target.value);
+                                    setPathSettings((current) => ({ ...current, width: Number.isFinite(value) ? Math.max(1, value) : current.width }));
+                                }}
+                            />
+                        </Label>
+                    </YStack>
 
-                                                switch (element.type) {
-                                                    case 'rect':
-                                                        return (
-                                                            <RectNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'frame':
-                                                        return (
-                                                            <FrameNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'circle':
-                                                        return (
-                                                            <CircleNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'ellipse':
-                                                        return (
-                                                            <EllipseNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'triangle':
-                                                        return (
-                                                            <TriangleNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'line':
-                                                        return (
-                                                            <LineNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'path':
-                                                        return (
-                                                            <PathNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'pencil':
-                                                        return (
-                                                            <PencilNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'text':
-                                                        return (
-                                                            <TextNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'image':
-                                                        return (
-                                                            <ImageNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    default:
-                                                        return null;
-                                                }
-                                            })}
-                                        </Layer>
-                                    </Stage>
-                                </Stack>
+                    <Heading tag="h2">Layers</Heading>
+                    <LayersPanel
+                        layers={layers}
+                        elements={contentElements}
+                        activeLayerId={activeLayerId}
+                        selectedElementIds={selectedIds}
+                        onSelectLayer={handleSelectLayer}
+                        onToggleVisibility={handleToggleVisibility}
+                        onToggleLock={handleToggleLock}
+                        onRemoveLayer={handleRemoveLayer}
+                        onMoveLayer={handleLayerMove}
+                        onAddLayer={handleAddLayer}
+                    />
+
+                    <Heading tag="h2">Selection</Heading>
+                    {selectedElement ? (
+                        <PropertiesPanel
+                            element={selectedElement}
+                            onChange={(attributes) => updateElement(selectedElement.id, attributes)}
+                            onRemove={removeSelected}
+                        />
+                    ) : (
+                        <Paragraph className="empty-selection">Select an element to edit its properties.</Paragraph>
+                    )}
+                </YStack>
+
+                <YStack className="editor-layout">
+                    <XStack ref={editorCanvasRef} className="editor-canvas">
+                        <Stack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={{ width: stageWidth, height: stageHeight }}>
+                            {options.showRulers && (
+                                <Stack
+                                    className="stage-ruler stage-ruler-horizontal"
+                                    style={{ width: stageWidth, backgroundSize: `${rulerStep}px 100%` }}
+                                />
+                            )}
+                            {options.showRulers && (
+                                <Stack
+                                    className="stage-ruler stage-ruler-vertical"
+                                    style={{ height: stageHeight, backgroundSize: `100% ${rulerStep}px` }}
+                                />
+                            )}
+                            <Stack className="stage-canvas" style={stageCanvasStyle}>
+                                <Stage
+                                    ref={stageRef}
+                                    width={stageWidth}
+                                    height={stageHeight}
+                                    x={stagePosition.x}
+                                    y={stagePosition.y}
+                                    scaleX={options.zoom}
+                                    scaleY={options.zoom}
+                                    onMouseEnter={handleStageMouseEnter}
+                                    onMouseLeave={handleStageMouseLeave}
+                                    onMouseDown={handleStagePointerDown}
+                                    onTouchStart={handleStagePointerDown}
+                                    onMouseMove={handleStagePointerMove}
+                                    onTouchMove={handleStagePointerMove}
+                                    onMouseUp={handleStagePointerUp}
+                                    onTouchEnd={handleStagePointerUp}
+                                    onTouchCancel={handleStagePointerUp}
+                                >
+                                    <Layer>
+                                        {options.showGuides &&
+                                            guides.map((guide, guideIndex) => (
+                                                <GuideNode
+                                                    key={guide.id}
+                                                    shape={guide}
+                                                    isSelected={selectedIds.includes(guide.id)}
+                                                    selectionEnabled={activeTool === 'select'}
+                                                    onSelect={() => handleSelectElement(guide.id)}
+                                                    onChange={(attributes) => updateElement(guide.id, attributes)}
+                                                    zIndex={guideIndex}
+                                                />
+                                            ))}
+                                        {contentElements.map((element, elementIndex) => {
+                                            const zIndex = guides.length + elementIndex;
+                                            const layer = element.layerId ? layerMap.get(element.layerId) ?? null : null;
+                                            const isLayerLocked = layer?.locked ?? false;
+                                            const isSelected = selectedIds.includes(element.id);
+                                            const selectionEnabled = activeTool === 'select' && !isLayerLocked;
+                                            const dragBound = dragBoundFactory(element);
+
+                                            switch (element.type) {
+                                                case 'rect':
+                                                    return (
+                                                        <RectNode
+                                                            key={element.id}
+                                                            shape={element}
+                                                            isSelected={isSelected}
+                                                            selectionEnabled={selectionEnabled}
+                                                            onSelect={() => handleSelectElement(element.id)}
+                                                            onChange={(attributes) => updateElement(element.id, attributes)}
+                                                            dragBoundFunc={dragBound}
+                                                            zIndex={zIndex}
+                                                        />
+                                                    );
+                                                case 'frame':
+                                                    return (
+                                                        <FrameNode
+                                                            key={element.id}
+                                                            shape={element}
+                                                            isSelected={isSelected}
+                                                            selectionEnabled={selectionEnabled}
+                                                            onSelect={() => handleSelectElement(element.id)}
+                                                            onChange={(attributes) => updateElement(element.id, attributes)}
+                                                            dragBoundFunc={dragBound}
+                                                            zIndex={zIndex}
+                                                        />
+                                                    );
+                                                case 'circle':
+                                                    return (
+                                                        <CircleNode
+                                                            key={element.id}
+                                                            shape={element}
+                                                            isSelected={isSelected}
+                                                            selectionEnabled={selectionEnabled}
+                                                            onSelect={() => handleSelectElement(element.id)}
+                                                            onChange={(attributes) => updateElement(element.id, attributes)}
+                                                            dragBoundFunc={dragBound}
+                                                            zIndex={zIndex}
+                                                        />
+                                                    );
+                                                case 'ellipse':
+                                                    return (
+                                                        <EllipseNode
+                                                            key={element.id}
+                                                            shape={element}
+                                                            isSelected={isSelected}
+                                                            selectionEnabled={selectionEnabled}
+                                                            onSelect={() => handleSelectElement(element.id)}
+                                                            onChange={(attributes) => updateElement(element.id, attributes)}
+                                                            dragBoundFunc={dragBound}
+                                                            zIndex={zIndex}
+                                                        />
+                                                    );
+                                                case 'triangle':
+                                                    return (
+                                                        <TriangleNode
+                                                            key={element.id}
+                                                            shape={element}
+                                                            isSelected={isSelected}
+                                                            selectionEnabled={selectionEnabled}
+                                                            onSelect={() => handleSelectElement(element.id)}
+                                                            onChange={(attributes) => updateElement(element.id, attributes)}
+                                                            dragBoundFunc={dragBound}
+                                                            zIndex={zIndex}
+                                                        />
+                                                    );
+                                                case 'line':
+                                                    return (
+                                                        <LineNode
+                                                            key={element.id}
+                                                            shape={element}
+                                                            isSelected={isSelected}
+                                                            selectionEnabled={selectionEnabled}
+                                                            onSelect={() => handleSelectElement(element.id)}
+                                                            onChange={(attributes) => updateElement(element.id, attributes)}
+                                                            dragBoundFunc={dragBound}
+                                                            zIndex={zIndex}
+                                                        />
+                                                    );
+                                                case 'path':
+                                                    return (
+                                                        <PathNode
+                                                            key={element.id}
+                                                            shape={element}
+                                                            isSelected={isSelected}
+                                                            selectionEnabled={selectionEnabled}
+                                                            onSelect={() => handleSelectElement(element.id)}
+                                                            onChange={(attributes) => updateElement(element.id, attributes)}
+                                                            dragBoundFunc={dragBound}
+                                                            zIndex={zIndex}
+                                                        />
+                                                    );
+                                                case 'pencil':
+                                                    return (
+                                                        <PencilNode
+                                                            key={element.id}
+                                                            shape={element}
+                                                            isSelected={isSelected}
+                                                            selectionEnabled={selectionEnabled}
+                                                            onSelect={() => handleSelectElement(element.id)}
+                                                            onChange={(attributes) => updateElement(element.id, attributes)}
+                                                            dragBoundFunc={dragBound}
+                                                            zIndex={zIndex}
+                                                        />
+                                                    );
+                                                case 'text':
+                                                    return (
+                                                        <TextNode
+                                                            key={element.id}
+                                                            shape={element}
+                                                            isSelected={isSelected}
+                                                            selectionEnabled={selectionEnabled}
+                                                            onSelect={() => handleSelectElement(element.id)}
+                                                            onChange={(attributes) => updateElement(element.id, attributes)}
+                                                            dragBoundFunc={dragBound}
+                                                            zIndex={zIndex}
+                                                        />
+                                                    );
+                                                case 'image':
+                                                    return (
+                                                        <ImageNode
+                                                            key={element.id}
+                                                            shape={element}
+                                                            isSelected={isSelected}
+                                                            selectionEnabled={selectionEnabled}
+                                                            onSelect={() => handleSelectElement(element.id)}
+                                                            onChange={(attributes) => updateElement(element.id, attributes)}
+                                                            dragBoundFunc={dragBound}
+                                                            zIndex={zIndex}
+                                                        />
+                                                    );
+                                                default:
+                                                    return null;
+                                            }
+                                        })}
+                                    </Layer>
+                                </Stage>
                             </Stack>
-                        </XStack>
-                    </YStack>
-                </XStack>
+                        </Stack>
+                    </XStack>
+                </YStack>
+            </XStack>
 
-                <Input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={handleUploadFile}
-                />
-            </YStack>
-        </XStack>
+            <Input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleUploadFile}
+            />
+        </YStack>
     );
 }
 
