@@ -13,7 +13,6 @@ module.exports = {
       'its-fine': path.resolve(__dirname, 'shims/itsFine.ts'),
       'react/jsx-runtime': path.resolve(__dirname, 'shims/jsxRuntime.ts'),
       'react-konva': path.resolve(__dirname, 'shims/reactKonva.tsx'),
-      tamagui: path.resolve(__dirname, 'shims/tamagui.tsx'),
     },
   },
   externals: {

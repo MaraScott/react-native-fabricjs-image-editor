@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { TamaguiProvider } from 'tamagui';
+import { TamaguiProvider } from './shims/tamagui';
 import EditorApp from './components/EditorApp';
 import type { EditorDocument, EditorOptions } from './types/editor';
 import { createEmptyDesign, parseDesign } from './utils/design';

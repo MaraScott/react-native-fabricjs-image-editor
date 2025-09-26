@@ -10,7 +10,20 @@ import {
     type CSSProperties,
 } from 'react';
 import { Group, Layer, Stage } from 'react-konva';
-import { Button, Heading, Image, Input, Label, Paragraph, Separator, Stack, Text, XStack, YStack, useWindowDimensions } from 'tamagui';
+import {
+    Button,
+    Heading,
+    Image,
+    Input,
+    Label,
+    Paragraph,
+    Separator,
+    Stack,
+    Text,
+    XStack,
+    YStack,
+    useWindowDimensions,
+} from '../shims/tamagui';
 import { MaterialCommunityIcons } from './icons/MaterialCommunityIcons';
 import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
 import LayersPanel from './LayersPanel';

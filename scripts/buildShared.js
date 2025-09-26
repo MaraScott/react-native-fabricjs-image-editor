@@ -16,7 +16,6 @@ const aliasMap = {
   'react-konva': path.resolve(projectRoot, 'shims/reactKonva.tsx'),
   'react/jsx-runtime': path.resolve(projectRoot, 'shims/jsxRuntime.ts'),
   'its-fine': path.resolve(projectRoot, 'shims/itsFine.ts'),
-  tamagui: path.resolve(projectRoot, 'shims/tamagui.tsx'),
   konva: path.resolve(projectRoot, 'shims/konvaGlobal.ts'),
 };
 
@@ -242,6 +241,7 @@ function createBuildOptions({ mode = 'production' } = {}) {
     define: createDefine(isProd),
     tsconfig: path.resolve(projectRoot, 'tsconfig.json'),
     logLevel: 'info',
+    external: ['react', 'react-dom', 'react-dom/client', 'konva'],
     plugins: [createAliasPlugin(), createEmptyModulePlugin(), createAssetManifestPlugin({ mode })],
     banner: {
       js: createEnvBanner(isProd),
