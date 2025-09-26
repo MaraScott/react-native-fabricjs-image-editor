@@ -943,6 +943,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     } | null>(null);
     const spacePressedRef = useRef(false);
     const stageHoverRef = useRef(false);
+    const previousCursorRef = useRef<{ inline: string; hadInline: boolean } | null>(null);
     const [isPanMode, setIsPanMode] = useState(false);
     const [isPanning, setIsPanning] = useState(false);
 
@@ -1014,6 +1015,39 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             }
         };
     }, [options.fixedCanvas, setOptions]);
+
+    useEffect(() => {
+        const stage = stageRef.current;
+        const container = typeof stage?.container === 'function' ? stage.container() : null;
+        if (!container) {
+            return;
+        }
+
+        if (isPanMode || isPanning) {
+            if (!previousCursorRef.current) {
+                const inline = container.style.cursor;
+                previousCursorRef.current = {
+                    inline,
+                    hadInline: inline.length > 0,
+                };
+            }
+            container.style.cursor = isPanning ? 'grabbing' : 'grab';
+            return;
+        }
+
+        if (previousCursorRef.current) {
+            const { inline, hadInline } = previousCursorRef.current;
+            if (hadInline) {
+                container.style.cursor = inline;
+            } else {
+                container.style.removeProperty('cursor');
+            }
+            previousCursorRef.current = null;
+            return;
+        }
+
+        container.style.removeProperty('cursor');
+    }, [isPanMode, isPanning]);
 
     useEffect(() => {
         if (layers.length === 0) {
