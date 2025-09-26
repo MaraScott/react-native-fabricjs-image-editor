@@ -13,6 +13,9 @@
     "noEmitOnError": false,
     "types": ["react", "react-dom"],
     "paths": {
+      "react": ["./types/react"],
+      "react-dom": ["./types/react-dom"],
+      "react-dom/*": ["./types/react-dom"],
       "react-konva": ["./shims/reactKonva"],
       "react/jsx-runtime": ["./shims/jsxRuntime"],
       "its-fine": ["./shims/itsFine"],

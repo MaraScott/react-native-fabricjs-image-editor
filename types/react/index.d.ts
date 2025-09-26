@@ -1,0 +1,46 @@
+declare module 'react' {
+  const React: any;
+  export default React;
+  export const Children: any;
+  export const Component: any;
+  export const Fragment: any;
+  export const Profiler: any;
+  export const PureComponent: any;
+  export const StrictMode: any;
+  export const Suspense: any;
+  export const SuspenseList: any;
+  export const cloneElement: any;
+  export const createContext: any;
+  export const createElement: any;
+  export const createFactory: any;
+  export const createRef: any;
+  export const forwardRef: any;
+  export const isValidElement: any;
+  export const lazy: any;
+  export const memo: any;
+  export const startTransition: any;
+  export const unstable_act: any;
+  export const unstable_useOpaqueIdentifier: any;
+  export const use: any;
+  export const useCallback: any;
+  export const useContext: any;
+  export const useDebugValue: any;
+  export const useDeferredValue: any;
+  export const useEffect: any;
+  export const useId: any;
+  export const useImperativeHandle: any;
+  export const useInsertionEffect: any;
+  export const useLayoutEffect: any;
+  export const useMemo: any;
+  export const useReducer: any;
+  export const useRef: any;
+  export const useState: any;
+  export const useSyncExternalStore: any;
+  export const useTransition: any;
+  export const version: string;
+  export type ReactNode = any;
+  export type ReactElement = any;
+  export type ChangeEvent<T = any> = { target: T };
+  export type RefObject<T> = { current: T | null };
+  export interface SVGAttributes<T> extends Record<string, any> {}
+}
