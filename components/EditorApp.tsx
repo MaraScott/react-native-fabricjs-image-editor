@@ -1968,30 +1968,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                     onChange={(event) => setOptions((current) => ({ ...current, showRulers: event.target.checked }))}
                                 />
                             </Label>
-                            <Label className="full-width">
-                                Zoom
-                                <XStack className="zoom-control">
-                                    <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
-                                        <MaterialCommunityIcons name="minus" size={TOOLBAR_ICON_SIZE - 6} />
-                                    </Button>
-                                    <Input
-                                        type="range"
-                                        min={ZOOM_MIN}
-                                        max={ZOOM_MAX}
-                                        step={ZOOM_STEP}
-                                        value={options.zoom}
-                                        onChange={(event) => handleZoomChange(Number(event.target.value))}
-                                        aria-label="Zoom level"
-                                        className="zoom-slider"
-                                    />
-                                    <Text className="zoom-value" aria-live="polite">
-                                        {zoomPercentage}%
-                                    </Text>
-                                    <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
-                                        <MaterialCommunityIcons name="plus" size={TOOLBAR_ICON_SIZE - 6} />
-                                    </Button>
-                                </XStack>
-                            </Label>
                         </YStack>
 
                         <Heading tag="h2">Draw tools</Heading>
@@ -2236,6 +2212,30 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             })}
                                         </Layer>
                                     </Stage>
+                                    <XStack
+                                        className="stage-zoom-bar zoom-control"
+                                        aria-label="Zoom controls"
+                                    >
+                                        <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
+                                            <MaterialCommunityIcons name="minus" size={TOOLBAR_ICON_SIZE - 6} />
+                                        </Button>
+                                        <Input
+                                            type="range"
+                                            min={ZOOM_MIN}
+                                            max={ZOOM_MAX}
+                                            step={ZOOM_STEP}
+                                            value={options.zoom}
+                                            onChange={(event) => handleZoomChange(Number(event.target.value))}
+                                            aria-label="Zoom level"
+                                            className="zoom-slider"
+                                        />
+                                        <Text className="zoom-value" aria-live="polite">
+                                            {zoomPercentage}%
+                                        </Text>
+                                        <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
+                                            <MaterialCommunityIcons name="plus" size={TOOLBAR_ICON_SIZE - 6} />
+                                        </Button>
+                                    </XStack>
                                 </Stack>
                             </Stack>
                         </XStack>
