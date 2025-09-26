@@ -24,7 +24,6 @@ body {
 .editor-shell {
     display: flex;
     gap: 12px;
-    padding: 12px;
     flex-direction: column;
     background: color-mix(in srgb, var(--background, #111317) 94%, transparent);
 }
