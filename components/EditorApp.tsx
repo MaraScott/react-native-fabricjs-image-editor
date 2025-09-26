@@ -1628,11 +1628,14 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             ) {
                 const offsetX = resolvedAnchor.clientX - containerBounds.left;
                 const offsetY = resolvedAnchor.clientY - containerBounds.top;
-                const pointerStageX = stage.x() + offsetX / previousZoom;
-                const pointerStageY = stage.y() + offsetY / previousZoom;
-                const nextX = pointerStageX - offsetX / nextZoom;
-                const nextY = pointerStageY - offsetY / nextZoom;
-                const nextPosition = { x: nextX, y: nextY };
+                const currentX = stage.x();
+                const currentY = stage.y();
+                const anchorStageX = (offsetX - currentX) / previousZoom;
+                const anchorStageY = (offsetY - currentY) / previousZoom;
+                const nextPosition = {
+                    x: offsetX - anchorStageX * nextZoom,
+                    y: offsetY - anchorStageY * nextZoom,
+                };
                 stage.position(nextPosition);
                 stage.batchDraw();
                 setStagePosition(nextPosition);
