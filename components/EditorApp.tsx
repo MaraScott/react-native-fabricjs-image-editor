@@ -839,6 +839,16 @@ function clampZoom(value: number): number {
     return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
 }
 
+function getStagePointer(stage: StageType): Vector2d | null {
+    const pointer = stage.getPointerPosition();
+    if (!pointer) {
+        return null;
+    }
+    const transform = stage.getAbsoluteTransform().copy();
+    transform.invert();
+    return transform.point(pointer);
+}
+
 function getInitialOptions(options?: Partial<EditorOptions>): EditorOptions {
     return { ...DEFAULT_OPTIONS, ...(options ?? {}) };
 }
@@ -1451,7 +1461,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
             const stage = event.target.getStage();
             if (!stage) return;
-            const pointer = stage.getPointerPosition();
+            const pointer = getStagePointer(stage);
             if (!pointer) return;
 
             if (activeTool === 'draw' || activeTool === 'path') {
@@ -1508,7 +1518,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             if (!drawingState) return;
             const stage = event.target.getStage();
             if (!stage) return;
-            const pointer = stage.getPointerPosition();
+            const pointer = getStagePointer(stage);
             if (!pointer) return;
 
             updateElements((current) =>
