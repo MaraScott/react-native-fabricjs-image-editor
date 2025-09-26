@@ -277,38 +277,22 @@ export default function LayerPreview({ elements, width = 64, height = 48, hidden
     return () => window.cancelAnimationFrame(frame);
   }, [elements, view, width, height, version]);
 
-  if (elements.length === 0) {
-    return (
-      <div className={className}>
-        <div className="layer-preview-placeholder" />
-        {hidden ? (
-          <span className="layer-preview-indicator layer-preview-indicator-hidden" aria-hidden="true">
-            🚫
-          </span>
-        ) : null}
-        {locked ? (
-          <span className="layer-preview-indicator layer-preview-indicator-locked" aria-hidden="true">
-            🔒
-          </span>
-        ) : null}
-      </div>
-    );
-  }
+  const showPlaceholder = elements.length === 0;
+  const showImage = Boolean(dataUrl);
 
   return (
     <div className={className}>
-      {dataUrl ? (
+      {showImage ? (
         <img
           className="layer-preview-image"
-          src={dataUrl}
+          src={dataUrl ?? undefined}
           alt="Layer preview"
           width={width}
           height={height}
           draggable={false}
         />
-      ) : (
-        <div className="layer-preview-placeholder" />
-      )}
+      ) : null}
+      {showPlaceholder ? <div className="layer-preview-placeholder" /> : null}
       <Stage
         ref={stageRef}
         width={width}
@@ -316,7 +300,12 @@ export default function LayerPreview({ elements, width = 64, height = 48, hidden
         scaleX={view.scale}
         scaleY={view.scale}
         listening={false}
-        style={{ position: 'absolute', inset: 0, opacity: 0, pointerEvents: 'none' }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: showImage || showPlaceholder ? 0 : 1,
+          pointerEvents: 'none',
+        }}
       >
         <KonvaLayer>
           <Group ref={groupRef} x={-view.offsetX} y={-view.offsetY}>
