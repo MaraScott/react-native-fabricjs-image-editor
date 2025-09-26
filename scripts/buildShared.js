@@ -242,6 +242,7 @@ function createBuildOptions({ mode = 'production' } = {}) {
     define: createDefine(isProd),
     tsconfig: path.resolve(projectRoot, 'tsconfig.json'),
     logLevel: 'info',
+    external: ['react', 'react-dom', 'react-dom/client', 'konva'],
     plugins: [createAliasPlugin(), createEmptyModulePlugin(), createAssetManifestPlugin({ mode })],
     banner: {
       js: createEnvBanner(isProd),
