@@ -50,7 +50,6 @@ import {
     createLayerDefinition,
     createRect,
     createText,
-    createTriangle,
     getNextLayerName,
     orderElementsByLayer,
 } from '../utils/editorElements';
@@ -979,10 +978,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         setSelectedIds([]);
     }, [selectedIds, updateElements]);
 
-    const handleAddTriangle = useCallback(() => {
-        addElement(createTriangle(options));
-    }, [addElement, options]);
-
     const handleAddDraw = useCallback(() => {
         setActiveTool('draw');
     }, []);
@@ -1861,9 +1856,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                             Active tool: {activeToolLabel}
                         </Text>
                         <YStack className="toolbar-group">
-                            <Button type="button" onPress={handleAddTriangle} aria-label="Add triangle" title="Add triangle">
-                                <MaterialCommunityIcons name="triangle-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
                             <Button type="button" onPress={handleAddText} aria-label="Add text" title="Add text">
                                 <MaterialCommunityIcons name="format-text" size={TOOLBAR_ICON_SIZE} />
                             </Button>
