@@ -1837,22 +1837,23 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         };
     }, [design, handleAddImage, handleClear, handleExport, postMessage, redo, resetDesign, undo]);
 
+    const stageWidth = Math.round(options.width);
+    const stageHeight = Math.round(options.height);
+    const rulerStep = Math.max(1, 32 * options.zoom);
     const gridBackground = useMemo(() => {
         if (!options.showGrid) {
             return {
                 backgroundColor: options.backgroundColor,
             } as const;
         }
+        const scaledGrid = Math.max(1, options.gridSize * options.zoom);
         return {
             backgroundColor: options.backgroundColor,
             backgroundImage:
                 'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)',
-            backgroundSize: `${options.gridSize}px ${options.gridSize}px`,
+            backgroundSize: `${scaledGrid}px ${scaledGrid}px`,
         } as const;
-    }, [options.backgroundColor, options.gridSize, options.showGrid]);
-
-    const zoomedWidth = Math.round(options.width * options.zoom);
-    const zoomedHeight = Math.round(options.height * options.zoom);
+    }, [options.backgroundColor, options.gridSize, options.showGrid, options.zoom]);
     const zoomPercentage = useMemo(() => Math.round(options.zoom * 100), [options.zoom]);
 
     return (
@@ -2208,14 +2209,24 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
                     <YStack className="editor-layout">
                         <YStack ref={editorCanvasRef} className="editor-canvas">
-                            <Stack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={{ width: zoomedWidth, height: zoomedHeight }}>
-                                {options.showRulers && <Stack className="stage-ruler stage-ruler-horizontal" style={{ width: zoomedWidth }} />}
-                                {options.showRulers && <Stack className="stage-ruler stage-ruler-vertical" style={{ height: zoomedHeight }} />}
-                                <Stack className="stage-canvas" style={{ width: zoomedWidth, height: zoomedHeight, ...gridBackground }}>
+                            <Stack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={{ width: stageWidth, height: stageHeight }}>
+                                {options.showRulers && (
+                                    <Stack
+                                        className="stage-ruler stage-ruler-horizontal"
+                                        style={{ width: stageWidth, backgroundSize: `${rulerStep}px 100%` }}
+                                    />
+                                )}
+                                {options.showRulers && (
+                                    <Stack
+                                        className="stage-ruler stage-ruler-vertical"
+                                        style={{ height: stageHeight, backgroundSize: `100% ${rulerStep}px` }}
+                                    />
+                                )}
+                                <Stack className="stage-canvas" style={{ width: stageWidth, height: stageHeight, ...gridBackground }}>
                                     <Stage
                                         ref={stageRef}
-                                        width={options.width}
-                                        height={options.height}
+                                        width={stageWidth}
+                                        height={stageHeight}
                                         scaleX={options.zoom}
                                         scaleY={options.zoom}
                                         onMouseDown={handleStagePointerDown}
