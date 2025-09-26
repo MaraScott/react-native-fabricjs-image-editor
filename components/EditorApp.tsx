@@ -6,6 +6,7 @@ import {
     useRef,
     useState,
     type ChangeEvent,
+    type ComponentProps,
     type CSSProperties,
 } from 'react';
 import { Group, Layer, Stage } from 'react-konva';
@@ -1834,13 +1835,15 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         return baseStyle;
     }, [gridBackground, stageCursor, stageHeight, stageWidth]);
 
-    const XYStack = ({ isSmall, ...props }) => {
-        const XYStack = isSmall ? YStack : XStack
-        return <XYStack {...props} />
-    }
+    type ResponsiveStackProps = { isSmall: boolean } & ComponentProps<typeof XStack>;
+
+    const ResponsiveStack = ({ isSmall, ...props }: ResponsiveStackProps) => {
+        const StackComponent = isSmall ? YStack : XStack;
+        return <StackComponent {...props} />;
+    };
 
     const EditorTools = () => (
-        <XYStack isSmall={isSmall} className="toolbar-group">
+        <ResponsiveStack isSmall={isSmall} className="toolbar-group">
             <Button type="button" onPress={undo} disabled={!canUndo} aria-label="Undo" title="Undo">
                 <MaterialCommunityIcons name="undo" size={TOOLBAR_ICON_SIZE} />
             </Button>
@@ -1886,11 +1889,11 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             <Button type="button" onPress={handleClear} aria-label="Clear canvas" title="Clear canvas">
                 <MaterialCommunityIcons name="eraser-variant" size={TOOLBAR_ICON_SIZE} />
             </Button>
-        </XYStack>
+        </ResponsiveStack>
     )
 
     const EditorSave = () => (
-        <XYStack isSmall={isSmall} className="toolbar-group">
+        <ResponsiveStack isSmall={isSmall} className="toolbar-group">
             <Button type="button" onPress={handleSave} aria-label="Save" title="Save">
                 <MaterialCommunityIcons name="content-save-outline" size={TOOLBAR_ICON_SIZE} />
             </Button>
@@ -1909,7 +1912,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             <Button type="button" onPress={() => handleExport('json')} aria-label="Export JSON" title="Export JSON">
                 <MaterialCommunityIcons name="code-json" size={TOOLBAR_ICON_SIZE} />
             </Button>
-        </XYStack>
+        </ResponsiveStack>
     )
 
     return (
