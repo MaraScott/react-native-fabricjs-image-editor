@@ -37,7 +37,6 @@ import type {
     GuideElement,
     ImageElement,
     LineElement,
-    PathElement,
     PencilElement,
     RectElement,
     TextElement,
@@ -46,12 +45,9 @@ import {
     assignElementsToLayer,
     cloneElement,
     createCircle,
-    createEllipse,
     createFrame,
-    createGuide,
     createImage,
     createLayerDefinition,
-    createLine,
     createRect,
     createText,
     createTriangle,
@@ -69,11 +65,10 @@ import {
     SidebarContent,
 } from '../../../../theme/ui/styles'
 
-type Tool = 'select' | 'draw' | 'path';
+type Tool = 'select' | 'draw';
 
 type DrawingState = {
     id: string;
-    type: 'pencil' | 'path';
     origin: { x: number; y: number };
 };
 
@@ -90,7 +85,6 @@ const SNAP_THRESHOLD = 12;
 const STORAGE_KEY = 'konva-image-editor-design';
 
 const DEFAULT_DRAW = { color: '#2563eb', width: 5 };
-const DEFAULT_PATH = { color: '#0f172a', width: 3 };
 const TOOLBAR_ICON_SIZE = 20;
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 3;
@@ -636,7 +630,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const [drawingState, setDrawingState] = useState<DrawingState | null>(null);
     const [clipboard, setClipboard] = useState<EditorElement[] | null>(null);
     const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
-    const [pathSettings, setPathSettings] = useState(DEFAULT_PATH);
     const [stagePosition, setStagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
     const stagePositionRef = useRef(stagePosition);
     const panStateRef = useRef<{
@@ -986,29 +979,9 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         setSelectedIds([]);
     }, [selectedIds, updateElements]);
 
-    const handleAddRect = useCallback(() => {
-        addElement(createRect(options));
-    }, [addElement, options]);
-
-    const handleAddCircle = useCallback(() => {
-        addElement(createCircle(options));
-    }, [addElement, options]);
-
-    const handleAddEllipse = useCallback(() => {
-        addElement(createEllipse(options));
-    }, [addElement, options]);
-
     const handleAddTriangle = useCallback(() => {
         addElement(createTriangle(options));
     }, [addElement, options]);
-
-    const handleAddLine = useCallback(() => {
-        addElement(createLine(options));
-    }, [addElement, options]);
-
-    const handleAddPath = useCallback(() => {
-        setActiveTool('path');
-    }, []);
 
     const handleAddDraw = useCallback(() => {
         setActiveTool('draw');
@@ -1017,13 +990,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const handleAddText = useCallback(() => {
         addElement(createText(options));
     }, [addElement, options]);
-
-    const handleAddGuide = useCallback(
-        (orientation: GuideElement['orientation']) => {
-            addElement(createGuide(options, orientation));
-        },
-        [addElement, options],
-    );
 
     const handleAddFrame = useCallback(
         (frame: FrameElement) => {
@@ -1315,44 +1281,25 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             const pointer = getStagePointer(stage);
             if (!pointer) return;
 
-            if (activeTool === 'draw' || activeTool === 'path') {
-                const type = activeTool === 'draw' ? 'pencil' : 'path';
-                const element: PencilElement | PathElement =
-                    type === 'pencil'
-                        ? {
-                            ...createBaseElement('pencil', {
-                                name: 'Free draw',
-                                x: pointer.x,
-                                y: pointer.y,
-                                rotation: 0,
-                                opacity: 1,
-                                metadata: null,
-                            }),
-                            type: 'pencil',
-                            points: [0, 0],
-                            stroke: drawSettings.color,
-                            strokeWidth: drawSettings.width,
-                            lineCap: 'round',
-                            lineJoin: 'round',
-                        }
-                        : {
-                            ...createBaseElement('path', {
-                                name: 'Path',
-                                x: pointer.x,
-                                y: pointer.y,
-                                rotation: 0,
-                                opacity: 1,
-                                metadata: null,
-                            }),
-                            type: 'path',
-                            points: [0, 0],
-                            stroke: pathSettings.color,
-                            strokeWidth: pathSettings.width,
-                            tension: 0,
-                            closed: false,
-                        };
+            if (activeTool === 'draw') {
+                const element: PencilElement = {
+                    ...createBaseElement('pencil', {
+                        name: 'Free draw',
+                        x: pointer.x,
+                        y: pointer.y,
+                        rotation: 0,
+                        opacity: 1,
+                        metadata: null,
+                    }),
+                    type: 'pencil',
+                    points: [0, 0],
+                    stroke: drawSettings.color,
+                    strokeWidth: drawSettings.width,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                };
                 addElement(element);
-                setDrawingState({ id: element.id, type, origin: { x: pointer.x, y: pointer.y } });
+                setDrawingState({ id: element.id, origin: { x: pointer.x, y: pointer.y } });
                 return;
             }
 
@@ -1361,7 +1308,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 setActiveTool('select');
             }
         },
-        [activeTool, addElement, drawSettings, isPanMode, pathSettings],
+        [activeTool, addElement, drawSettings, isPanMode],
     );
 
     const handleStagePointerMove = useCallback(
@@ -1391,12 +1338,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     }
                     const dx = pointer.x - drawingState.origin.x;
                     const dy = pointer.y - drawingState.origin.y;
-                    if (drawingState.type === 'pencil') {
-                        const pencil = element as PencilElement;
-                        return { ...pencil, points: [...pencil.points, dx, dy] };
-                    }
-                    const path = element as PathElement;
-                    return { ...path, points: [...path.points, dx, dy] };
+                    const pencil = element as PencilElement;
+                    return { ...pencil, points: [...pencil.points, dx, dy] };
                 }),
             );
         },
@@ -1765,6 +1708,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         return baseStyle;
     }, [gridBackground, stageCursor, stageHeight, stageWidth]);
 
+    const activeToolLabel = useMemo(() => (activeTool === 'draw' ? 'Draw' : 'Select'), [activeTool]);
+
     const XYStack = ({ isSmall, ...props }) => {
         const XYStack = isSmall ? YStack : XStack
         return <XYStack {...props} />
@@ -1911,53 +1856,19 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                             >
                                 <MaterialCommunityIcons name="pencil-outline" size={TOOLBAR_ICON_SIZE} />
                             </Button>
-                            <Button
-                                type="button"
-                                className={activeTool === 'path' ? 'active' : ''}
-                                onPress={handleAddPath}
-                                aria-label="Path"
-                                title="Path"
-                            >
-                                <MaterialCommunityIcons name="vector-polyline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
                         </YStack>
+                        <Text className="active-tool-status" aria-live="polite">
+                            Active tool: {activeToolLabel}
+                        </Text>
                         <YStack className="toolbar-group">
-                            <Button type="button" onPress={handleAddRect} aria-label="Add rectangle" title="Add rectangle">
-                                <MaterialCommunityIcons name="rectangle-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={handleAddCircle} aria-label="Add circle" title="Add circle">
-                                <MaterialCommunityIcons name="circle-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={handleAddEllipse} aria-label="Add ellipse" title="Add ellipse">
-                                <MaterialCommunityIcons name="ellipse-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
                             <Button type="button" onPress={handleAddTriangle} aria-label="Add triangle" title="Add triangle">
                                 <MaterialCommunityIcons name="triangle-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={handleAddLine} aria-label="Add line" title="Add line">
-                                <MaterialCommunityIcons name="ray-start-end" size={TOOLBAR_ICON_SIZE} />
                             </Button>
                             <Button type="button" onPress={handleAddText} aria-label="Add text" title="Add text">
                                 <MaterialCommunityIcons name="format-text" size={TOOLBAR_ICON_SIZE} />
                             </Button>
                             <Button type="button" onPress={handleRequestImage} aria-label="Add image" title="Add image">
                                 <MaterialCommunityIcons name="image-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button
-                                type="button"
-                                onPress={() => handleAddGuide('horizontal')}
-                                aria-label="Add horizontal guide"
-                                title="Add horizontal guide"
-                            >
-                                <MaterialCommunityIcons name="arrow-collapse-horizontal" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button
-                                type="button"
-                                onPress={() => handleAddGuide('vertical')}
-                                aria-label="Add vertical guide"
-                                title="Add vertical guide"
-                            >
-                                <MaterialCommunityIcons name="arrow-collapse-vertical" size={TOOLBAR_ICON_SIZE} />
                             </Button>
                         </YStack>
                     </YStack>
@@ -2109,26 +2020,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                     onChange={(event) => {
                                         const value = Number(event.target.value);
                                         setDrawSettings((current) => ({ ...current, width: Number.isFinite(value) ? Math.max(1, value) : current.width }));
-                                    }}
-                                />
-                            </Label>
-                            <Label>
-                                Path colour
-                                <Input
-                                    type="color"
-                                    value={pathSettings.color}
-                                    onChange={(event) => setPathSettings((current) => ({ ...current, color: event.target.value }))}
-                                />
-                            </Label>
-                            <Label>
-                                Path width
-                                <Input
-                                    type="number"
-                                    min={1}
-                                    value={pathSettings.width}
-                                    onChange={(event) => {
-                                        const value = Number(event.target.value);
-                                        setPathSettings((current) => ({ ...current, width: Number.isFinite(value) ? Math.max(1, value) : current.width }));
                                     }}
                                 />
                             </Label>

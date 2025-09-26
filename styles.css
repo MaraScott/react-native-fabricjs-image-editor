@@ -73,6 +73,21 @@ body {
     width: 100%;
 }
 
+.editor-toolbar .active-tool-status {
+    width: 100%;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    padding: 6px 8px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--borderColor, rgba(148, 163, 184, 0.12)) 60%, transparent);
+    background: color-mix(in srgb, var(--backgroundHover, rgba(15, 23, 42, 0.6)) 88%, transparent);
+    color: color-mix(in srgb, var(--color, rgba(226, 232, 240, 0.9)) 90%, transparent);
+    box-shadow: 0 10px 24px rgba(15, 17, 21, 0.25);
+}
+
 .editor-header button,
 .editor-toolbar button {
     background: var(--backgroundHover, #1f2633);
