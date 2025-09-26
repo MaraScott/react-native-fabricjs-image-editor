@@ -541,6 +541,29 @@ function clampZoom(value: number): number {
     return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
 }
 
+type TouchLikeEvent = TouchEvent | PointerEvent;
+
+function isTouchLikeEvent(event: Event): event is TouchLikeEvent {
+    const pointerType = (event as PointerEvent).pointerType;
+    return (
+        typeof event === 'object' &&
+        event !== null &&
+        ('touches' in event || 'changedTouches' in event || pointerType === 'touch' || pointerType === 'pen')
+    );
+}
+
+function preventDefaultIfSupported(event: Event) {
+    if (event.cancelable && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+    }
+}
+
+function syncStagePointer(stage: StageType, event: MouseEvent | TouchLikeEvent) {
+    if (typeof stage.setPointersPositions === 'function') {
+        stage.setPointersPositions(event);
+    }
+}
+
 function getStagePointer(stage: StageType): Vector2d | null {
     const pointer = stage.getPointerPosition();
     if (!pointer) {
@@ -1299,8 +1322,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             const stage = event.target.getStage();
             if (!stage) return;
 
+            const nativeEvent = event.evt;
+            if (isTouchLikeEvent(nativeEvent)) {
+                preventDefaultIfSupported(nativeEvent);
+                syncStagePointer(stage, nativeEvent);
+            }
+
             if (isPanMode) {
-                event.evt.preventDefault();
                 const pointerPosition = stage.getPointerPosition();
                 if (!pointerPosition) return;
                 const startPosition = stagePositionRef.current;
@@ -1316,7 +1344,9 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             if (!pointer) return;
 
             if (activeTool === 'draw' || activeTool === 'path') {
-                event.evt.preventDefault();
+                if (!isTouchLikeEvent(nativeEvent)) {
+                    syncStagePointer(stage, nativeEvent);
+                }
                 const type = activeTool === 'draw' ? 'pencil' : 'path';
                 const element: PencilElement | PathElement =
                     type === 'pencil'
@@ -1369,6 +1399,12 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
             const stage = event.target.getStage();
             if (!stage) return;
+
+            const nativeEvent = event.evt;
+            if (isTouchLikeEvent(nativeEvent)) {
+                preventDefaultIfSupported(nativeEvent);
+                syncStagePointer(stage, nativeEvent);
+            }
 
             if (panStateRef.current) {
                 const pointerPosition = stage.getPointerPosition();

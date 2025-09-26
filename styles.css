@@ -172,7 +172,8 @@ body {
     touch-action: none;
 }
 
-.stage-canvas canvas {
+.stage-canvas canvas,
+.stage-canvas .konvajs-content {
     touch-action: none;
 }
 

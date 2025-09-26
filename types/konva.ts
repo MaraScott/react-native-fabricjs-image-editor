@@ -28,6 +28,14 @@ export type StageType = {
   x: () => number;
   y: () => number;
   batchDraw: () => void;
+  getPointerPosition: () => Vector2d | null;
+  getAbsoluteTransform: () => {
+    copy: () => {
+      invert: () => void;
+      point: (point: Vector2d) => Vector2d;
+    };
+  };
+  setPointersPositions?: (event: MouseEvent | TouchEvent | PointerEvent) => void;
 };
 
 export type KonvaNode = {
