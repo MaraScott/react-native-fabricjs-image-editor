@@ -31,7 +31,7 @@ interface ViewState {
 }
 
 function PreviewImage({ element, onLoad }: { element: ImageElement; onLoad: () => void }) {
-  const [image] = useImage(element.src, 'anonymous');
+  const [image] = useImage(element.src, { crossOrigin: 'anonymous' });
   const notifiedRef = useRef(false);
   useEffect(() => {
     if (image && !notifiedRef.current) {
