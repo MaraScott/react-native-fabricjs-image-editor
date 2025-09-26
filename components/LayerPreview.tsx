@@ -277,11 +277,45 @@ export default function LayerPreview({ elements, width = 64, height = 48, hidden
     return () => window.cancelAnimationFrame(frame);
   }, [elements, view, width, height, version]);
 
-  const showPlaceholder = elements.length === 0;
+  if (elements.length === 0) {
+    return (
+      <div className={className}>
+        <div className="layer-preview-placeholder" />
+        {hidden ? (
+          <span className="layer-preview-indicator layer-preview-indicator-hidden" aria-label="Layer hidden">
+            🚫
+          </span>
+        ) : null}
+        {locked ? (
+          <span className="layer-preview-indicator layer-preview-indicator-locked" aria-label="Layer locked">
+            🔒
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
   const showImage = Boolean(dataUrl);
 
   return (
     <div className={className}>
+      <Stage
+        ref={stageRef}
+        width={width}
+        height={height}
+        scaleX={view.scale}
+        scaleY={view.scale}
+        listening={false}
+        style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+      >
+        <KonvaLayer>
+          <Group ref={groupRef} x={-view.offsetX} y={-view.offsetY}>
+            {elements.map((element) => (
+              <PreviewShape key={element.id} element={element} onImageLoad={() => setVersion((current) => current + 1)} />
+            ))}
+          </Group>
+        </KonvaLayer>
+      </Stage>
       {showImage ? (
         <img
           className="layer-preview-image"
@@ -292,29 +326,6 @@ export default function LayerPreview({ elements, width = 64, height = 48, hidden
           draggable={false}
         />
       ) : null}
-      {showPlaceholder ? <div className="layer-preview-placeholder" /> : null}
-      <Stage
-        ref={stageRef}
-        width={width}
-        height={height}
-        scaleX={view.scale}
-        scaleY={view.scale}
-        listening={false}
-        style={{
-          position: 'absolute',
-          inset: 0,
-          opacity: showImage || showPlaceholder ? 0 : 1,
-          pointerEvents: 'none',
-        }}
-      >
-        <KonvaLayer>
-          <Group ref={groupRef} x={-view.offsetX} y={-view.offsetY}>
-            {elements.map((element) => (
-              <PreviewShape key={element.id} element={element} onImageLoad={() => setVersion((current) => current + 1)} />
-            ))}
-          </Group>
-        </KonvaLayer>
-      </Stage>
       {hidden ? (
         <span className="layer-preview-indicator layer-preview-indicator-hidden" aria-label="Layer hidden">
           🚫
