@@ -10,16 +10,13 @@ module.exports = {
   resolve: {
     extensions: ['.ts', '.tsx', '.js', '.jsx'],
     alias: {
+      react: path.resolve(__dirname, 'shims/reactGlobal.ts'),
+      'react-dom': path.resolve(__dirname, 'shims/reactDomGlobal.ts'),
+      'react-dom/client': path.resolve(__dirname, 'shims/reactDomClient.ts'),
       'its-fine': path.resolve(__dirname, 'shims/itsFine.ts'),
       'react/jsx-runtime': path.resolve(__dirname, 'shims/jsxRuntime.ts'),
       'react-konva': path.resolve(__dirname, 'shims/reactKonva.tsx'),
     },
-  },
-  externals: {
-    react: 'React',
-    'react-dom': 'ReactDOM',
-    'react-dom/client': 'ReactDOM',
-    konva: 'Konva',
   },
   module: {
     rules: [
