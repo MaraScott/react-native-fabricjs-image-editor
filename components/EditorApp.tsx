@@ -1996,44 +1996,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                             </Label>
                         </YStack>
 
-                        <Heading tag="h2">Draw tools</Heading>
-                        <YStack className="properties-grid">
-                            <Label>
-                                Draw colour
-                                <Input
-                                    type="color"
-                                    value={drawSettings.color}
-                                    onChange={(event) => setDrawSettings((current) => ({ ...current, color: event.target.value }))}
-                                />
-                            </Label>
-                            <Label>
-                                Draw width
-                                <Input
-                                    type="number"
-                                    min={1}
-                                    value={drawSettings.width}
-                                    onChange={(event) => {
-                                        const value = Number(event.target.value);
-                                        setDrawSettings((current) => ({ ...current, width: Number.isFinite(value) ? Math.max(1, value) : current.width }));
-                                    }}
-                                />
-                            </Label>
-                        </YStack>
-
-                        <Heading tag="h2">Layers</Heading>
-                        <LayersPanel
-                            layers={layers}
-                            elements={contentElements}
-                            activeLayerId={activeLayerId}
-                            selectedElementIds={selectedIds}
-                            onSelectLayer={handleSelectLayer}
-                            onToggleVisibility={handleToggleVisibility}
-                            onToggleLock={handleToggleLock}
-                            onRemoveLayer={handleRemoveLayer}
-                            onMoveLayer={handleLayerMove}
-                            onAddLayer={handleAddLayer}
-                        />
-
                         <Heading tag="h2">Selection</Heading>
                         {selectedElement ? (
                             <PropertiesPanel
@@ -2047,6 +2009,47 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     </YStack>
 
                     <YStack className="editor-layout">
+                        <Stack>
+                            <Heading tag="h2">Layers</Heading>
+                            <LayersPanel
+                                layers={layers}
+                                elements={contentElements}
+                                activeLayerId={activeLayerId}
+                                selectedElementIds={selectedIds}
+                                onSelectLayer={handleSelectLayer}
+                                onToggleVisibility={handleToggleVisibility}
+                                onToggleLock={handleToggleLock}
+                                onRemoveLayer={handleRemoveLayer}
+                                onMoveLayer={handleLayerMove}
+                                onAddLayer={handleAddLayer}
+                            />
+
+
+                            <XStack
+                                className="stage-zoom-bar zoom-control"
+                                aria-label="Zoom controls"
+                            >
+                                <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
+                                    <MaterialCommunityIcons name="minus" size={TOOLBAR_ICON_SIZE - 6} />
+                                </Button>
+                                <Input
+                                    type="range"
+                                    min={ZOOM_MIN}
+                                    max={ZOOM_MAX}
+                                    step={ZOOM_STEP}
+                                    value={options.zoom}
+                                    onChange={(event) => handleZoomChange(Number(event.target.value))}
+                                    aria-label="Zoom level"
+                                    className="zoom-slider"
+                                />
+                                <Text className="zoom-value" aria-live="polite">
+                                    {zoomPercentage}%
+                                </Text>
+                                <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
+                                    <MaterialCommunityIcons name="plus" size={TOOLBAR_ICON_SIZE - 6} />
+                                </Button>
+                            </XStack>
+                        </Stack>
                         <XStack ref={editorCanvasRef} className="editor-canvas">
                             <Stack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={{ width: stageWidth, height: stageHeight }}>
                                 {options.showRulers && (
@@ -2238,31 +2241,9 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             })}
                                         </Layer>
                                     </Stage>
-                                    <XStack
-                                        className="stage-zoom-bar zoom-control"
-                                        aria-label="Zoom controls"
-                                    >
-                                        <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
-                                            <MaterialCommunityIcons name="minus" size={TOOLBAR_ICON_SIZE - 6} />
-                                        </Button>
-                                        <Input
-                                            type="range"
-                                            min={ZOOM_MIN}
-                                            max={ZOOM_MAX}
-                                            step={ZOOM_STEP}
-                                            value={options.zoom}
-                                            onChange={(event) => handleZoomChange(Number(event.target.value))}
-                                            aria-label="Zoom level"
-                                            className="zoom-slider"
-                                        />
-                                        <Text className="zoom-value" aria-live="polite">
-                                            {zoomPercentage}%
-                                        </Text>
-                                        <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
-                                            <MaterialCommunityIcons name="plus" size={TOOLBAR_ICON_SIZE - 6} />
-                                        </Button>
-                                    </XStack>
                                 </Stack>
+
+
                             </Stack>
                         </XStack>
                     </YStack>
