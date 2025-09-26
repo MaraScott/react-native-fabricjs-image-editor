@@ -935,6 +935,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const [clipboard, setClipboard] = useState<EditorElement[] | null>(null);
     const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
     const [pathSettings, setPathSettings] = useState(DEFAULT_PATH);
+    const [stagePosition, setStagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
     useLayoutEffect(() => {
         if (options.fixedCanvas) {
@@ -1593,7 +1594,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             const stage = stageRef.current;
             const container = typeof stage?.container === 'function' ? stage.container() : null;
             const containerBounds = container?.getBoundingClientRect() ?? null;
-            const scrollParent = editorCanvasRef.current;
             let resolvedAnchor = anchor ?? null;
 
             if (!resolvedAnchor && containerBounds) {
@@ -1624,13 +1624,18 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 previousZoom !== null &&
                 nextZoom !== null &&
                 containerBounds &&
-                scrollParent &&
-                typeof scrollParent.scrollBy === 'function'
+                stage
             ) {
                 const offsetX = resolvedAnchor.clientX - containerBounds.left;
                 const offsetY = resolvedAnchor.clientY - containerBounds.top;
-                const ratio = nextZoom / previousZoom;
-                scrollParent.scrollBy(offsetX * (ratio - 1), offsetY * (ratio - 1));
+                const pointerStageX = stage.x() + offsetX / previousZoom;
+                const pointerStageY = stage.y() + offsetY / previousZoom;
+                const nextX = pointerStageX - offsetX / nextZoom;
+                const nextY = pointerStageY - offsetY / nextZoom;
+                const nextPosition = { x: nextX, y: nextY };
+                stage.position(nextPosition);
+                stage.batchDraw();
+                setStagePosition(nextPosition);
             }
         },
         [setOptions],
@@ -2246,6 +2251,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         ref={stageRef}
                                         width={stageWidth}
                                         height={stageHeight}
+                                        x={stagePosition.x}
+                                        y={stagePosition.y}
                                         scaleX={options.zoom}
                                         scaleY={options.zoom}
                                         onMouseDown={handleStagePointerDown}
