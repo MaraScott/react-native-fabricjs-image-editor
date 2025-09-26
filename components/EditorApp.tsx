@@ -7,9 +7,24 @@ import {
     useState,
     type ChangeEvent,
     type CSSProperties,
+    type ComponentProps,
 } from 'react';
 import { Layer, Stage } from 'react-konva';
-import { Button, Heading, Image, Input, Label, Paragraph, Separator, Stack, Text, XStack, YStack, useWindowDimensions, Theme } from 'tamagui';
+import {
+    Button as TamaButton,
+    Heading,
+    Image,
+    Input,
+    Label,
+    Paragraph,
+    Separator,
+    Stack,
+    Text,
+    XStack,
+    YStack,
+    useWindowDimensions,
+    Theme,
+} from 'tamagui';
 import { MaterialCommunityIcons } from './icons/MaterialCommunityIcons';
 import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
 import LayersPanel from './LayersPanel';
@@ -95,6 +110,43 @@ const TOOLBAR_ICON_SIZE = 20;
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 3;
 const ZOOM_STEP = 0.05;
+
+type ToolbarButtonProps = ComponentProps<typeof TamaButton>;
+
+function Button({ onPress, onClick, ...rest }: ToolbarButtonProps) {
+    const handledRef = useRef(false);
+
+    const runHandler = useCallback((event: any, handler?: (event: any) => void) => {
+        if (event?.preventDefault) {
+            event.preventDefault();
+        }
+        handler?.(event);
+    }, []);
+
+    const handlePress = useCallback(
+        (event?: any) => {
+            handledRef.current = true;
+            runHandler(event, onPress);
+            setTimeout(() => {
+                handledRef.current = false;
+            }, 0);
+        },
+        [onPress, runHandler],
+    );
+
+    const handleClick = useCallback(
+        (event?: any) => {
+            if (onPress && handledRef.current) {
+                handledRef.current = false;
+                return;
+            }
+            runHandler(event, onClick ?? onPress);
+        },
+        [onClick, onPress, runHandler],
+    );
+
+    return <TamaButton {...rest} onPress={handlePress} onClick={handleClick} />;
+}
 
 const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
     {
