@@ -19,7 +19,7 @@ type BaseElementInit = Pick<EditorElement, 'name' | 'x' | 'y' | 'rotation' | 'op
 
 type ElementSpecific<T extends EditorElement> = Omit<T, keyof EditorElement>;
 
-function createBaseElement(type: EditorElement['type'], init: BaseElementInit) {
+export function createBaseElement(type: EditorElement['type'], init: BaseElementInit) {
   return {
     id: createEditorId(type),
     type,
