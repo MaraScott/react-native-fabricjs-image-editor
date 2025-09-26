@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Layer, Stage } from 'react-konva';
 import { Button, Heading, Image, Input, Label, Paragraph, Separator, Stack, Text, XStack, YStack } from 'tamagui';
 import { MaterialCommunityIcons } from './icons/MaterialCommunityIcons';
@@ -889,6 +889,7 @@ interface EditorAppProps {
 export default function EditorApp({ initialDesign, initialOptions }: EditorAppProps) {
     const [options, setOptions] = useState<EditorOptions>(getInitialOptions(initialOptions));
     const stageRef = useRef<StageType | null>(null);
+    const editorCanvasRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const initialDocument = useMemo(() => initialDesign ?? createEmptyDesign(), [initialDesign]);
@@ -914,6 +915,75 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const [clipboard, setClipboard] = useState<EditorElement[] | null>(null);
     const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
     const [pathSettings, setPathSettings] = useState(DEFAULT_PATH);
+
+    useLayoutEffect(() => {
+        if (options.fixedCanvas) {
+            return;
+        }
+
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        const element = editorCanvasRef.current;
+        if (!element) {
+            return;
+        }
+
+        const measure = () => {
+            const style = window.getComputedStyle(element);
+            const paddingX = Number.parseFloat(style.paddingLeft || '0') + Number.parseFloat(style.paddingRight || '0');
+            const paddingY = Number.parseFloat(style.paddingTop || '0') + Number.parseFloat(style.paddingBottom || '0');
+            const nextWidth = Math.max(1, Math.round(element.clientWidth - paddingX));
+            const nextHeight = Math.max(1, Math.round(element.clientHeight - paddingY));
+
+            setOptions((current) => {
+                if (current.fixedCanvas) {
+                    return current;
+                }
+
+                const widthChanged = Math.abs(current.width - nextWidth) > 0.5;
+                const heightChanged = Math.abs(current.height - nextHeight) > 0.5;
+
+                if (!widthChanged && !heightChanged) {
+                    return current;
+                }
+
+                return { ...current, width: nextWidth, height: nextHeight };
+            });
+        };
+
+        let frame = 0;
+        const scheduleMeasure = () => {
+            if (frame) {
+                window.cancelAnimationFrame(frame);
+            }
+            frame = window.requestAnimationFrame(measure);
+        };
+
+        measure();
+
+        let observer: ResizeObserver | null = null;
+
+        if ('ResizeObserver' in window) {
+            observer = new ResizeObserver(scheduleMeasure);
+            observer.observe(element);
+        } else {
+            window.addEventListener('resize', scheduleMeasure);
+        }
+
+        return () => {
+            if (observer) {
+                observer.disconnect();
+            } else {
+                window.removeEventListener('resize', scheduleMeasure);
+            }
+
+            if (frame) {
+                window.cancelAnimationFrame(frame);
+            }
+        };
+    }, [options.fixedCanvas, setOptions]);
 
     useEffect(() => {
         if (layers.length === 0) {
@@ -1859,7 +1929,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             return { ...current, width: Number.isFinite(value) ? Math.max(100, value) : current.width };
                                         })
                                     }
-                                    disabled={options.canvasSizeLocked}
+                                    disabled={options.canvasSizeLocked || !options.fixedCanvas}
                                 />
                             </Label>
                             <Label>
@@ -1874,7 +1944,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             return { ...current, height: Number.isFinite(value) ? Math.max(100, value) : current.height };
                                         })
                                     }
-                                    disabled={options.canvasSizeLocked}
+                                    disabled={options.canvasSizeLocked || !options.fixedCanvas}
                                 />
                             </Label>
                             <Label className="full-width">
@@ -2023,7 +2093,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     </Stack>
 
                     <YStack className="editor-layout">
-                        <YStack className="editor-canvas">
+                        <YStack ref={editorCanvasRef} className="editor-canvas">
                             <Stack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={{ width: zoomedWidth, height: zoomedHeight }}>
                                 {options.showRulers && <Stack className="stage-ruler stage-ruler-horizontal" style={{ width: zoomedWidth }} />}
                                 {options.showRulers && <Stack className="stage-ruler stage-ruler-vertical" style={{ height: zoomedHeight }} />}
