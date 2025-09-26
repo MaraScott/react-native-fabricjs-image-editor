@@ -42,8 +42,23 @@ import type {
     RectElement,
     TextElement,
 } from '../types/editor';
+import {
+    assignElementsToLayer,
+    cloneElement,
+    createCircle,
+    createEllipse,
+    createFrame,
+    createGuide,
+    createImage,
+    createLayerDefinition,
+    createLine,
+    createRect,
+    createText,
+    createTriangle,
+    getNextLayerName,
+    orderElementsByLayer,
+} from '../utils/editorElements';
 import { createEmptyDesign, parseDesign, stringifyDesign } from '../utils/design';
-import { createEditorId } from '../utils/ids';
 
 type Tool = 'select' | 'draw' | 'path';
 
@@ -61,8 +76,6 @@ type TemplateDefinition = {
 };
 
 type DragBoundFactory = (element: EditorElement) => ((position: Vector2d) => Vector2d) | undefined;
-
-type BaseElementInit = Pick<EditorElement, 'name' | 'x' | 'y' | 'rotation' | 'opacity' | 'metadata'>;
 
 const SNAP_THRESHOLD = 12;
 const STORAGE_KEY = 'konva-image-editor-design';
@@ -91,335 +104,6 @@ const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
         src: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=900&q=60',
     },
 ];
-
-function createBaseElement(type: EditorElement['type'], init: BaseElementInit): BaseElementInit & {
-    id: string;
-    type: EditorElement['type'];
-    draggable: boolean;
-    visible: boolean;
-    locked: boolean;
-    layerId: null;
-} {
-    return {
-        id: createEditorId(type),
-        type,
-        draggable: true,
-        visible: true,
-        locked: false,
-        layerId: null,
-        ...init,
-    };
-}
-
-function createLayerDefinition(name: string): EditorLayer {
-    return {
-        id: createEditorId('layer'),
-        name,
-        visible: true,
-        locked: false,
-    } satisfies EditorLayer;
-}
-
-function assignElementsToLayer<T extends EditorElement>(elements: T[], layerId: string): T[] {
-    return elements.map((element) => ({ ...element, layerId }));
-}
-
-function getNextLayerName(layers: EditorLayer[]): string {
-    const existing = new Set(layers.map((layer) => layer.name));
-    let index = layers.length + 1;
-    let candidate = `Layer ${index}`;
-    while (existing.has(candidate)) {
-        index += 1;
-        candidate = `Layer ${index}`;
-    }
-    return candidate;
-}
-
-function orderElementsByLayer(elements: EditorElement[], layers: EditorLayer[]): EditorElement[] {
-    if (layers.length === 0) {
-        return elements;
-    }
-
-    const layerIds = new Set(layers.map((layer) => layer.id));
-    const guides: EditorElement[] = [];
-    const buckets = new Map<string, EditorElement[]>();
-    const unassigned: EditorElement[] = [];
-
-    elements.forEach((element) => {
-        if (element.type === 'guide') {
-            guides.push(element);
-            return;
-        }
-
-        if (element.layerId && layerIds.has(element.layerId)) {
-            const existing = buckets.get(element.layerId) ?? [];
-            existing.push(element);
-            buckets.set(element.layerId, existing);
-            return;
-        }
-
-        unassigned.push(element);
-    });
-
-    const ordered: EditorElement[] = [...guides];
-    layers.forEach((layer) => {
-        const entries = buckets.get(layer.id);
-        if (entries && entries.length > 0) {
-            ordered.push(...entries);
-        }
-    });
-    if (unassigned.length > 0) {
-        ordered.push(...unassigned);
-    }
-
-    return ordered;
-}
-
-function createRect(options: EditorOptions, overrides: Partial<RectElement> = {}): RectElement {
-    const base = createBaseElement('rect', {
-        name: overrides.name ?? 'Rectangle',
-        x: overrides.x ?? options.width / 2 - 120,
-        y: overrides.y ?? options.height / 2 - 80,
-        rotation: overrides.rotation ?? 0,
-        opacity: overrides.opacity ?? 1,
-        metadata: overrides.metadata ?? null,
-    });
-    return {
-        ...base,
-        type: 'rect',
-        width: overrides.width ?? 240,
-        height: overrides.height ?? 160,
-        fill: overrides.fill ?? '#38bdf8',
-        stroke: overrides.stroke ?? '#0f172a',
-        strokeWidth: overrides.strokeWidth ?? 4,
-        cornerRadius: overrides.cornerRadius ?? 16,
-    } satisfies RectElement;
-}
-
-function createFrame(options: EditorOptions, overrides: Partial<FrameElement> = {}): FrameElement {
-    const rect = createRect(options, {
-        ...overrides,
-        name: overrides.name ?? 'Frame',
-        fill: 'transparent',
-        strokeWidth: overrides.strokeWidth ?? 10,
-        stroke: overrides.stroke ?? '#f8fafc',
-        cornerRadius: overrides.cornerRadius ?? 0,
-    });
-    return { ...rect, type: 'frame' } satisfies FrameElement;
-}
-
-function createCircle(options: EditorOptions, overrides: Partial<EditorElement> = {}) {
-    const base = createBaseElement('circle', {
-        name: overrides.name ?? 'Circle',
-        x: overrides.x ?? options.width / 2,
-        y: overrides.y ?? options.height / 2,
-        rotation: overrides.rotation ?? 0,
-        opacity: overrides.opacity ?? 1,
-        metadata: overrides.metadata ?? null,
-    });
-    return {
-        ...base,
-        type: 'circle',
-        radius: 'radius' in overrides && typeof overrides.radius === 'number' ? overrides.radius : 120,
-        fill: 'fill' in overrides && typeof overrides.fill === 'string' ? overrides.fill : '#a855f7',
-        stroke: 'stroke' in overrides && typeof overrides.stroke === 'string' ? overrides.stroke : '#0f172a',
-        strokeWidth:
-            'strokeWidth' in overrides && typeof overrides.strokeWidth === 'number' ? overrides.strokeWidth : 4,
-    };
-}
-
-function createEllipse(options: EditorOptions, overrides: Partial<EditorElement> = {}) {
-    const base = createBaseElement('ellipse', {
-        name: overrides.name ?? 'Ellipse',
-        x: overrides.x ?? options.width / 2,
-        y: overrides.y ?? options.height / 2,
-        rotation: overrides.rotation ?? 0,
-        opacity: overrides.opacity ?? 1,
-        metadata: overrides.metadata ?? null,
-    });
-    return {
-        ...base,
-        type: 'ellipse',
-        radiusX: 'radiusX' in overrides && typeof overrides.radiusX === 'number' ? overrides.radiusX : 180,
-        radiusY: 'radiusY' in overrides && typeof overrides.radiusY === 'number' ? overrides.radiusY : 120,
-        fill: 'fill' in overrides && typeof overrides.fill === 'string' ? overrides.fill : '#22d3ee',
-        stroke: 'stroke' in overrides && typeof overrides.stroke === 'string' ? overrides.stroke : '#0f172a',
-        strokeWidth:
-            'strokeWidth' in overrides && typeof overrides.strokeWidth === 'number' ? overrides.strokeWidth : 4,
-    };
-}
-
-function createTriangle(options: EditorOptions, overrides: Partial<EditorElement> = {}) {
-    const base = createBaseElement('triangle', {
-        name: overrides.name ?? 'Triangle',
-        x: overrides.x ?? options.width / 2 - 120,
-        y: overrides.y ?? options.height / 2 - 120,
-        rotation: overrides.rotation ?? 0,
-        opacity: overrides.opacity ?? 1,
-        metadata: overrides.metadata ?? null,
-    });
-    return {
-        ...base,
-        type: 'triangle',
-        width: 'width' in overrides && typeof overrides.width === 'number' ? overrides.width : 240,
-        height: 'height' in overrides && typeof overrides.height === 'number' ? overrides.height : 240,
-        fill: 'fill' in overrides && typeof overrides.fill === 'string' ? overrides.fill : '#f97316',
-        stroke: 'stroke' in overrides && typeof overrides.stroke === 'string' ? overrides.stroke : '#0f172a',
-        strokeWidth:
-            'strokeWidth' in overrides && typeof overrides.strokeWidth === 'number' ? overrides.strokeWidth : 4,
-    };
-}
-
-function createLine(options: EditorOptions, overrides: Partial<LineElement> = {}): LineElement {
-    const base = createBaseElement('line', {
-        name: overrides.name ?? 'Line',
-        x: overrides.x ?? options.width / 2 - 160,
-        y: overrides.y ?? options.height / 2,
-        rotation: overrides.rotation ?? 0,
-        opacity: overrides.opacity ?? 1,
-        metadata: overrides.metadata ?? null,
-    });
-    return {
-        ...base,
-        type: 'line',
-        points: overrides.points ? [...overrides.points] : [0, 0, 320, 0],
-        stroke: overrides.stroke ?? '#0f172a',
-        strokeWidth: overrides.strokeWidth ?? 6,
-        dash: overrides.dash ? [...overrides.dash] : undefined,
-        tension: overrides.tension,
-        closed: overrides.closed ?? false,
-        fill: overrides.fill,
-    } satisfies LineElement;
-}
-
-function createPathElement(options: EditorOptions, overrides: Partial<PathElement> = {}): PathElement {
-    const base = createBaseElement('path', {
-        name: overrides.name ?? 'Path',
-        x: overrides.x ?? options.width / 2 - 200,
-        y: overrides.y ?? options.height / 2 - 100,
-        rotation: overrides.rotation ?? 0,
-        opacity: overrides.opacity ?? 1,
-        metadata: overrides.metadata ?? null,
-    });
-    return {
-        ...base,
-        type: 'path',
-        points: overrides.points ? [...overrides.points] : [0, 0, 120, 40, 200, 120],
-        stroke: overrides.stroke ?? '#1e3a8a',
-        strokeWidth: overrides.strokeWidth ?? 5,
-        tension: overrides.tension ?? 0.4,
-        closed: overrides.closed ?? false,
-        fill: overrides.fill,
-    } satisfies PathElement;
-}
-
-function createText(options: EditorOptions, overrides: Partial<TextElement> = {}): TextElement {
-    const base = createBaseElement('text', {
-        name: overrides.name ?? 'Text',
-        x: overrides.x ?? options.width / 2 - 200,
-        y: overrides.y ?? options.height / 2 - 40,
-        rotation: overrides.rotation ?? 0,
-        opacity: overrides.opacity ?? 1,
-        metadata: overrides.metadata ?? null,
-    });
-    return {
-        ...base,
-        type: 'text',
-        text: overrides.text ?? 'Edit me!',
-        fontSize: overrides.fontSize ?? 48,
-        fontFamily:
-            overrides.fontFamily ?? 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-        fontStyle: overrides.fontStyle ?? 'normal',
-        fontWeight: overrides.fontWeight ?? 'bold',
-        fill: overrides.fill ?? '#f8fafc',
-        width: overrides.width ?? 400,
-        align: overrides.align ?? 'center',
-        lineHeight: overrides.lineHeight ?? 1.2,
-        letterSpacing: overrides.letterSpacing ?? 0,
-        stroke: overrides.stroke ?? 'transparent',
-        strokeWidth: overrides.strokeWidth ?? 0,
-        backgroundColor: overrides.backgroundColor ?? 'transparent',
-        padding: overrides.padding ?? 0,
-    } satisfies TextElement;
-}
-
-function createImage(options: EditorOptions, src: string, overrides: Partial<ImageElement> = {}): ImageElement {
-    const base = createBaseElement('image', {
-        name: overrides.name ?? 'Image',
-        x: overrides.x ?? options.width / 2 - 160,
-        y: overrides.y ?? options.height / 2 - 120,
-        rotation: overrides.rotation ?? 0,
-        opacity: overrides.opacity ?? 1,
-        metadata: overrides.metadata ?? null,
-    });
-    return {
-        ...base,
-        type: 'image',
-        src,
-        width: overrides.width ?? 320,
-        height: overrides.height ?? 240,
-        cornerRadius: overrides.cornerRadius ?? 0,
-        keepRatio: overrides.keepRatio ?? true,
-    } satisfies ImageElement;
-}
-
-function createGuide(options: EditorOptions, orientation: GuideElement['orientation']): GuideElement {
-    const base = createBaseElement('guide', {
-        name: orientation === 'horizontal' ? 'Horizontal guide' : 'Vertical guide',
-        x: orientation === 'vertical' ? options.width / 2 : 0,
-        y: orientation === 'horizontal' ? options.height / 2 : 0,
-        rotation: 0,
-        opacity: 1,
-        metadata: { isGuide: true, excludeFromExport: true },
-    });
-    return {
-        ...base,
-        type: 'guide',
-        orientation,
-        length: orientation === 'horizontal' ? options.width : options.height,
-        stroke: 'rgba(56, 189, 248, 0.8)',
-        strokeWidth: 1,
-    } satisfies GuideElement;
-}
-
-function cloneElement(element: EditorElement): EditorElement {
-    const base = {
-        ...element,
-        id: createEditorId(element.type),
-        name: `${element.name} copy`,
-        x: element.x + 24,
-        y: element.y + 24,
-        metadata: element.metadata ? { ...element.metadata } : null,
-        locked: false,
-        layerId: element.layerId ?? null,
-    } as EditorElement;
-
-    switch (element.type) {
-        case 'rect':
-        case 'frame':
-            return { ...base, type: element.type, width: element.width, height: element.height } as RectElement | FrameElement;
-        case 'circle':
-            return { ...base, type: 'circle', radius: element.radius };
-        case 'ellipse':
-            return { ...base, type: 'ellipse', radiusX: element.radiusX, radiusY: element.radiusY };
-        case 'triangle':
-            return { ...base, type: 'triangle', width: element.width, height: element.height };
-        case 'line':
-            return { ...base, type: 'line', points: [...element.points], dash: element.dash ? [...element.dash] : undefined };
-        case 'path':
-            return { ...base, type: 'path', points: [...element.points], closed: element.closed };
-        case 'pencil':
-            return { ...base, type: 'pencil', points: [...element.points] };
-        case 'text':
-            return { ...base, type: 'text', text: element.text };
-        case 'image':
-            return { ...base, type: 'image', width: element.width, height: element.height };
-        case 'guide':
-            return { ...element, id: createEditorId('guide'), layerId: null };
-        default:
-            return base;
-    }
-}
 
 interface ElementBounds {
     left: number;
