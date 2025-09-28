@@ -9,7 +9,7 @@ import {
     type CSSProperties,
 } from 'react';
 import { Layer, Stage } from 'react-konva';
-import { Button, Heading, Image, Input, Label, Paragraph, Separator, Stack, Text, XStack, YStack, useWindowDimensions, Theme } from 'tamagui';
+import { Button, Heading, Image, Input, Label, Separator, Stack, Text, XStack, YStack, useWindowDimensions, Theme } from 'tamagui';
 import { MaterialCommunityIcons } from './icons/MaterialCommunityIcons';
 import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
 import LayersPanel from './LayersPanel';
@@ -1810,6 +1810,190 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         </XYStack>
     )
 
+    const SettingsDropdown = () => {
+        const [open, setOpen] = useState(false)
+        const dropdownRef = useRef<HTMLDivElement | null>(null)
+
+        useEffect(() => {
+            if (!open) {
+                return
+            }
+
+            const handleClickOutside = (event: MouseEvent) => {
+                if (!dropdownRef.current || dropdownRef.current.contains(event.target as Node)) {
+                    return
+                }
+                setOpen(false)
+            }
+
+            const handleEscape = (event: KeyboardEvent) => {
+                if (event.key === 'Escape') {
+                    setOpen(false)
+                }
+            }
+
+            document.addEventListener('mousedown', handleClickOutside)
+            document.addEventListener('keydown', handleEscape)
+
+            return () => {
+                document.removeEventListener('mousedown', handleClickOutside)
+                document.removeEventListener('keydown', handleEscape)
+            }
+        }, [open])
+
+        const displayWidth = Math.round(options.width)
+        const displayHeight = Math.round(options.height)
+
+        return (
+            <Stack ref={dropdownRef} className="settings-dropdown">
+                <Button
+                    type="button"
+                    onPress={() => setOpen((prev) => !prev)}
+                    className={open ? 'active' : undefined}
+                    aria-label="Canvas settings"
+                    title="Canvas settings"
+                    aria-expanded={open}
+                    aria-haspopup="true"
+                >
+                    <MaterialCommunityIcons name="cog" size={TOOLBAR_ICON_SIZE} />
+                </Button>
+                {open ? (
+                    <YStack className="settings-dropdown-content">
+                        <Heading tag="h2">Canvas</Heading>
+                        <XStack className="canvas-stats">
+                            <Text>
+                                {displayWidth} × {displayHeight} px
+                            </Text>
+                            <Text>{layers.length} layers</Text>
+                        </XStack>
+                        <Separator marginVertical="$2" opacity={0.35} />
+                        <YStack className="properties-grid">
+                            <Label>
+                                Width
+                                <Input
+                                    type="number"
+                                    min={100}
+                                    value={displayWidth}
+                                    onChange={(event) =>
+                                        setOptions((current) => {
+                                            const value = Number(event.target.value)
+                                            return {
+                                                ...current,
+                                                width: Number.isFinite(value) ? Math.max(100, value) : current.width,
+                                            }
+                                        })
+                                    }
+                                    disabled={options.canvasSizeLocked || !options.fixedCanvas}
+                                />
+                            </Label>
+                            <Label>
+                                Height
+                                <Input
+                                    type="number"
+                                    min={100}
+                                    value={displayHeight}
+                                    onChange={(event) =>
+                                        setOptions((current) => {
+                                            const value = Number(event.target.value)
+                                            return {
+                                                ...current,
+                                                height: Number.isFinite(value) ? Math.max(100, value) : current.height,
+                                            }
+                                        })
+                                    }
+                                    disabled={options.canvasSizeLocked || !options.fixedCanvas}
+                                />
+                            </Label>
+                            <Label className="full-width">
+                                Background
+                                <Input
+                                    type="color"
+                                    value={options.backgroundColor}
+                                    onChange={(event) =>
+                                        setOptions((current) => ({ ...current, backgroundColor: event.target.value }))
+                                    }
+                                />
+                            </Label>
+                            <Label>
+                                Show grid
+                                <Input
+                                    type="checkbox"
+                                    checked={options.showGrid}
+                                    onChange={(event) =>
+                                        setOptions((current) => ({ ...current, showGrid: event.target.checked }))
+                                    }
+                                />
+                            </Label>
+                            <Label>
+                                Grid size
+                                <Input
+                                    type="number"
+                                    min={4}
+                                    value={options.gridSize}
+                                    onChange={(event) =>
+                                        setOptions((current) => {
+                                            const value = Number(event.target.value)
+                                            return {
+                                                ...current,
+                                                gridSize: Number.isFinite(value) ? Math.max(4, value) : current.gridSize,
+                                            }
+                                        })
+                                    }
+                                />
+                            </Label>
+                            <Label>
+                                Snap to grid
+                                <Input
+                                    type="checkbox"
+                                    checked={options.snapToGrid}
+                                    onChange={(event) =>
+                                        setOptions((current) => ({ ...current, snapToGrid: event.target.checked }))
+                                    }
+                                />
+                            </Label>
+                            <Label>
+                                Snap to guides
+                                <Input
+                                    type="checkbox"
+                                    checked={options.snapToGuides}
+                                    onChange={(event) =>
+                                        setOptions((current) => ({ ...current, snapToGuides: event.target.checked }))
+                                    }
+                                />
+                            </Label>
+                            <Label>
+                                Show guides
+                                <Input
+                                    type="checkbox"
+                                    checked={options.showGuides}
+                                    onChange={(event) =>
+                                        setOptions((current) => ({ ...current, showGuides: event.target.checked }))
+                                    }
+                                />
+                            </Label>
+                            <Label>
+                                Show rulers
+                                <Input
+                                    type="checkbox"
+                                    checked={options.showRulers}
+                                    onChange={(event) =>
+                                        setOptions((current) => ({ ...current, showRulers: event.target.checked }))
+                                    }
+                                />
+                            </Label>
+                        </YStack>
+                    </YStack>
+                ) : null}
+            </Stack>
+        )
+    }
+
+    const EditorSettings = () => (
+        <XYStack isSmall={isSmall} className="toolbar-group">
+            <SettingsDropdown />
+        </XYStack>
+    )
+
     return (
         <YStack>
             <Theme name="emerald">
@@ -1821,6 +2005,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                     <YStack className="editor-header">
                                         <EditorTools />
                                         <EditorSave />
+                                        <EditorSettings />
                                     </YStack>
                                 </SidebarContent>
                             </SidebarScroll>
@@ -1852,6 +2037,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                         <XStack>
                             <EditorTools />
                             <EditorSave />
+                            <EditorSettings />
                         </XStack>
                     )}
 
@@ -1892,121 +2078,16 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                         </YStack>
                     </YStack>
 
-                    <YStack tag="aside" className="editor-sidebar">
-                        <Heading tag="h2">Canvas</Heading>
-                        <XStack className="canvas-stats">
-                            <Text>
-                                {options.width} × {options.height} px
-                            </Text>
-                            <Text>{layers.length} layers</Text>
-                        </XStack>
-                        <Separator marginVertical="$2" opacity={0.35} />
-                        <YStack className="properties-grid">
-                            <Label>
-                                Width
-                                <Input
-                                    type="number"
-                                    min={100}
-                                    value={Math.round(options.width)}
-                                    onChange={(event) =>
-                                        setOptions((current) => {
-                                            const value = Number(event.target.value);
-                                            return { ...current, width: Number.isFinite(value) ? Math.max(100, value) : current.width };
-                                        })
-                                    }
-                                    disabled={options.canvasSizeLocked || !options.fixedCanvas}
-                                />
-                            </Label>
-                            <Label>
-                                Height
-                                <Input
-                                    type="number"
-                                    min={100}
-                                    value={Math.round(options.height)}
-                                    onChange={(event) =>
-                                        setOptions((current) => {
-                                            const value = Number(event.target.value);
-                                            return { ...current, height: Number.isFinite(value) ? Math.max(100, value) : current.height };
-                                        })
-                                    }
-                                    disabled={options.canvasSizeLocked || !options.fixedCanvas}
-                                />
-                            </Label>
-                            <Label className="full-width">
-                                Background
-                                <Input
-                                    type="color"
-                                    value={options.backgroundColor}
-                                    onChange={(event) => setOptions((current) => ({ ...current, backgroundColor: event.target.value }))}
-                                />
-                            </Label>
-                            <Label>
-                                Show grid
-                                <Input
-                                    type="checkbox"
-                                    checked={options.showGrid}
-                                    onChange={(event) => setOptions((current) => ({ ...current, showGrid: event.target.checked }))}
-                                />
-                            </Label>
-                            <Label>
-                                Grid size
-                                <Input
-                                    type="number"
-                                    min={4}
-                                    value={options.gridSize}
-                                    onChange={(event) =>
-                                        setOptions((current) => {
-                                            const value = Number(event.target.value);
-                                            return { ...current, gridSize: Number.isFinite(value) ? Math.max(4, value) : current.gridSize };
-                                        })
-                                    }
-                                />
-                            </Label>
-                            <Label>
-                                Snap to grid
-                                <Input
-                                    type="checkbox"
-                                    checked={options.snapToGrid}
-                                    onChange={(event) => setOptions((current) => ({ ...current, snapToGrid: event.target.checked }))}
-                                />
-                            </Label>
-                            <Label>
-                                Snap to guides
-                                <Input
-                                    type="checkbox"
-                                    checked={options.snapToGuides}
-                                    onChange={(event) => setOptions((current) => ({ ...current, snapToGuides: event.target.checked }))}
-                                />
-                            </Label>
-                            <Label>
-                                Show guides
-                                <Input
-                                    type="checkbox"
-                                    checked={options.showGuides}
-                                    onChange={(event) => setOptions((current) => ({ ...current, showGuides: event.target.checked }))}
-                                />
-                            </Label>
-                            <Label>
-                                Show rulers
-                                <Input
-                                    type="checkbox"
-                                    checked={options.showRulers}
-                                    onChange={(event) => setOptions((current) => ({ ...current, showRulers: event.target.checked }))}
-                                />
-                            </Label>
-                        </YStack>
-
-                        <Heading tag="h2">Selection</Heading>
-                        {selectedElement ? (
+                    {selectedElement ? (
+                        <YStack tag="aside" className="editor-sidebar">
+                            <Heading tag="h2">Selection</Heading>
                             <PropertiesPanel
                                 element={selectedElement}
                                 onChange={(attributes) => updateElement(selectedElement.id, attributes)}
                                 onRemove={removeSelected}
                             />
-                        ) : (
-                            <Paragraph className="empty-selection">Select an element to edit its properties.</Paragraph>
-                        )}
-                    </YStack>
+                        </YStack>
+                    ) : null}
 
                     <YStack className="editor-layout">
                         <Stack>
