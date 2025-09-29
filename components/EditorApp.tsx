@@ -9,8 +9,9 @@ import {
     type CSSProperties,
 } from 'react';
 import { Layer, Stage } from 'react-konva';
-import { Button, Heading, Image, Input, Label, Separator, Stack, Text, XStack, YStack, useWindowDimensions, Theme } from 'tamagui';
+import { Button, Heading, Image, Input, Label, Separator, Stack, Text, XStack, YStack, ZStack, useWindowDimensions, Theme, Popover, Slider } from 'tamagui';
 import { MaterialCommunityIcons } from './icons/MaterialCommunityIcons';
+// import { CiZoomIn } from "react-icons/ci";
 import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
 import LayersPanel from './LayersPanel';
 import PropertiesPanel from './PropertiesPanel';
@@ -85,7 +86,7 @@ const SNAP_THRESHOLD = 12;
 const STORAGE_KEY = 'konva-image-editor-design';
 
 const DEFAULT_DRAW = { color: '#2563eb', width: 5 };
-const TOOLBAR_ICON_SIZE = 20;
+const TOOLBAR_ICON_SIZE = 12;
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 3;
 const ZOOM_STEP = 0.05;
@@ -1740,10 +1741,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const EditorTools = () => (
         <XYStack isSmall={isSmall} className="toolbar-group">
             <Button type="button" onPress={undo} disabled={!canUndo} aria-label="Undo" title="Undo">
-                <MaterialCommunityIcons name="undo" size={TOOLBAR_ICON_SIZE} />
+                <MaterialCommunityIcons key="undo" name="undo" size={TOOLBAR_ICON_SIZE} />
             </Button>
             <Button type="button" onPress={redo} disabled={!canRedo} aria-label="Redo" title="Redo">
-                <MaterialCommunityIcons name="redo" size={TOOLBAR_ICON_SIZE} />
+                <MaterialCommunityIcons key="redo" name="redo" size={TOOLBAR_ICON_SIZE} />
             </Button>
             <Button
                 type="button"
@@ -1752,7 +1753,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 aria-label="Copy"
                 title="Copy"
             >
-                <MaterialCommunityIcons name="content-copy" size={TOOLBAR_ICON_SIZE} />
+                <MaterialCommunityIcons key="content-copy" name="content-copy" size={TOOLBAR_ICON_SIZE} />
             </Button>
             <Button
                 type="button"
@@ -1761,7 +1762,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 aria-label="Paste"
                 title="Paste"
             >
-                <MaterialCommunityIcons name="content-paste" size={TOOLBAR_ICON_SIZE} />
+                <MaterialCommunityIcons key="content-paste" name="content-paste" size={TOOLBAR_ICON_SIZE} />
             </Button>
             <Button
                 type="button"
@@ -1770,7 +1771,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 aria-label="Duplicate"
                 title="Duplicate"
             >
-                <MaterialCommunityIcons name="content-duplicate" size={TOOLBAR_ICON_SIZE} />
+                <MaterialCommunityIcons key="content-duplicate" name="content-duplicate" size={TOOLBAR_ICON_SIZE} />
             </Button>
             <Button
                 type="button"
@@ -1779,10 +1780,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 aria-label="Delete"
                 title="Delete"
             >
-                <MaterialCommunityIcons name="trash-can-outline" size={TOOLBAR_ICON_SIZE} />
+                <MaterialCommunityIcons key="trash-can-outline" name="trash-can-outline" size={TOOLBAR_ICON_SIZE} />
             </Button>
             <Button type="button" onPress={handleClear} aria-label="Clear canvas" title="Clear canvas">
-                <MaterialCommunityIcons name="eraser-variant" size={TOOLBAR_ICON_SIZE} />
+                <MaterialCommunityIcons key="eraser-variant" name="eraser-variant" size={TOOLBAR_ICON_SIZE} />
             </Button>
         </XYStack>
     )
@@ -1790,22 +1791,22 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const EditorSave = () => (
         <XYStack isSmall={isSmall} className="toolbar-group">
             <Button type="button" onPress={handleSave} aria-label="Save" title="Save">
-                <MaterialCommunityIcons name="content-save-outline" size={TOOLBAR_ICON_SIZE} />
+                <MaterialCommunityIcons key="content-save-outline" name="content-save-outline" size={TOOLBAR_ICON_SIZE} />
             </Button>
             <Button type="button" onPress={handleLoadFromBrowser} aria-label="Load" title="Load">
-                <MaterialCommunityIcons name="folder-open-outline" size={TOOLBAR_ICON_SIZE} />
+                <MaterialCommunityIcons key="folder-open-outline" name="folder-open-outline" size={TOOLBAR_ICON_SIZE} />
             </Button>
             <Button type="button" onPress={() => handleExport('png')} aria-label="Export PNG" title="Export PNG">
-                <MaterialCommunityIcons name="file-image" size={TOOLBAR_ICON_SIZE} />
+                <MaterialCommunityIcons key="file-image" name="file-image" size={TOOLBAR_ICON_SIZE} />
             </Button>
             <Button type="button" onPress={() => handleExport('jpeg')} aria-label="Export JPEG" title="Export JPEG">
-                <MaterialCommunityIcons name="file-jpg-box" size={TOOLBAR_ICON_SIZE} />
+                <MaterialCommunityIcons key="file-jpg-box" name="file-jpg-box" size={TOOLBAR_ICON_SIZE} />
             </Button>
             <Button type="button" onPress={() => handleExport('svg')} aria-label="Export SVG" title="Export SVG">
-                <MaterialCommunityIcons name="svg" size={TOOLBAR_ICON_SIZE} />
+                <MaterialCommunityIcons key="svg" name="svg" size={TOOLBAR_ICON_SIZE} />
             </Button>
             <Button type="button" onPress={() => handleExport('json')} aria-label="Export JSON" title="Export JSON">
-                <MaterialCommunityIcons name="code-json" size={TOOLBAR_ICON_SIZE} />
+                <MaterialCommunityIcons key="code-json" name="code-json" size={TOOLBAR_ICON_SIZE} />
             </Button>
         </XYStack>
     )
@@ -1855,10 +1856,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     aria-expanded={open}
                     aria-haspopup="true"
                 >
-                    <MaterialCommunityIcons name="cog" size={TOOLBAR_ICON_SIZE} />
+                    <MaterialCommunityIcons key="cog" name="cog" size={TOOLBAR_ICON_SIZE} />
                 </Button>
                 {open ? (
-                    <YStack className="settings-dropdown-content">
+                    <YStack className="settings-dropdown-content" position="absolute">
                         <Heading tag="h2">Canvas</Heading>
                         <XStack className="canvas-stats">
                             <Text>
@@ -2023,7 +2024,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 </SidebarContainer>
             </Theme>
             <YStack className="editor-shell">
-                <XStack className="editor-header">
+                <XStack className="editor-header" zIndex={1} overflow={'visible'}>
                     <XStack className="logo">
                         <Image
                             src="https://raw.githubusercontent.com/Everduin94/react-native-vector-icons/master/assets/images/TinyArtist.png"
@@ -2043,7 +2044,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
 
                 </XStack>
-                <XStack width={mainLayoutWidth} className="editor-shell-layout">
+                <XStack width={mainLayoutWidth} className="editor-shell-layout" zIndex={0} >
                     <YStack className="editor-toolbar">
                         <YStack className="toolbar-group">
                             <Button
@@ -2053,7 +2054,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                 aria-label="Select"
                                 title="Select"
                             >
-                                <MaterialCommunityIcons name="cursor-default" size={TOOLBAR_ICON_SIZE} />
+                                <MaterialCommunityIcons key="cursor-default" name="cursor-default" size={TOOLBAR_ICON_SIZE} />
                             </Button>
                             <Button
                                 type="button"
@@ -2062,7 +2063,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                 aria-label="Draw"
                                 title="Draw"
                             >
-                                <MaterialCommunityIcons name="pencil-outline" size={TOOLBAR_ICON_SIZE} />
+                                <MaterialCommunityIcons key="pencil-outline" name="pencil-outline" size={TOOLBAR_ICON_SIZE} />
                             </Button>
                         </YStack>
                         <Text className="active-tool-status" aria-live="polite">
@@ -2070,10 +2071,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                         </Text>
                         <YStack className="toolbar-group">
                             <Button type="button" onPress={handleAddText} aria-label="Add text" title="Add text">
-                                <MaterialCommunityIcons name="format-text" size={TOOLBAR_ICON_SIZE} />
+                                <MaterialCommunityIcons key="format-text" name="format-text" size={TOOLBAR_ICON_SIZE} />
                             </Button>
                             <Button type="button" onPress={handleRequestImage} aria-label="Add image" title="Add image">
-                                <MaterialCommunityIcons name="image-outline" size={TOOLBAR_ICON_SIZE} />
+                                <MaterialCommunityIcons key="image-outline" name="image-outline" size={TOOLBAR_ICON_SIZE} />
                             </Button>
                         </YStack>
                     </YStack>
@@ -2089,48 +2090,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                         </YStack>
                     ) : null}
 
-                    <YStack className="editor-layout">
-                        <Stack>
-                            <Heading tag="h2">Layers</Heading>
-                            <LayersPanel
-                                layers={layers}
-                                elements={contentElements}
-                                activeLayerId={activeLayerId}
-                                selectedElementIds={selectedIds}
-                                onSelectLayer={handleSelectLayer}
-                                onToggleVisibility={handleToggleVisibility}
-                                onToggleLock={handleToggleLock}
-                                onRemoveLayer={handleRemoveLayer}
-                                onMoveLayer={handleLayerMove}
-                                onAddLayer={handleAddLayer}
-                            />
-
-
-                            <XStack
-                                className="stage-zoom-bar zoom-control"
-                                aria-label="Zoom controls"
-                            >
-                                <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
-                                    <MaterialCommunityIcons name="minus" size={TOOLBAR_ICON_SIZE - 6} />
-                                </Button>
-                                <Input
-                                    type="range"
-                                    min={ZOOM_MIN}
-                                    max={ZOOM_MAX}
-                                    step={ZOOM_STEP}
-                                    value={options.zoom}
-                                    onChange={(event) => handleZoomChange(Number(event.target.value))}
-                                    aria-label="Zoom level"
-                                    className="zoom-slider"
-                                />
-                                <Text className="zoom-value" aria-live="polite">
-                                    {zoomPercentage}%
-                                </Text>
-                                <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
-                                    <MaterialCommunityIcons name="plus" size={TOOLBAR_ICON_SIZE - 6} />
-                                </Button>
-                            </XStack>
-                        </Stack>
+                    <Stack className="editor-layout">
                         <XStack ref={editorCanvasRef} className="editor-canvas">
                             <Stack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={{ width: stageWidth, height: stageHeight }}>
                                 {options.showRulers && (
@@ -2322,12 +2282,63 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             })}
                                         </Layer>
                                     </Stage>
+
                                 </Stack>
 
+                                <Popover placement="top-end">
+                                    <Popover.Trigger asChild position={`absolute`} bottom={5} right={5}>
+                                        <MaterialCommunityIcons key="zoom" name="zoom" size={TOOLBAR_ICON_SIZE * 1.5} />
+                                    </Popover.Trigger>
+                                    <Popover.Content>
+                                        <Popover.Arrow />
+                                        <YStack bottom={10} right={10}>
+                                            <Heading tag="h2">Layers</Heading>
+                                            <LayersPanel
+                                                layers={layers}
+                                                elements={contentElements}
+                                                activeLayerId={activeLayerId}
+                                                selectedElementIds={selectedIds}
+                                                onSelectLayer={handleSelectLayer}
+                                                onToggleVisibility={handleToggleVisibility}
+                                                onToggleLock={handleToggleLock}
+                                                onRemoveLayer={handleRemoveLayer}
+                                                onMoveLayer={handleLayerMove}
+                                                onAddLayer={handleAddLayer}
+                                            />
+
+
+                                            <XStack
+                                                className="stage-zoom-bar zoom-control"
+                                                aria-label="Zoom controls"
+                                            >
+                                                <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
+                                                    <MaterialCommunityIcons key="minus" name="minus" size={TOOLBAR_ICON_SIZE - 6} />
+                                                </Button>
+                                                <Input
+                                                    type="range"
+                                                    min={ZOOM_MIN}
+                                                    max={ZOOM_MAX}
+                                                    step={ZOOM_STEP}
+                                                    value={options.zoom}
+                                                    onChange={(event) => handleZoomChange(Number(event.target.value))}
+                                                    aria-label="Zoom level"
+                                                    className="zoom-slider"
+                                                />
+                                                <Text className="zoom-value" aria-live="polite">
+                                                    {zoomPercentage}%
+                                                </Text>
+                                                <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
+                                                    <MaterialCommunityIcons key="plus" name="plus" size={TOOLBAR_ICON_SIZE - 6} />
+                                                </Button>
+                                            </XStack>
+                                        </YStack>
+                                    </Popover.Content>
+                                </Popover>
 
                             </Stack>
                         </XStack>
-                    </YStack>
+
+                    </Stack>
                 </XStack>
 
                 <Input

@@ -24,7 +24,7 @@ const emptyModules = new Set(['fs', 'path', 'module', 'os', 'child_process']);
 const loaders = {
   '.ts': 'ts',
   '.tsx': 'tsx',
-  '.js': 'js',
+  '.js': 'jsx',
   '.jsx': 'jsx',
   '.css': 'css',
   '.ttf': 'file',

@@ -25,16 +25,18 @@ export type MaterialCommunityIconName =
     | 'file-image'
     | 'file-jpg-box'
     | 'svg'
+    | 'zoom'
     | 'code-json';
 
 export interface MaterialCommunityIconsProps extends Omit<SVGAttributes<SVGSVGElement>, 'color'> {
+    readonly key: string | number;
     readonly name: MaterialCommunityIconName;
     readonly size?: number;
     readonly color?: string;
 }
 
-type RenderContext = Required<Pick<MaterialCommunityIconsProps, 'size' | 'color'>> &
-    Omit<MaterialCommunityIconsProps, 'size' | 'color' | 'name'>;
+type RenderContext = Required<Pick<'key', MaterialCommunityIconsProps, 'size' | 'color'>> &
+    Omit<MaterialCommunityIconsProps, 'size' | 'color' | 'name' | 'key'>;
 
 type IconRenderer = (props: RenderContext) => JSX.Element;
 
@@ -272,6 +274,14 @@ const icons: Record<MaterialCommunityIconName, IconRenderer> = {
                 SVG
             </text>,
         ),
+    'zoom': (props) =>
+        createSvg(
+            props,
+            <>
+                <circle cx={11} cy={11} r={6.5} />
+                <line x1={16} y1={16} x2={20} y2={20} />
+            </>,
+        ),
     'code-json': (props) =>
         createSvg(
             props,
@@ -284,9 +294,9 @@ const icons: Record<MaterialCommunityIconName, IconRenderer> = {
 };
 
 export const MaterialCommunityIcons = memo<MaterialCommunityIconsProps>(
-    ({ name, size = 20, color = '#0f172a', ...rest }) => {
+    ({ key, name, size = 20, color = '#0f172a', ...rest }) => {
         const renderer = icons[name] ?? noopIcon;
-        const renderProps: RenderContext = { size, color, ...rest };
+        const renderProps: RenderContext = { key, size, color, ...rest };
         return renderer(renderProps);
     },
 );
