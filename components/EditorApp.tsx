@@ -1480,13 +1480,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         [setOptions],
     );
 
-    const handleZoomChange = useCallback(
-        (value: number) => {
-            applyZoom(value);
-        },
-        [applyZoom],
-    );
-
     const handleZoomOut = useCallback(() => {
         applyZoom((current) => current - ZOOM_STEP);
     }, [applyZoom]);
@@ -2267,15 +2260,19 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
                                             <MaterialCommunityIcons key="minus" name="minus" size={TOOLBAR_ICON_SIZE - 6} />
                                         </Button>
-                                        <Slider 
+                                        <Slider
                                             key="zoom"
-                                            defaultValue={[options.zoom]} 
+                                            value={[options.zoom]}
                                             min={ZOOM_MIN}
-                                            max={ZOOM_MAX} 
-                                            step={5} 
-                                            height={200} 
+                                            max={ZOOM_MAX}
+                                            step={ZOOM_STEP}
+                                            height={200}
                                             orientation="vertical"
-                                            onChange={(event) => handleZoomChange(Number(event.target.value))}
+                                            onValueChange={(value) => {
+                                                if (value[0] != null) {
+                                                    applyZoom(value[0]);
+                                                }
+                                            }}
                                             aria-label="Zoom level"
                                             className="zoom-slider"
                                             size={TOOLBAR_ICON_SIZE - 6}
