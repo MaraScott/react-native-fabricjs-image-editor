@@ -2187,65 +2187,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 />
                                                             </XStack>
                                                         </YStack>
-                                                        {/* <YStack className="properties-grid">
-                                                            <XStack gap="$2">
-                                                                <Label>
-                                                                    Show grid
-                                                                </Label>
-                                                                <Switch id={`show-grid`} size="$2" defaultChecked={options.showGrid} onChange={(event) => setOptions((current) => ({ ...current, showGrid: event.target.checked }))}>
-                                                                    <Switch.Thumb animation="quicker" />
-                                                                </Switch>
-                                                            </XStack>
-                                                            <XStack gap="$2">
-                                                                <Label>
-                                                                    Grid size
-                                                                </Label>
-                                                                <Input
-                                                                    size="$2"
-                                                                    min={4}
-                                                                    value={options.gridSize}
-                                                                    onChange={(event) => setOptions((current) => {
-                                                                        const value = Number(event.target.value)
-                                                                        return {
-                                                                            ...current,
-                                                                            gridSize: Number.isFinite(value) ? Math.max(4, value) : current.gridSize,
-                                                                        }
-                                                                    })}
-                                                                />
-                                                            </XStack>
-                                                            <XStack gap="$2">
-                                                                <Label>
-                                                                    Snap to grid
-                                                                </Label>
-                                                                <Switch id={`snap-to-grid`} size="$2" defaultChecked={options.snapToGrid} onChange={(event) => setOptions((current) => ({ ...current, snapToGrid: event.target.checked }))}>
-                                                                    <Switch.Thumb animation="quicker" />
-                                                                </Switch>
-                                                            </XStack>
-                                                            <XStack gap="$2">
-                                                                <Label>
-                                                                    Snap to guides
-                                                                </Label>
-                                                                <Switch id={`snap-to-guides`} size="$2" defaultChecked={options.snapToGuides} onChange={(event) => setOptions((current) => ({ ...current, snapToGuides: event.target.checked }))}>
-                                                                    <Switch.Thumb animation="quicker" />
-                                                                </Switch>
-                                                            </XStack>
-                                                            <XStack gap="$2">
-                                                                <Label>
-                                                                    Show guides
-                                                                </Label>
-                                                                <Switch id={`show-guides`} size="$2" defaultChecked={options.showGuides} onChange={(event) => setOptions((current) => ({ ...current, showGuides: event.target.checked }))}>
-                                                                    <Switch.Thumb animation="quicker" />
-                                                                </Switch>
-                                                            </XStack>
-                                                            <XStack gap="$2">
-                                                                <Label>
-                                                                    Show rulers
-                                                                </Label>
-                                                                <Switch id={`show-rulers`} size="$2" defaultChecked={options.showRulers} onChange={(event) => setOptions((current) => ({ ...current, showRulers: event.target.checked }))}>
-                                                                    <Switch.Thumb animation="quicker" />
-                                                                </Switch>
-                                                            </XStack>
-                                                        </YStack> */}
                                                     </XStack>
                                                 </YStack>
                                             </Popover.Content>
