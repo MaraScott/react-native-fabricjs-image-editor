@@ -2114,17 +2114,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                     </XStack>
                                                     <XStack>
                                                         <YStack className="canvas-stats">
-                                                            <Paragraph>
-                                                                {displayWidth} × {displayHeight} px
-                                                            </Paragraph>
-                                                            <Paragraph>{layers.length} layers</Paragraph>
                                                             <XStack gap="$2">
                                                                 <Label>
                                                                     Width
                                                                 </Label>
-                                                                <Input 
-                                                                    size="$2" 
-                                                                    min={100} 
+                                                                <Input
+                                                                    size="$2"
+                                                                    min={100}
                                                                     value={displayWidth}
                                                                     onChange={(event) => setOptions((current) => {
                                                                         const value = Number(event.target.value)
@@ -2169,7 +2165,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 />
                                                             </XStack>
                                                         </YStack>
-                                                        <YStack className="properties-grid">
+                                                        {/* <YStack className="properties-grid">
                                                             <XStack gap="$2">
                                                                 <Label>
                                                                     Show grid
@@ -2227,7 +2223,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                     <Switch.Thumb animation="quicker" />
                                                                 </Switch>
                                                             </XStack>
-                                                        </YStack>
+                                                        </YStack> */}
                                                     </XStack>
                                                 </YStack>
                                             </Popover.Content>
@@ -2244,6 +2240,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                 <Popover.Arrow />
                                                 <YStack bottom={10} right={10}>
                                                     <Heading tag="h2">Layers</Heading>
+                                                    <Paragraph>{layers.length} layers</Paragraph>
                                                     <LayersPanel
                                                         layers={layers}
                                                         elements={contentElements}
@@ -2258,34 +2255,43 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                     />
 
 
-                                                    <XStack
-                                                        className="stage-zoom-bar zoom-control"
-                                                        aria-label="Zoom controls"
-                                                    >
-                                                        <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
-                                                            <MaterialCommunityIcons key="minus" name="minus" size={TOOLBAR_ICON_SIZE - 6} />
-                                                        </Button>
-                                                        <Input
-                                                            type="range"
-                                                            min={ZOOM_MIN}
-                                                            max={ZOOM_MAX}
-                                                            step={ZOOM_STEP}
-                                                            value={options.zoom}
-                                                            onChange={(event) => handleZoomChange(Number(event.target.value))}
-                                                            aria-label="Zoom level"
-                                                            className="zoom-slider"
-                                                        />
-                                                        <Text className="zoom-value" aria-live="polite">
-                                                            {zoomPercentage}%
-                                                        </Text>
-                                                        <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
-                                                            <MaterialCommunityIcons key="plus" name="plus" size={TOOLBAR_ICON_SIZE - 6} />
-                                                        </Button>
-                                                    </XStack>
                                                 </YStack>
                                             </Popover.Content>
                                         </Popover>
                                     </Stack>
+                                    <YStack
+                                        className="stage-zoom-bar zoom-control"
+                                        aria-label="Zoom controls"
+                                        position="absolute" bottom={5} right={5} zIndex={2}
+                                    >
+                                        <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
+                                            <MaterialCommunityIcons key="minus" name="minus" size={TOOLBAR_ICON_SIZE - 6} />
+                                        </Button>
+                                        <Slider 
+                                            key="zoom"
+                                            defaultValue={[options.zoom]} 
+                                            min={ZOOM_MIN}
+                                            max={ZOOM_MAX} 
+                                            step={5} 
+                                            height={200} 
+                                            orientation="vertical"
+                                            onChange={(event) => handleZoomChange(Number(event.target.value))}
+                                            aria-label="Zoom level"
+                                            className="zoom-slider"
+                                            size={TOOLBAR_ICON_SIZE - 6}
+                                        >
+                                            <Slider.Track>
+                                                <Slider.TrackActive />
+                                            </Slider.Track>
+                                            <Slider.Thumb size={TOOLBAR_ICON_SIZE - 6} index={0} circular />
+                                        </Slider>
+                                        <Text className="zoom-value" aria-live="polite">
+                                            {zoomPercentage}%
+                                        </Text>
+                                        <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
+                                            <MaterialCommunityIcons key="plus" name="plus" size={TOOLBAR_ICON_SIZE - 6} />
+                                        </Button>
+                                    </YStack>
 
                                 </Stack>
                             </Stack>

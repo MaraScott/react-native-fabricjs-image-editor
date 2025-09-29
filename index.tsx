@@ -9,13 +9,13 @@ import '../../tamagui/tamagui.css';
 import './styles.css';
 
 const DEFAULT_OPTIONS: EditorOptions = {
-  width: 960,
-  height: 540,
+  width: 1024,
+  height: 1024,
   backgroundColor: '#ffffff',
-  showGrid: true,
+  showGrid: false,
   gridSize: 32,
-  snapToGrid: true,
-  snapToGuides: true,
+  snapToGrid: false,
+  snapToGuides: false,
   showGuides: true,
   showRulers: false,
   zoom: 1,
@@ -44,7 +44,7 @@ if (container) {
     <StrictMode>
       <TamaguiProvider config={tamaguiConfig} defaultTheme="light">
         <Theme name="gold" key="theme-gold">
-          <EditorApp initialDesign={resolveInitialDesign()} initialOptions={resolveInitialOptions()} />
+          <EditorApp initialDesign={resolveInitialDesign()} initialOptions={resolveInitialOptions()} backgroundColor="#eeeeee" />
         </Theme>
       </TamaguiProvider>
     </StrictMode>,
