@@ -1445,22 +1445,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     }, [resetDesign]);
 
     const applyZoom = useCallback(
-        (value: number | ((current: number) => number), anchor?: { clientX: number; clientY: number } | null) => {
+        (value: number | ((current: number) => number), anchor: { clientX: number; clientY: number } | null = null) => {
             const stage = stageRef.current;
             const container = typeof stage?.container === 'function' ? stage.container() : null;
             const containerBounds = container?.getBoundingClientRect() ?? null;
-            let resolvedAnchor = anchor ?? null;
-
-            if (!resolvedAnchor && stage && containerBounds) {
-                const scale = stage.scaleX();
-                const stageWidth = stage.width();
-                const stageHeight = stage.height();
-                resolvedAnchor = {
-                    clientX: containerBounds.left + stage.x() + (stageWidth * scale) / 2,
-                    clientY: containerBounds.top + stage.y() + (stageHeight * scale) / 2,
-                };
-            }
-
             let previousZoom: number | null = null;
             let nextZoom: number | null = null;
 
@@ -1478,7 +1466,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             });
 
             if (
-                resolvedAnchor &&
+                anchor &&
                 previousZoom !== null &&
                 nextZoom !== null &&
                 previousZoom > 0 &&
@@ -1486,8 +1474,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 containerBounds &&
                 stage
             ) {
-                const offsetX = resolvedAnchor.clientX - containerBounds.left;
-                const offsetY = resolvedAnchor.clientY - containerBounds.top;
+                const offsetX = anchor.clientX - containerBounds.left;
+                const offsetY = anchor.clientY - containerBounds.top;
                 const currentX = stage.x();
                 const currentY = stage.y();
                 const anchorStageX = (offsetX - currentX) / previousZoom;
@@ -2234,8 +2222,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             </Popover.Trigger>
                                             <Popover.Content>
                                                 <Popover.Arrow />
-                                                <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
-                                                    <MaterialCommunityIcons key="plus" name="plus" size={TOOLBAR_ICON_SIZE - 6} />
+                                                <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
+                                                    <MaterialCommunityIcons key="minus" name="minus" size={TOOLBAR_ICON_SIZE - 6} />
                                                 </Button>
                                                 <Slider
                                                     key="zoom"
@@ -2259,13 +2247,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                     <Slider.Track>
                                                         <Slider.TrackActive />
                                                     </Slider.Track>
-                                                    <Slider.Thumb size="$2" index={0} circular />
+                                                    <Slider.Thumb size="$4" index={0} circular />
                                                 </Slider>
                                                 <Text className="zoom-value" aria-live="polite">
                                                     {zoomPercentage > 0 ? `+${zoomPercentage}` : zoomPercentage}%
                                                 </Text>
-                                                <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
-                                                    <MaterialCommunityIcons key="minus" name="minus" size={TOOLBAR_ICON_SIZE - 6} />
+                                                <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
+                                                    <MaterialCommunityIcons key="plus" name="plus" size={TOOLBAR_ICON_SIZE - 6} />
                                                 </Button>
 
                                             </Popover.Content>
