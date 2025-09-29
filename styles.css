@@ -173,9 +173,14 @@ body {
     overflow: auto;
 }
 
+.editor-canvas > .stage-area {
+    flex: 0 0 auto;
+}
+
 .stage-area {
     position: relative;
-    display: flex;
+    display: inline-flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     padding: clamp(24px, 6vw, 48px);
@@ -187,10 +192,17 @@ body {
     min-height: 0;
     max-width: 100%;
     max-height: 100%;
+    width: fit-content;
+    height: fit-content;
+    align-self: center;
 }
 
 .stage-wrapper {
     position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    align-items: center;
     border-radius: 12px;
     overflow: visible;
 }
@@ -227,6 +239,10 @@ body {
 
 .stage-canvas {
     position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
     border-radius: 8px;
     box-shadow: 0 24px 50px rgba(15, 17, 21, 0.45);
