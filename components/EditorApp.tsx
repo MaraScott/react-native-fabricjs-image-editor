@@ -2520,7 +2520,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                     <YStack
                                         position="absolute"
                                         bottom={5}
-                                        left={5}
+                                        right={5}
                                         zIndex={2}
                                         gap="$2"
                                         padding="$3"
