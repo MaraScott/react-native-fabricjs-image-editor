@@ -87,9 +87,16 @@ const STORAGE_KEY = 'konva-image-editor-design';
 
 const DEFAULT_DRAW = { color: '#2563eb', width: 5 };
 const TOOLBAR_ICON_SIZE = 12;
-const ZOOM_MIN = 0.25;
-const ZOOM_MAX = 3;
+const ZOOM_MIN = 0;
+const ZOOM_MAX = 2;
 const ZOOM_STEP = 0.05;
+const ZOOM_PERCENT_MIN = -100;
+const ZOOM_PERCENT_MAX = 100;
+const ZOOM_PERCENT_STEP = ZOOM_STEP * 100;
+const ZOOM_SLIDER_MIN = 0;
+const ZOOM_SLIDER_MAX = ZOOM_PERCENT_MAX - ZOOM_PERCENT_MIN;
+const ZOOM_SLIDER_OFFSET = Math.abs(ZOOM_PERCENT_MIN);
+const ZOOM_BASE_SCALE = 1;
 
 const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
     {
@@ -534,6 +541,21 @@ function clampZoom(value: number): number {
         return ZOOM_MIN;
     }
     return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
+}
+
+function clampZoomPercent(value: number): number {
+    if (!Number.isFinite(value)) {
+        return ZOOM_PERCENT_MIN;
+    }
+    return Math.min(ZOOM_PERCENT_MAX, Math.max(ZOOM_PERCENT_MIN, value));
+}
+
+function zoomScaleToPercent(scale: number): number {
+    return clampZoomPercent((scale - ZOOM_BASE_SCALE) * 100);
+}
+
+function zoomPercentToScale(percent: number): number {
+    return clampZoom(percent / 100 + ZOOM_BASE_SCALE);
 }
 
 function getStagePointer(stage: StageType): Vector2d | null {
@@ -1423,22 +1445,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     }, [resetDesign]);
 
     const applyZoom = useCallback(
-        (value: number | ((current: number) => number), anchor?: { clientX: number; clientY: number } | null) => {
+        (value: number | ((current: number) => number), anchor: { clientX: number; clientY: number } | null = null) => {
             const stage = stageRef.current;
             const container = typeof stage?.container === 'function' ? stage.container() : null;
             const containerBounds = container?.getBoundingClientRect() ?? null;
-            let resolvedAnchor = anchor ?? null;
-
-            if (!resolvedAnchor && stage && containerBounds) {
-                const scale = stage.scaleX();
-                const stageWidth = stage.width();
-                const stageHeight = stage.height();
-                resolvedAnchor = {
-                    clientX: containerBounds.left + stage.x() + (stageWidth * scale) / 2,
-                    clientY: containerBounds.top + stage.y() + (stageHeight * scale) / 2,
-                };
-            }
-
             let previousZoom: number | null = null;
             let nextZoom: number | null = null;
 
@@ -1456,14 +1466,16 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             });
 
             if (
-                resolvedAnchor &&
+                anchor &&
                 previousZoom !== null &&
                 nextZoom !== null &&
+                previousZoom > 0 &&
+                nextZoom > 0 &&
                 containerBounds &&
                 stage
             ) {
-                const offsetX = resolvedAnchor.clientX - containerBounds.left;
-                const offsetY = resolvedAnchor.clientY - containerBounds.top;
+                const offsetX = anchor.clientX - containerBounds.left;
+                const offsetY = anchor.clientY - containerBounds.top;
                 const currentX = stage.x();
                 const currentY = stage.y();
                 const anchorStageX = (offsetX - currentX) / previousZoom;
@@ -1478,13 +1490,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             }
         },
         [setOptions],
-    );
-
-    const handleZoomChange = useCallback(
-        (value: number) => {
-            applyZoom(value);
-        },
-        [applyZoom],
     );
 
     const handleZoomOut = useCallback(() => {
@@ -1717,7 +1722,12 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             backgroundSize: `${scaledGrid}px ${scaledGrid}px`,
         } as const;
     }, [options.backgroundColor, options.gridSize, options.showGrid, options.zoom]);
-    const zoomPercentage = useMemo(() => Math.round(options.zoom * 100), [options.zoom]);
+    const zoomSliderPercent = useMemo(() => zoomScaleToPercent(options.zoom), [options.zoom]);
+    const zoomSliderValue = useMemo(
+        () => clampZoomPercent(zoomSliderPercent) + ZOOM_SLIDER_OFFSET,
+        [zoomSliderPercent],
+    );
+    const zoomPercentage = useMemo(() => Math.round(zoomSliderPercent), [zoomSliderPercent]);
     const stageCursor = isPanning ? 'grabbing' : isPanMode ? 'grab' : undefined;
     const stageCanvasStyle = useMemo(() => {
         const baseStyle: CSSProperties = {
@@ -2267,26 +2277,32 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
                                             <MaterialCommunityIcons key="minus" name="minus" size={TOOLBAR_ICON_SIZE - 6} />
                                         </Button>
-                                        <Slider 
+                                        <Slider
                                             key="zoom"
-                                            defaultValue={[options.zoom]} 
-                                            min={ZOOM_MIN}
-                                            max={ZOOM_MAX} 
-                                            step={5} 
-                                            height={200} 
+                                            value={[zoomSliderValue]}
+                                            min={ZOOM_SLIDER_MIN}
+                                            max={ZOOM_SLIDER_MAX}
+                                            step={ZOOM_PERCENT_STEP}
+                                            height={200}
                                             orientation="vertical"
-                                            onChange={(event) => handleZoomChange(Number(event.target.value))}
+                                            onValueChange={(value) => {
+                                                const rawValue = value[0];
+                                                if (rawValue != null) {
+                                                    const percent = clampZoomPercent(rawValue - ZOOM_SLIDER_OFFSET);
+                                                    applyZoom(zoomPercentToScale(percent));
+                                                }
+                                            }}
                                             aria-label="Zoom level"
                                             className="zoom-slider"
-                                            size={TOOLBAR_ICON_SIZE - 6}
+                                            size="$4"
                                         >
                                             <Slider.Track>
                                                 <Slider.TrackActive />
                                             </Slider.Track>
-                                            <Slider.Thumb size={TOOLBAR_ICON_SIZE - 6} index={0} circular />
+                                            <Slider.Thumb size="$4" index={0} circular />
                                         </Slider>
                                         <Text className="zoom-value" aria-live="polite">
-                                            {zoomPercentage}%
+                                            {zoomPercentage > 0 ? `+${zoomPercentage}` : zoomPercentage}%
                                         </Text>
                                         <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
                                             <MaterialCommunityIcons key="plus" name="plus" size={TOOLBAR_ICON_SIZE - 6} />
