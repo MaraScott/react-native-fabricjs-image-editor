@@ -174,11 +174,14 @@ body {
 }
 
 .stage-wrapper {
-    background: var(--backgroundPress, #ffffff);
+    background: #2b2b2b;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
     border-radius: 12px;
     position: relative;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .stage-wrapper.with-rulers {
@@ -215,25 +218,6 @@ body {
     position: relative;
     overflow: hidden;
     border-radius: 8px;
-}
-
-.stage-zoom-bar {
-    position: absolute;
-    right: 16px;
-    bottom: 16px;
-    padding: 10px 14px;
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--background, rgba(15, 23, 42, 0.88)) 90%, transparent);
-    border: 1px solid color-mix(in srgb, var(--borderColor, rgba(148, 163, 184, 0.16)) 70%, transparent);
-    box-shadow: 0 18px 32px rgba(15, 17, 21, 0.35);
-    backdrop-filter: blur(18px);
-    min-width: 240px;
-    pointer-events: auto;
-    z-index: 3;
-}
-
-.stage-zoom-bar .zoom-slider {
-    max-width: 140px;
 }
 
 .editor-sidebar {
@@ -302,29 +286,6 @@ body {
 
 .properties-grid .full-width {
     grid-column: 1 / -1;
-}
-
-.zoom-control {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.zoom-control button {
-    padding: 6px;
-    min-width: 0;
-}
-
-.zoom-slider {
-    flex: 1;
-    min-width: 0;
-}
-
-.zoom-value {
-    min-width: 52px;
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    color: color-mix(in srgb, var(--color, #e2e8f0) 75%, transparent);
 }
 
 .export-panel {

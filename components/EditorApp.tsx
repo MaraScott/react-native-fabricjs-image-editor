@@ -9,7 +9,7 @@ import {
     type CSSProperties,
 } from 'react';
 import { Layer, Stage } from 'react-konva';
-import { Button, Heading, Image, Input, Label, Separator, Stack, Text, XStack, YStack, ZStack, useWindowDimensions, Theme, Popover, Slider, Paragraph, Switch } from 'tamagui';
+import { Button, Heading, Image, Input, Label, Separator, Stack, Text, XStack, YStack, ZStack, useWindowDimensions, Theme, Popover, Paragraph, Switch } from 'tamagui';
 import { MaterialCommunityIcons } from './icons/MaterialCommunityIcons';
 // import { CiZoomIn } from "react-icons/ci";
 import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
@@ -87,16 +87,14 @@ const STORAGE_KEY = 'konva-image-editor-design';
 
 const DEFAULT_DRAW = { color: '#2563eb', width: 5 };
 const TOOLBAR_ICON_SIZE = 12;
-const ZOOM_MIN = 0;
-const ZOOM_MAX = 2;
-const ZOOM_STEP = 0.05;
-const ZOOM_PERCENT_MIN = -100;
-const ZOOM_PERCENT_MAX = 100;
-const ZOOM_PERCENT_STEP = ZOOM_STEP * 100;
-const ZOOM_SLIDER_MIN = 0;
-const ZOOM_SLIDER_MAX = ZOOM_PERCENT_MAX - ZOOM_PERCENT_MIN;
-const ZOOM_SLIDER_OFFSET = Math.abs(ZOOM_PERCENT_MIN);
-const ZOOM_BASE_SCALE = 1;
+const MAX_ZOOM = 8;
+const DOUBLE_TAP_ZOOM = 2;
+const WHEEL_ZOOM_SENSITIVITY = 0.0015;
+const PAN_INERTIA_FRICTION = 0.9;
+const PAN_MIN_VELOCITY = 0.01;
+const WORKSPACE_COLOR = '#2b2b2b';
+const MIN_ZOOM_FALLBACK = 0.05;
+const KEYBOARD_ZOOM_FACTOR = 1.1;
 
 const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
     {
@@ -536,26 +534,59 @@ const DEFAULT_OPTIONS: EditorOptions = {
     canvasSizeLocked: false,
 };
 
-function clampZoom(value: number): number {
+function clampZoom(value: number, min: number, max: number): number {
     if (!Number.isFinite(value)) {
-        return ZOOM_MIN;
+        return min;
     }
-    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
+    return Math.min(max, Math.max(min, value));
 }
 
-function clampZoomPercent(value: number): number {
-    if (!Number.isFinite(value)) {
-        return ZOOM_PERCENT_MIN;
+function computeFitScale(stageWidth: number, stageHeight: number, viewportWidth: number, viewportHeight: number): number {
+    if (stageWidth === 0 || stageHeight === 0 || viewportWidth === 0 || viewportHeight === 0) {
+        return 1;
     }
-    return Math.min(ZOOM_PERCENT_MAX, Math.max(ZOOM_PERCENT_MIN, value));
+    return Math.min(viewportWidth / stageWidth, viewportHeight / stageHeight);
 }
 
-function zoomScaleToPercent(scale: number): number {
-    return clampZoomPercent((scale - ZOOM_BASE_SCALE) * 100);
-}
+function clampStagePosition(
+    position: { x: number; y: number },
+    scale: number,
+    stageSize: { width: number; height: number },
+    viewportSize: { width: number; height: number },
+): { x: number; y: number } {
+    if (viewportSize.width <= 0 || viewportSize.height <= 0) {
+        return position;
+    }
 
-function zoomPercentToScale(percent: number): number {
-    return clampZoom(percent / 100 + ZOOM_BASE_SCALE);
+    const scaledWidth = stageSize.width * scale;
+    const scaledHeight = stageSize.height * scale;
+
+    let minX: number;
+    let maxX: number;
+    if (scaledWidth <= viewportSize.width) {
+        const centeredX = (viewportSize.width - scaledWidth) / 2;
+        minX = centeredX;
+        maxX = centeredX;
+    } else {
+        minX = viewportSize.width - scaledWidth;
+        maxX = 0;
+    }
+
+    let minY: number;
+    let maxY: number;
+    if (scaledHeight <= viewportSize.height) {
+        const centeredY = (viewportSize.height - scaledHeight) / 2;
+        minY = centeredY;
+        maxY = centeredY;
+    } else {
+        minY = viewportSize.height - scaledHeight;
+        maxY = 0;
+    }
+
+    return {
+        x: Math.min(maxX, Math.max(minX, position.x)),
+        y: Math.min(maxY, Math.max(minY, position.y)),
+    };
 }
 
 function getStagePointer(stage: StageType): Vector2d | null {
@@ -655,10 +686,18 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
     const [stagePosition, setStagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
     const stagePositionRef = useRef(stagePosition);
+    const [workspaceSize, setWorkspaceSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+    const workspaceSizeRef = useRef(workspaceSize);
+    const [zoomBounds, setZoomBounds] = useState<{ min: number; max: number }>({ min: 1, max: MAX_ZOOM });
+    const zoomBoundsRef = useRef(zoomBounds);
+    const zoomRef = useRef(options.zoom);
     const panStateRef = useRef<{
         startPointer: Vector2d;
         startPosition: { x: number; y: number };
     } | null>(null);
+    const panVelocityRef = useRef<{ vx: number; vy: number }>({ vx: 0, vy: 0 });
+    const lastPanTimestampRef = useRef<number | null>(null);
+    const inertiaHandleRef = useRef<number | null>(null);
     const spacePressedRef = useRef(false);
     const stageHoverRef = useRef(false);
     const previousCursorRef = useRef<{ inline: string; hadInline: boolean } | null>(null);
@@ -673,6 +712,136 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const sidebarWidth = isSmall ? width - 30 : 90
     // const sidebarImageSize = isSmall ? 120 : 80
     const [leftOpen, setLeftOpen] = useState(false);
+
+    const stageWidth = Math.round(options.width);
+    const stageHeight = Math.round(options.height);
+
+    const stopInertia = useCallback(() => {
+        if (inertiaHandleRef.current !== null) {
+            cancelAnimationFrame(inertiaHandleRef.current);
+            inertiaHandleRef.current = null;
+        }
+    }, []);
+
+    const startPanInertia = useCallback(
+        (velocity: { vx: number; vy: number }) => {
+            let { vx, vy } = velocity;
+            if (Math.abs(vx) < PAN_MIN_VELOCITY && Math.abs(vy) < PAN_MIN_VELOCITY) {
+                return;
+            }
+
+            stopInertia();
+
+            let lastTime: number | null = null;
+
+            const step = (time: number) => {
+                if (lastTime === null) {
+                    lastTime = time;
+                }
+                const delta = time - lastTime;
+                lastTime = time;
+
+                const decay = Math.pow(PAN_INERTIA_FRICTION, delta / 16.67);
+                vx *= decay;
+                vy *= decay;
+
+                if (Math.abs(vx) < PAN_MIN_VELOCITY && Math.abs(vy) < PAN_MIN_VELOCITY) {
+                    stopInertia();
+                    return;
+                }
+
+                const nextPosition = clampStagePosition(
+                    {
+                        x: stagePositionRef.current.x + vx * delta,
+                        y: stagePositionRef.current.y + vy * delta,
+                    },
+                    zoomRef.current,
+                    { width: stageWidth, height: stageHeight },
+                    workspaceSizeRef.current,
+                );
+
+                if (
+                    nextPosition.x === stagePositionRef.current.x &&
+                    nextPosition.y === stagePositionRef.current.y
+                ) {
+                    stopInertia();
+                    return;
+                }
+
+                setStagePosition(nextPosition);
+                inertiaHandleRef.current = requestAnimationFrame(step);
+            };
+
+            inertiaHandleRef.current = requestAnimationFrame(step);
+        },
+        [setStagePosition, stageHeight, stageWidth, stopInertia],
+    );
+
+    useEffect(() => () => stopInertia(), [stopInertia]);
+
+    useEffect(() => {
+        workspaceSizeRef.current = workspaceSize;
+    }, [workspaceSize]);
+
+    useEffect(() => {
+        zoomBoundsRef.current = zoomBounds;
+    }, [zoomBounds]);
+
+    useEffect(() => {
+        zoomRef.current = options.zoom;
+    }, [options.zoom]);
+
+    const workspaceContainerNode = editorCanvasRef.current;
+
+    useLayoutEffect(() => {
+        const element = workspaceContainerNode;
+        if (!element) {
+            return;
+        }
+
+        let frame: number | null = null;
+
+        const measure = () => {
+            frame = null;
+            const nextSize = {
+                width: Math.max(0, element.clientWidth - 28),
+                height: Math.max(0, element.clientHeight - 28),
+            };
+            setWorkspaceSize((current) =>
+                current.width === nextSize.width && current.height === nextSize.height ? current : nextSize,
+            );
+        };
+
+        const scheduleMeasure = () => {
+            if (frame !== null) {
+                cancelAnimationFrame(frame);
+            }
+            frame = requestAnimationFrame(measure);
+        };
+
+        measure();
+
+        let observer: ResizeObserver | null = null;
+
+        if (typeof ResizeObserver !== 'undefined') {
+            observer = new ResizeObserver(() => scheduleMeasure());
+            observer.observe(element);
+        } else {
+            window.addEventListener('resize', scheduleMeasure);
+        }
+
+        return () => {
+            if (observer) {
+                observer.disconnect();
+            } else {
+                window.removeEventListener('resize', scheduleMeasure);
+            }
+
+            if (frame !== null) {
+                cancelAnimationFrame(frame);
+            }
+        };
+    }, [workspaceContainerNode]);
 
     const restoreStageCursor = useCallback(() => {
         const stage = stageRef.current;
@@ -787,6 +956,41 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     }, [isPanMode, isPanning, restoreStageCursor]);
 
     useEffect(() => {
+        const viewportWidth = workspaceSize.width;
+        const viewportHeight = workspaceSize.height;
+        if (viewportWidth <= 0 || viewportHeight <= 0) {
+            return;
+        }
+
+        const fitScaleRaw = computeFitScale(stageWidth, stageHeight, viewportWidth, viewportHeight);
+        const nextMin = clampZoom(Math.max(fitScaleRaw, MIN_ZOOM_FALLBACK), MIN_ZOOM_FALLBACK, MAX_ZOOM);
+
+        setZoomBounds((current) =>
+            current.min === nextMin && current.max === MAX_ZOOM ? current : { min: nextMin, max: MAX_ZOOM },
+        );
+
+        const clampedZoom = clampZoom(zoomRef.current, nextMin, MAX_ZOOM);
+        if (clampedZoom !== zoomRef.current) {
+            zoomRef.current = clampedZoom;
+            setOptions((current) => (current.zoom === clampedZoom ? current : { ...current, zoom: clampedZoom }));
+        }
+
+        const clampedPosition = clampStagePosition(
+            stagePositionRef.current,
+            clampedZoom,
+            { width: stageWidth, height: stageHeight },
+            { width: viewportWidth, height: viewportHeight },
+        );
+
+        if (
+            clampedPosition.x !== stagePositionRef.current.x ||
+            clampedPosition.y !== stagePositionRef.current.y
+        ) {
+            setStagePosition(clampedPosition);
+        }
+    }, [setOptions, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
+
+    useEffect(() => {
         if (layers.length === 0) {
             return;
         }
@@ -797,8 +1001,36 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     }, [layers, activeLayerId]);
 
     useEffect(() => {
+        const stage = stageRef.current;
+        const container = typeof stage?.container === 'function' ? stage.container() : null;
+        if (!container) {
+            return;
+        }
+
+        const previousTouchAction = container.style.touchAction;
+        container.style.touchAction = 'none';
+
+        return () => {
+            container.style.touchAction = previousTouchAction;
+        };
+    }, []);
+
+    useEffect(() => {
         stagePositionRef.current = stagePosition;
+        const stage = stageRef.current;
+        if (stage) {
+            stage.position(stagePosition);
+            stage.batchDraw();
+        }
     }, [stagePosition]);
+
+    useEffect(() => {
+        const stage = stageRef.current;
+        if (stage) {
+            stage.scale({ x: options.zoom, y: options.zoom });
+            stage.batchDraw();
+        }
+    }, [options.zoom]);
 
     useEffect(() => {
         if (typeof window === 'undefined') {
@@ -1308,6 +1540,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
             if (isPanMode) {
                 event.evt.preventDefault();
+                stopInertia();
                 const pointerPosition = stage.getPointerPosition();
                 if (!pointerPosition) return;
                 const startPosition = stagePositionRef.current;
@@ -1315,6 +1548,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     startPointer: { x: pointerPosition.x, y: pointerPosition.y },
                     startPosition: { x: startPosition.x, y: startPosition.y },
                 };
+                panVelocityRef.current = { vx: 0, vy: 0 };
+                lastPanTimestampRef.current = performance.now();
                 setIsPanning(true);
                 return;
             }
@@ -1352,7 +1587,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 setActiveTool('select');
             }
         },
-        [activeTool, addElement, drawSettings, isPanMode],
+        [activeTool, addElement, drawSettings, isPanMode, stopInertia],
     );
 
     const handleStagePointerMove = useCallback(
@@ -1364,10 +1599,30 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 const pointerPosition = stage.getPointerPosition();
                 if (!pointerPosition) return;
                 const { startPointer, startPosition } = panStateRef.current;
-                setStagePosition({
-                    x: startPosition.x + (pointerPosition.x - startPointer.x),
-                    y: startPosition.y + (pointerPosition.y - startPointer.y),
-                });
+                const deltaX = pointerPosition.x - startPointer.x;
+                const deltaY = pointerPosition.y - startPointer.y;
+                const targetPosition = {
+                    x: startPosition.x + deltaX,
+                    y: startPosition.y + deltaY,
+                };
+                const clamped = clampStagePosition(
+                    targetPosition,
+                    zoomRef.current,
+                    { width: stageWidth, height: stageHeight },
+                    workspaceSizeRef.current,
+                );
+                const previous = stagePositionRef.current;
+                const now = performance.now();
+                const last = lastPanTimestampRef.current;
+                if (last !== null && now > last) {
+                    const dt = now - last;
+                    panVelocityRef.current = {
+                        vx: (clamped.x - previous.x) / dt,
+                        vy: (clamped.y - previous.y) / dt,
+                    };
+                }
+                lastPanTimestampRef.current = now;
+                setStagePosition(clamped);
                 return;
             }
 
@@ -1388,18 +1643,22 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 }),
             );
         },
-        [setStagePosition, updateElements],
+        [setStagePosition, stageHeight, stageWidth, updateElements],
     );
 
     const handleStagePointerUp = useCallback(() => {
         if (panStateRef.current) {
             panStateRef.current = null;
             setIsPanning(false);
+            const velocity = panVelocityRef.current;
+            panVelocityRef.current = { vx: 0, vy: 0 };
+            lastPanTimestampRef.current = null;
+            startPanInertia(velocity);
             return;
         }
         if (!drawingStateRef.current) return;
         drawingStateRef.current = null;
-    }, [setIsPanning]);
+    }, [setIsPanning, startPanInertia]);
 
     const handleSave = useCallback(() => {
         postMessage('save', { json: stringifyDesign(design) });
@@ -1446,58 +1705,65 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
     const applyZoom = useCallback(
         (value: number | ((current: number) => number), anchor: { clientX: number; clientY: number } | null = null) => {
+            stopInertia();
             const stage = stageRef.current;
             const container = typeof stage?.container === 'function' ? stage.container() : null;
             const containerBounds = container?.getBoundingClientRect() ?? null;
-            let previousZoom: number | null = null;
-            let nextZoom: number | null = null;
 
-            setOptions((current) => {
-                const resolved = typeof value === 'function' ? value(current.zoom) : value;
-                const clamped = clampZoom(resolved);
-                if (clamped === current.zoom) {
-                    previousZoom = null;
-                    nextZoom = null;
-                    return current;
-                }
-                previousZoom = current.zoom;
-                nextZoom = clamped;
-                return { ...current, zoom: clamped };
-            });
+            const currentZoom = zoomRef.current;
+            const resolved = typeof value === 'function' ? value(currentZoom) : value;
+            const clamped = clampZoom(resolved, zoomBoundsRef.current.min, zoomBoundsRef.current.max);
 
-            if (
-                anchor &&
-                previousZoom !== null &&
-                nextZoom !== null &&
-                previousZoom > 0 &&
-                nextZoom > 0 &&
-                containerBounds &&
-                stage
-            ) {
+            if (clamped === currentZoom) {
+                return;
+            }
+
+            zoomRef.current = clamped;
+            setOptions((current) => (current.zoom === clamped ? current : { ...current, zoom: clamped }));
+
+            if (stage) {
+                stage.scale({ x: clamped, y: clamped });
+            }
+
+            const currentPosition = stagePositionRef.current;
+            let nextPosition = currentPosition;
+
+            if (anchor && containerBounds && currentZoom > 0) {
                 const offsetX = anchor.clientX - containerBounds.left;
                 const offsetY = anchor.clientY - containerBounds.top;
-                const currentX = stage.x();
-                const currentY = stage.y();
-                const anchorStageX = (offsetX - currentX) / previousZoom;
-                const anchorStageY = (offsetY - currentY) / previousZoom;
-                const nextPosition = {
-                    x: offsetX - anchorStageX * nextZoom,
-                    y: offsetY - anchorStageY * nextZoom,
+                const anchorStageX = (offsetX - currentPosition.x) / currentZoom;
+                const anchorStageY = (offsetY - currentPosition.y) / currentZoom;
+                nextPosition = {
+                    x: offsetX - anchorStageX * clamped,
+                    y: offsetY - anchorStageY * clamped,
                 };
+            }
+
+            nextPosition = clampStagePosition(
+                nextPosition,
+                clamped,
+                { width: stageWidth, height: stageHeight },
+                workspaceSizeRef.current,
+            );
+
+            if (stage) {
                 stage.position(nextPosition);
                 stage.batchDraw();
+            }
+
+            if (nextPosition.x !== currentPosition.x || nextPosition.y !== currentPosition.y) {
                 setStagePosition(nextPosition);
             }
         },
-        [setOptions],
+        [setOptions, setStagePosition, stageHeight, stageWidth, stopInertia],
     );
 
     const handleZoomOut = useCallback(() => {
-        applyZoom((current) => current - ZOOM_STEP);
+        applyZoom((current) => current / KEYBOARD_ZOOM_FACTOR);
     }, [applyZoom]);
 
     const handleZoomIn = useCallback(() => {
-        applyZoom((current) => current + ZOOM_STEP);
+        applyZoom((current) => current * KEYBOARD_ZOOM_FACTOR);
     }, [applyZoom]);
 
     useEffect(() => {
@@ -1602,20 +1868,117 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         }
 
         const handleWheel = (event: WheelEvent) => {
-            if (!(event.ctrlKey || event.metaKey)) {
-                return;
-            }
             event.preventDefault();
-            const delta = event.deltaY === 0 ? 0 : event.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-            if (delta === 0) {
+            const deltaY = event.deltaY;
+            if (deltaY === 0) {
                 return;
             }
-            applyZoom((current) => current + delta, { clientX: event.clientX, clientY: event.clientY });
+            const zoomFactor = Math.exp(-deltaY * WHEEL_ZOOM_SENSITIVITY);
+            const target = clampZoom(
+                zoomRef.current * zoomFactor,
+                zoomBoundsRef.current.min,
+                zoomBoundsRef.current.max,
+            );
+            applyZoom(target, { clientX: event.clientX, clientY: event.clientY });
+        };
+
+        let pinchState: { distance: number; zoom: number } | null = null;
+        let lastTapTime = 0;
+
+        const getTouchDistance = (touchA: Touch, touchB: Touch) => {
+            const dx = touchA.clientX - touchB.clientX;
+            const dy = touchA.clientY - touchB.clientY;
+            return Math.hypot(dx, dy);
+        };
+
+        const getTouchCenter = (touchA: Touch, touchB: Touch) => ({
+            clientX: (touchA.clientX + touchB.clientX) / 2,
+            clientY: (touchA.clientY + touchB.clientY) / 2,
+        });
+
+        const handleTouchStart = (event: TouchEvent) => {
+            if (event.touches.length === 2) {
+                event.preventDefault();
+                const [touchA, touchB] = [event.touches[0], event.touches[1]];
+                pinchState = {
+                    distance: getTouchDistance(touchA, touchB),
+                    zoom: zoomRef.current,
+                };
+            }
+        };
+
+        const handleTouchMove = (event: TouchEvent) => {
+            if (event.touches.length === 2 && pinchState) {
+                event.preventDefault();
+                const [touchA, touchB] = [event.touches[0], event.touches[1]];
+                const distance = getTouchDistance(touchA, touchB);
+                if (pinchState.distance === 0) {
+                    return;
+                }
+                const ratio = distance / pinchState.distance;
+                const target = clampZoom(
+                    pinchState.zoom * ratio,
+                    zoomBoundsRef.current.min,
+                    zoomBoundsRef.current.max,
+                );
+                const center = getTouchCenter(touchA, touchB);
+                applyZoom(target, center);
+            }
+        };
+
+        const handleTouchEnd = (event: TouchEvent) => {
+            if (event.touches.length < 2) {
+                pinchState = null;
+            }
+
+            if (event.touches.length > 0) {
+                return;
+            }
+
+            if (event.changedTouches.length === 1) {
+                const now = performance.now();
+                const touch = event.changedTouches[0];
+                if (now - lastTapTime < 300) {
+                    event.preventDefault();
+                    const minZoom = zoomBoundsRef.current.min;
+                    const maxZoom = zoomBoundsRef.current.max;
+                    const target =
+                        zoomRef.current < DOUBLE_TAP_ZOOM
+                            ? Math.min(DOUBLE_TAP_ZOOM, maxZoom)
+                            : minZoom;
+                    applyZoom(target, { clientX: touch.clientX, clientY: touch.clientY });
+                }
+                lastTapTime = now;
+            }
+        };
+
+        const handleTouchCancel = () => {
+            pinchState = null;
+        };
+
+        const handleDoubleClick = (event: MouseEvent) => {
+            event.preventDefault();
+            const minZoom = zoomBoundsRef.current.min;
+            const maxZoom = zoomBoundsRef.current.max;
+            const target =
+                zoomRef.current < DOUBLE_TAP_ZOOM ? Math.min(DOUBLE_TAP_ZOOM, maxZoom) : minZoom;
+            applyZoom(target, { clientX: event.clientX, clientY: event.clientY });
         };
 
         container.addEventListener('wheel', handleWheel, { passive: false });
+        container.addEventListener('touchstart', handleTouchStart, { passive: false });
+        container.addEventListener('touchmove', handleTouchMove, { passive: false });
+        container.addEventListener('touchend', handleTouchEnd);
+        container.addEventListener('touchcancel', handleTouchCancel);
+        container.addEventListener('dblclick', handleDoubleClick);
+
         return () => {
             container.removeEventListener('wheel', handleWheel);
+            container.removeEventListener('touchstart', handleTouchStart);
+            container.removeEventListener('touchmove', handleTouchMove);
+            container.removeEventListener('touchend', handleTouchEnd);
+            container.removeEventListener('touchcancel', handleTouchCancel);
+            container.removeEventListener('dblclick', handleDoubleClick);
         };
     }, [applyZoom]);
 
@@ -1705,8 +2068,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         };
     }, [design, handleAddImage, handleClear, handleExport, postMessage, redo, resetDesign, undo]);
 
-    const stageWidth = Math.round(options.width);
-    const stageHeight = Math.round(options.height);
     const rulerStep = Math.max(1, 32 * options.zoom);
     const gridBackground = useMemo(() => {
         if (!options.showGrid) {
@@ -1714,32 +2075,53 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 backgroundColor: options.backgroundColor,
             } as const;
         }
-        const scaledGrid = Math.max(1, options.gridSize * options.zoom);
+        const baseGrid = Math.max(1, options.gridSize);
         return {
             backgroundColor: options.backgroundColor,
             backgroundImage:
                 'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)',
-            backgroundSize: `${scaledGrid}px ${scaledGrid}px`,
+            backgroundSize: `${baseGrid}px ${baseGrid}px`,
         } as const;
-    }, [options.backgroundColor, options.gridSize, options.showGrid, options.zoom]);
-    const zoomSliderPercent = useMemo(() => zoomScaleToPercent(options.zoom), [options.zoom]);
-    const zoomSliderValue = useMemo(
-        () => clampZoomPercent(zoomSliderPercent) + ZOOM_SLIDER_OFFSET,
-        [zoomSliderPercent],
-    );
-    const zoomPercentage = useMemo(() => Math.round(zoomSliderPercent), [zoomSliderPercent]);
+    }, [options.backgroundColor, options.gridSize, options.showGrid]);
     const stageCursor = isPanning ? 'grabbing' : isPanMode ? 'grab' : undefined;
+    const rulerPadding = options.showRulers ? 24 : 0;
+    const stageWrapperStyle = useMemo((): CSSProperties => {
+        const paddedStageWidth = stageWidth + rulerPadding;
+        const paddedStageHeight = stageHeight + rulerPadding;
+        const workspaceWidth = workspaceSize.width > 0 ? workspaceSize.width + rulerPadding : paddedStageWidth;
+        const workspaceHeight = workspaceSize.height > 0 ? workspaceSize.height + rulerPadding : paddedStageHeight;
+        return {
+            width: Math.max(paddedStageWidth, workspaceWidth),
+            height: Math.max(paddedStageHeight, workspaceHeight),
+        } as CSSProperties;
+    }, [rulerPadding, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
     const stageCanvasStyle = useMemo(() => {
+        const width = Math.max(stageWidth, workspaceSize.width);
+        const height = Math.max(stageHeight, workspaceSize.height);
         const baseStyle: CSSProperties = {
-            width: stageWidth,
-            height: stageHeight,
-            ...gridBackground,
+            width,
+            height,
+            backgroundColor: WORKSPACE_COLOR,
         };
         if (stageCursor) {
-            return { ...baseStyle, cursor: stageCursor };
+            baseStyle.cursor = stageCursor;
         }
         return baseStyle;
-    }, [gridBackground, stageCursor, stageHeight, stageWidth]);
+    }, [stageCursor, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
+    const stageBackgroundStyle = useMemo(() => {
+        return {
+            position: 'absolute' as const,
+            top: 0,
+            left: 0,
+            width: stageWidth,
+            height: stageHeight,
+            transformOrigin: 'top left',
+            transform: `translate(${stagePosition.x}px, ${stagePosition.y}px) scale(${options.zoom})`,
+            pointerEvents: 'none' as const,
+            borderRadius: 8,
+            ...gridBackground,
+        };
+    }, [gridBackground, options.zoom, stageHeight, stagePosition.x, stagePosition.y, stageWidth]);
 
     const activeToolLabel = useMemo(() => (activeTool === 'draw' ? 'Draw' : 'Select'), [activeTool]);
 
@@ -1919,7 +2301,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
                     <Stack className="editor-layout">
                         <XStack ref={editorCanvasRef} className="editor-canvas">
-                            <Stack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={{ width: stageWidth, height: stageHeight }}>
+                            <Stack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={stageWrapperStyle}>
                                 {options.showRulers && (
                                     <Stack
                                         className="stage-ruler stage-ruler-horizontal"
@@ -1933,6 +2315,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                     />
                                 )}
                                 <Stack className="stage-canvas" style={stageCanvasStyle} position="relative">
+                                    <Stack aria-hidden className="stage-surface" style={stageBackgroundStyle} />
                                     <Stage
                                         ref={stageRef}
                                         width={stageWidth}
@@ -2210,57 +2593,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             </Popover.Content>
                                         </Popover>
                                     </Stack>
-                                    <YStack
-                                        aria-label="Zoom controls"
-                                        position="absolute" bottom={5} right={5} zIndex={2}
-                                    >
-                                        <Popover placement="top-end">
-                                            <Popover.Trigger position={`absolute`} bottom={0} right={0}>
-                                                <Button type="button" aria-label="Zoom + Layers" title="Zoom + Layers">
-                                                    <MaterialCommunityIcons key="zoom_layers" name="zoom" size={TOOLBAR_ICON_SIZE * 1.5} />
-                                                </Button>
-                                            </Popover.Trigger>
-                                            <Popover.Content>
-                                                <Popover.Arrow />
-                                                <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
-                                                    <MaterialCommunityIcons key="minus" name="minus" size={TOOLBAR_ICON_SIZE - 6} />
-                                                </Button>
-                                                <Slider
-                                                    key="zoom"
-                                                    value={[zoomSliderValue]}
-                                                    min={ZOOM_SLIDER_MIN}
-                                                    max={ZOOM_SLIDER_MAX}
-                                                    step={ZOOM_PERCENT_STEP}
-                                                    height={200}
-                                                    orientation="vertical"
-                                                    onValueChange={(value) => {
-                                                        const rawValue = value[0];
-                                                        if (rawValue != null) {
-                                                            const percent = clampZoomPercent(rawValue - ZOOM_SLIDER_OFFSET);
-                                                            applyZoom(zoomPercentToScale(percent));
-                                                        }
-                                                    }}
-                                                    aria-label="Zoom level"
-                                                    className="zoom-slider"
-                                                    size="$4"
-                                                >
-                                                    <Slider.Track>
-                                                        <Slider.TrackActive />
-                                                    </Slider.Track>
-                                                    <Slider.Thumb size="$4" index={0} circular />
-                                                </Slider>
-                                                <Text className="zoom-value" aria-live="polite">
-                                                    {zoomPercentage > 0 ? `+${zoomPercentage}` : zoomPercentage}%
-                                                </Text>
-                                                <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
-                                                    <MaterialCommunityIcons key="plus" name="plus" size={TOOLBAR_ICON_SIZE - 6} />
-                                                </Button>
-
-                                            </Popover.Content>
-                                        </Popover>
-
-                                    </YStack>
-
                                 </Stack>
                             </Stack>
                         </XStack>
