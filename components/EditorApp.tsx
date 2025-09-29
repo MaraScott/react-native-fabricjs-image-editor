@@ -9,7 +9,7 @@ import {
     type CSSProperties,
 } from 'react';
 import { Layer, Stage } from 'react-konva';
-import { Button, Heading, Image, Input, Label, Separator, Stack, Text, XStack, YStack, ZStack, useWindowDimensions, Theme, Popover, Slider } from 'tamagui';
+import { Button, Heading, Image, Input, Label, Separator, Stack, Text, XStack, YStack, ZStack, useWindowDimensions, Theme, Popover, Slider, Paragraph, Switch } from 'tamagui';
 import { MaterialCommunityIcons } from './icons/MaterialCommunityIcons';
 // import { CiZoomIn } from "react-icons/ci";
 import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
@@ -1811,189 +1811,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         </XYStack>
     )
 
-    const SettingsDropdown = () => {
-        const [open, setOpen] = useState(false)
-        const dropdownRef = useRef<HTMLDivElement | null>(null)
-
-        useEffect(() => {
-            if (!open) {
-                return
-            }
-
-            const handleClickOutside = (event: MouseEvent) => {
-                if (!dropdownRef.current || dropdownRef.current.contains(event.target as Node)) {
-                    return
-                }
-                setOpen(false)
-            }
-
-            const handleEscape = (event: KeyboardEvent) => {
-                if (event.key === 'Escape') {
-                    setOpen(false)
-                }
-            }
-
-            document.addEventListener('mousedown', handleClickOutside)
-            document.addEventListener('keydown', handleEscape)
-
-            return () => {
-                document.removeEventListener('mousedown', handleClickOutside)
-                document.removeEventListener('keydown', handleEscape)
-            }
-        }, [open])
-
-        const displayWidth = Math.round(options.width)
-        const displayHeight = Math.round(options.height)
-
-        return (
-            <Stack ref={dropdownRef} className="settings-dropdown">
-                <Button
-                    type="button"
-                    onPress={() => setOpen((prev) => !prev)}
-                    className={open ? 'active' : undefined}
-                    aria-label="Canvas settings"
-                    title="Canvas settings"
-                    aria-expanded={open}
-                    aria-haspopup="true"
-                >
-                    <MaterialCommunityIcons key="cog" name="cog" size={TOOLBAR_ICON_SIZE} />
-                </Button>
-                {open ? (
-                    <YStack className="settings-dropdown-content" position="absolute">
-                        <Heading tag="h2">Canvas</Heading>
-                        <XStack className="canvas-stats">
-                            <Text>
-                                {displayWidth} × {displayHeight} px
-                            </Text>
-                            <Text>{layers.length} layers</Text>
-                        </XStack>
-                        <Separator marginVertical="$2" opacity={0.35} />
-                        <YStack className="properties-grid">
-                            <Label>
-                                Width
-                                <Input
-                                    type="number"
-                                    min={100}
-                                    value={displayWidth}
-                                    onChange={(event) =>
-                                        setOptions((current) => {
-                                            const value = Number(event.target.value)
-                                            return {
-                                                ...current,
-                                                width: Number.isFinite(value) ? Math.max(100, value) : current.width,
-                                            }
-                                        })
-                                    }
-                                    disabled={options.canvasSizeLocked || !options.fixedCanvas}
-                                />
-                            </Label>
-                            <Label>
-                                Height
-                                <Input
-                                    type="number"
-                                    min={100}
-                                    value={displayHeight}
-                                    onChange={(event) =>
-                                        setOptions((current) => {
-                                            const value = Number(event.target.value)
-                                            return {
-                                                ...current,
-                                                height: Number.isFinite(value) ? Math.max(100, value) : current.height,
-                                            }
-                                        })
-                                    }
-                                    disabled={options.canvasSizeLocked || !options.fixedCanvas}
-                                />
-                            </Label>
-                            <Label className="full-width">
-                                Background
-                                <Input
-                                    type="color"
-                                    value={options.backgroundColor}
-                                    onChange={(event) =>
-                                        setOptions((current) => ({ ...current, backgroundColor: event.target.value }))
-                                    }
-                                />
-                            </Label>
-                            <Label>
-                                Show grid
-                                <Input
-                                    type="checkbox"
-                                    checked={options.showGrid}
-                                    onChange={(event) =>
-                                        setOptions((current) => ({ ...current, showGrid: event.target.checked }))
-                                    }
-                                />
-                            </Label>
-                            <Label>
-                                Grid size
-                                <Input
-                                    type="number"
-                                    min={4}
-                                    value={options.gridSize}
-                                    onChange={(event) =>
-                                        setOptions((current) => {
-                                            const value = Number(event.target.value)
-                                            return {
-                                                ...current,
-                                                gridSize: Number.isFinite(value) ? Math.max(4, value) : current.gridSize,
-                                            }
-                                        })
-                                    }
-                                />
-                            </Label>
-                            <Label>
-                                Snap to grid
-                                <Input
-                                    type="checkbox"
-                                    checked={options.snapToGrid}
-                                    onChange={(event) =>
-                                        setOptions((current) => ({ ...current, snapToGrid: event.target.checked }))
-                                    }
-                                />
-                            </Label>
-                            <Label>
-                                Snap to guides
-                                <Input
-                                    type="checkbox"
-                                    checked={options.snapToGuides}
-                                    onChange={(event) =>
-                                        setOptions((current) => ({ ...current, snapToGuides: event.target.checked }))
-                                    }
-                                />
-                            </Label>
-                            <Label>
-                                Show guides
-                                <Input
-                                    type="checkbox"
-                                    checked={options.showGuides}
-                                    onChange={(event) =>
-                                        setOptions((current) => ({ ...current, showGuides: event.target.checked }))
-                                    }
-                                />
-                            </Label>
-                            <Label>
-                                Show rulers
-                                <Input
-                                    type="checkbox"
-                                    checked={options.showRulers}
-                                    onChange={(event) =>
-                                        setOptions((current) => ({ ...current, showRulers: event.target.checked }))
-                                    }
-                                />
-                            </Label>
-                        </YStack>
-                    </YStack>
-                ) : null}
-            </Stack>
-        )
-    }
-
-    const EditorSettings = () => (
-        <XYStack isSmall={isSmall} className="toolbar-group">
-            <SettingsDropdown />
-        </XYStack>
-    )
+    const displayWidth = Math.round(options.width)
+    const displayHeight = Math.round(options.height)
 
     return (
         <YStack>
@@ -2006,7 +1825,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                     <YStack className="editor-header">
                                         <EditorTools />
                                         <EditorSave />
-                                        <EditorSettings />
                                     </YStack>
                                 </SidebarContent>
                             </SidebarScroll>
@@ -2038,7 +1856,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                         <XStack>
                             <EditorTools />
                             <EditorSave />
-                            <EditorSettings />
                         </XStack>
                     )}
 
@@ -2105,7 +1922,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         style={{ height: stageHeight, backgroundSize: `100% ${rulerStep}px` }}
                                     />
                                 )}
-                                <Stack className="stage-canvas" style={stageCanvasStyle}>
+                                <Stack className="stage-canvas" style={stageCanvasStyle} position="relative">
                                     <Stage
                                         ref={stageRef}
                                         width={stageWidth}
@@ -2282,59 +2099,195 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             })}
                                         </Layer>
                                     </Stage>
+                                    <Stack position="absolute" top={5} right={5} zIndex={2}>
+                                        <Popover placement="bottom-end">
+                                            <Popover.Trigger position={`absolute`} top={5} right={5}>
+                                                <Button type="button" aria-label="Zoom + Layers" title="Zoom + Layers">
+                                                    <MaterialCommunityIcons key="cog" name="cog" size={TOOLBAR_ICON_SIZE * 1.5} />
+                                                </Button>
+                                            </Popover.Trigger>
+                                            <Popover.Content>
+                                                <Popover.Arrow />
+                                                <YStack top={5} right={5} >
+                                                    <XStack>
+                                                        <Heading tag="h2">Canvas</Heading>
+                                                    </XStack>
+                                                    <XStack>
+                                                        <YStack className="canvas-stats">
+                                                            <Paragraph>
+                                                                {displayWidth} × {displayHeight} px
+                                                            </Paragraph>
+                                                            <Paragraph>{layers.length} layers</Paragraph>
+                                                            <XStack gap="$2">
+                                                                <Label>
+                                                                    Width
+                                                                </Label>
+                                                                <Input 
+                                                                    size="$2" 
+                                                                    min={100} 
+                                                                    value={displayWidth}
+                                                                    onChange={(event) => setOptions((current) => {
+                                                                        const value = Number(event.target.value)
+                                                                        return {
+                                                                            ...current,
+                                                                            width: Number.isFinite(value) ? Math.max(100, value) : current.width,
+                                                                        }
+                                                                    })}
+                                                                    disabled={options.canvasSizeLocked || !options.fixedCanvas}
+                                                                />
+                                                            </XStack>
+                                                            <XStack gap="$2">
+                                                                <Label>
+                                                                    Height
+                                                                </Label>
+                                                                <Input
+                                                                    size="$2"
+                                                                    min={100}
+                                                                    value={displayHeight}
+                                                                    onChange={(event) =>
+                                                                        setOptions((current) => {
+                                                                            const value = Number(event.target.value)
+                                                                            return {
+                                                                                ...current,
+                                                                                height: Number.isFinite(value) ? Math.max(100, value) : current.height,
+                                                                            }
+                                                                        })
+                                                                    }
+                                                                    disabled={options.canvasSizeLocked || !options.fixedCanvas}
+                                                                />
+                                                            </XStack>
+                                                            <XStack gap="$2">
+                                                                <Label className="full-width">
+                                                                    Background
+                                                                </Label>
+                                                                <Input
+                                                                    size="$2"
+                                                                    value={options.backgroundColor}
+                                                                    onChange={(event) =>
+                                                                        setOptions((current) => ({ ...current, backgroundColor: event.target.value }))
+                                                                    }
+                                                                />
+                                                            </XStack>
+                                                        </YStack>
+                                                        <YStack className="properties-grid">
+                                                            <XStack gap="$2">
+                                                                <Label>
+                                                                    Show grid
+                                                                </Label>
+                                                                <Switch id={`show-grid`} size="$2" defaultChecked={options.showGrid} onChange={(event) => setOptions((current) => ({ ...current, showGrid: event.target.checked }))}>
+                                                                    <Switch.Thumb animation="quicker" />
+                                                                </Switch>
+                                                            </XStack>
+                                                            <XStack gap="$2">
+                                                                <Label>
+                                                                    Grid size
+                                                                </Label>
+                                                                <Input
+                                                                    size="$2"
+                                                                    min={4}
+                                                                    value={options.gridSize}
+                                                                    onChange={(event) => setOptions((current) => {
+                                                                        const value = Number(event.target.value)
+                                                                        return {
+                                                                            ...current,
+                                                                            gridSize: Number.isFinite(value) ? Math.max(4, value) : current.gridSize,
+                                                                        }
+                                                                    })}
+                                                                />
+                                                            </XStack>
+                                                            <XStack gap="$2">
+                                                                <Label>
+                                                                    Snap to grid
+                                                                </Label>
+                                                                <Switch id={`snap-to-grid`} size="$2" defaultChecked={options.snapToGrid} onChange={(event) => setOptions((current) => ({ ...current, snapToGrid: event.target.checked }))}>
+                                                                    <Switch.Thumb animation="quicker" />
+                                                                </Switch>
+                                                            </XStack>
+                                                            <XStack gap="$2">
+                                                                <Label>
+                                                                    Snap to guides
+                                                                </Label>
+                                                                <Switch id={`snap-to-guides`} size="$2" defaultChecked={options.snapToGuides} onChange={(event) => setOptions((current) => ({ ...current, snapToGuides: event.target.checked }))}>
+                                                                    <Switch.Thumb animation="quicker" />
+                                                                </Switch>
+                                                            </XStack>
+                                                            <XStack gap="$2">
+                                                                <Label>
+                                                                    Show guides
+                                                                </Label>
+                                                                <Switch id={`show-guides`} size="$2" defaultChecked={options.showGuides} onChange={(event) => setOptions((current) => ({ ...current, showGuides: event.target.checked }))}>
+                                                                    <Switch.Thumb animation="quicker" />
+                                                                </Switch>
+                                                            </XStack>
+                                                            <XStack gap="$2">
+                                                                <Label>
+                                                                    Show rulers
+                                                                </Label>
+                                                                <Switch id={`show-rulers`} size="$2" defaultChecked={options.showRulers} onChange={(event) => setOptions((current) => ({ ...current, showRulers: event.target.checked }))}>
+                                                                    <Switch.Thumb animation="quicker" />
+                                                                </Switch>
+                                                            </XStack>
+                                                        </YStack>
+                                                    </XStack>
+                                                </YStack>
+                                            </Popover.Content>
+                                        </Popover>
+                                    </Stack>
+                                    <Stack position="absolute" bottom={5} right={5} zIndex={2}>
+                                        <Popover placement="top-end">
+                                            <Popover.Trigger position={`absolute`} bottom={5} right={5}>
+                                                <Button type="button" aria-label="Zoom + Layers" title="Zoom + Layers">
+                                                    <MaterialCommunityIcons key="zoom_layers" name="zoom" size={TOOLBAR_ICON_SIZE * 1.5} />
+                                                </Button>
+                                            </Popover.Trigger>
+                                            <Popover.Content>
+                                                <Popover.Arrow />
+                                                <YStack bottom={10} right={10}>
+                                                    <Heading tag="h2">Layers</Heading>
+                                                    <LayersPanel
+                                                        layers={layers}
+                                                        elements={contentElements}
+                                                        activeLayerId={activeLayerId}
+                                                        selectedElementIds={selectedIds}
+                                                        onSelectLayer={handleSelectLayer}
+                                                        onToggleVisibility={handleToggleVisibility}
+                                                        onToggleLock={handleToggleLock}
+                                                        onRemoveLayer={handleRemoveLayer}
+                                                        onMoveLayer={handleLayerMove}
+                                                        onAddLayer={handleAddLayer}
+                                                    />
+
+
+                                                    <XStack
+                                                        className="stage-zoom-bar zoom-control"
+                                                        aria-label="Zoom controls"
+                                                    >
+                                                        <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
+                                                            <MaterialCommunityIcons key="minus" name="minus" size={TOOLBAR_ICON_SIZE - 6} />
+                                                        </Button>
+                                                        <Input
+                                                            type="range"
+                                                            min={ZOOM_MIN}
+                                                            max={ZOOM_MAX}
+                                                            step={ZOOM_STEP}
+                                                            value={options.zoom}
+                                                            onChange={(event) => handleZoomChange(Number(event.target.value))}
+                                                            aria-label="Zoom level"
+                                                            className="zoom-slider"
+                                                        />
+                                                        <Text className="zoom-value" aria-live="polite">
+                                                            {zoomPercentage}%
+                                                        </Text>
+                                                        <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
+                                                            <MaterialCommunityIcons key="plus" name="plus" size={TOOLBAR_ICON_SIZE - 6} />
+                                                        </Button>
+                                                    </XStack>
+                                                </YStack>
+                                            </Popover.Content>
+                                        </Popover>
+                                    </Stack>
 
                                 </Stack>
-
-                                <Popover placement="top-end">
-                                    <Popover.Trigger asChild position={`absolute`} bottom={5} right={5}>
-                                        <MaterialCommunityIcons key="zoom" name="zoom" size={TOOLBAR_ICON_SIZE * 1.5} />
-                                    </Popover.Trigger>
-                                    <Popover.Content>
-                                        <Popover.Arrow />
-                                        <YStack bottom={10} right={10}>
-                                            <Heading tag="h2">Layers</Heading>
-                                            <LayersPanel
-                                                layers={layers}
-                                                elements={contentElements}
-                                                activeLayerId={activeLayerId}
-                                                selectedElementIds={selectedIds}
-                                                onSelectLayer={handleSelectLayer}
-                                                onToggleVisibility={handleToggleVisibility}
-                                                onToggleLock={handleToggleLock}
-                                                onRemoveLayer={handleRemoveLayer}
-                                                onMoveLayer={handleLayerMove}
-                                                onAddLayer={handleAddLayer}
-                                            />
-
-
-                                            <XStack
-                                                className="stage-zoom-bar zoom-control"
-                                                aria-label="Zoom controls"
-                                            >
-                                                <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
-                                                    <MaterialCommunityIcons key="minus" name="minus" size={TOOLBAR_ICON_SIZE - 6} />
-                                                </Button>
-                                                <Input
-                                                    type="range"
-                                                    min={ZOOM_MIN}
-                                                    max={ZOOM_MAX}
-                                                    step={ZOOM_STEP}
-                                                    value={options.zoom}
-                                                    onChange={(event) => handleZoomChange(Number(event.target.value))}
-                                                    aria-label="Zoom level"
-                                                    className="zoom-slider"
-                                                />
-                                                <Text className="zoom-value" aria-live="polite">
-                                                    {zoomPercentage}%
-                                                </Text>
-                                                <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
-                                                    <MaterialCommunityIcons key="plus" name="plus" size={TOOLBAR_ICON_SIZE - 6} />
-                                                </Button>
-                                            </XStack>
-                                        </YStack>
-                                    </Popover.Content>
-                                </Popover>
-
                             </Stack>
                         </XStack>
 

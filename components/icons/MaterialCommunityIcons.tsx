@@ -29,14 +29,13 @@ export type MaterialCommunityIconName =
     | 'code-json';
 
 export interface MaterialCommunityIconsProps extends Omit<SVGAttributes<SVGSVGElement>, 'color'> {
-    readonly key: string | number;
     readonly name: MaterialCommunityIconName;
     readonly size?: number;
     readonly color?: string;
 }
 
-type RenderContext = Required<Pick<'key', MaterialCommunityIconsProps, 'size' | 'color'>> &
-    Omit<MaterialCommunityIconsProps, 'size' | 'color' | 'name' | 'key'>;
+type RenderContext = Required<Pick<MaterialCommunityIconsProps, 'size' | 'color'>> &
+    Omit<MaterialCommunityIconsProps, 'size' | 'color' | 'name'>;
 
 type IconRenderer = (props: RenderContext) => JSX.Element;
 
@@ -294,9 +293,9 @@ const icons: Record<MaterialCommunityIconName, IconRenderer> = {
 };
 
 export const MaterialCommunityIcons = memo<MaterialCommunityIconsProps>(
-    ({ key, name, size = 20, color = '#0f172a', ...rest }) => {
+    ({ name, size = 20, color = '#0f172a', ...rest }) => {
         const renderer = icons[name] ?? noopIcon;
-        const renderProps: RenderContext = { key, size, color, ...rest };
+        const renderProps: RenderContext = { size, color, ...rest };
         return renderer(renderProps);
     },
 );
