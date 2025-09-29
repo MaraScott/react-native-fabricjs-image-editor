@@ -1909,20 +1909,24 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
                     <Stack className="editor-layout">
                         <XStack ref={editorCanvasRef} className="editor-canvas">
-                            <Stack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={{ width: stageWidth, height: stageHeight }}>
-                                {options.showRulers && (
-                                    <Stack
-                                        className="stage-ruler stage-ruler-horizontal"
-                                        style={{ width: stageWidth, backgroundSize: `${rulerStep}px 100%` }}
-                                    />
-                                )}
-                                {options.showRulers && (
-                                    <Stack
-                                        className="stage-ruler stage-ruler-vertical"
-                                        style={{ height: stageHeight, backgroundSize: `100% ${rulerStep}px` }}
-                                    />
-                                )}
-                                <Stack className="stage-canvas" style={stageCanvasStyle} position="relative">
+                            <Stack className="stage-area">
+                                <Stack
+                                    className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`}
+                                    style={{ width: stageWidth, height: stageHeight }}
+                                >
+                                    {options.showRulers && (
+                                        <Stack
+                                            className="stage-ruler stage-ruler-horizontal"
+                                            style={{ width: stageWidth, backgroundSize: `${rulerStep}px 100%` }}
+                                        />
+                                    )}
+                                    {options.showRulers && (
+                                        <Stack
+                                            className="stage-ruler stage-ruler-vertical"
+                                            style={{ height: stageHeight, backgroundSize: `100% ${rulerStep}px` }}
+                                        />
+                                    )}
+                                    <Stack className="stage-canvas" style={stageCanvasStyle} position="relative">
                                     <Stage
                                         ref={stageRef}
                                         width={stageWidth}
@@ -2286,10 +2290,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             </Popover.Content>
                                         </Popover>
                                     </Stack>
-
                                 </Stack>
                             </Stack>
-                        </XStack>
+                        </Stack>
+                    </XStack>
 
                     </Stack>
                 </XStack>
