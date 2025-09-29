@@ -50,7 +50,7 @@ function createMimeType(filePath) {
 }
 
 function startDevServer({ port = 3000 } = {}) {
-  const clients = new Set();
+  const clients = new Map();
 
   const server = http.createServer((req, res) => {
     if (!req.url) {
@@ -68,9 +68,28 @@ function startDevServer({ port = 3000 } = {}) {
         Connection: 'keep-alive',
         'Access-Control-Allow-Origin': '*',
       });
-      res.write('\n');
-      clients.add(res);
+      res.write('retry: 1000\n\n');
+
+      const heartbeat = setInterval(() => {
+        if (res.writableEnded) {
+          clearInterval(heartbeat);
+          clients.delete(res);
+          return;
+        }
+
+        try {
+          res.write('event: ping\n');
+          res.write(`data: ${Date.now()}\n\n`);
+        } catch (error) {
+          clearInterval(heartbeat);
+          clients.delete(res);
+        }
+      }, 15000);
+
+      clients.set(res, heartbeat);
+
       req.on('close', () => {
+        clearInterval(heartbeat);
         clients.delete(res);
       });
       return;
@@ -98,9 +117,20 @@ function startDevServer({ port = 3000 } = {}) {
   });
 
   server.broadcastReload = () => {
-    for (const client of clients) {
-      client.write('event: reload\n');
-      client.write(`data: ${Date.now()}\n\n`);
+    for (const [client, heartbeat] of clients.entries()) {
+      if (client.writableEnded) {
+        clearInterval(heartbeat);
+        clients.delete(client);
+        continue;
+      }
+
+      try {
+        client.write('event: reload\n');
+        client.write(`data: ${Date.now()}\n\n`);
+      } catch (error) {
+        clearInterval(heartbeat);
+        clients.delete(client);
+      }
     }
   };
 
@@ -112,12 +142,14 @@ Open this URL in your browser to use the editor with live reload.
   });
 
   server.shutdown = () => {
-    for (const client of clients) {
+    for (const [client, heartbeat] of clients.entries()) {
+      clearInterval(heartbeat);
       try {
         client.end();
       } catch (error) {
         // Ignore errors when closing client connections.
       }
+      clients.delete(client);
     }
     server.close();
   };
