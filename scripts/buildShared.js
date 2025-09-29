@@ -189,7 +189,34 @@ function resolveAssetHref(assetFile, fallbackFileName) {
   return `./dist/${fallbackFileName}`;
 }
 
-function renderIndexHtml({ jsFile, cssFile } = {}) {
+function createLiveReloadSnippet() {
+  return `
+    <script>
+      (function () {
+        var source;
+        function connect() {
+          source = new EventSource('/__livereload');
+          source.addEventListener('reload', function () {
+            window.location.reload();
+          });
+          source.addEventListener('open', function () {
+            console.log('[watch] Connected to live reload server.');
+          });
+          source.addEventListener('error', function () {
+            if (source) {
+              source.close();
+            }
+            setTimeout(connect, 1000);
+          });
+        }
+
+        connect();
+      })();
+    </script>
+  `;
+}
+
+function renderIndexHtml({ jsFile, cssFile } = {}, { injectLiveReload = false } = {}) {
   if (!fs.existsSync(indexTemplateFile)) {
     console.warn('index.template.html not found. Skipping index.html generation.');
     return null;
@@ -205,11 +232,17 @@ function renderIndexHtml({ jsFile, cssFile } = {}) {
   const cssHref = resolveAssetHref(cssFile, fallbackCssFile);
   const cssTag = cssHref ? `<link rel="stylesheet" href="${cssHref}" />` : '';
 
-  return template.replace(/{{CSS_LINK}}/g, cssTag).replace(/{{JS_SRC}}/g, jsHref);
+  let html = template.replace(/{{CSS_LINK}}/g, cssTag).replace(/{{JS_SRC}}/g, jsHref);
+
+  if (injectLiveReload) {
+    html = html.replace('</body>', `${createLiveReloadSnippet()}\n  </body>`);
+  }
+
+  return html;
 }
 
-function updateIndexHtml(manifest = null) {
-  const html = renderIndexHtml({ jsFile: manifest?.js, cssFile: manifest?.css });
+function updateIndexHtml(manifest = null, options = {}) {
+  const html = renderIndexHtml({ jsFile: manifest?.js, cssFile: manifest?.css }, options);
   if (!html) {
     return;
   }
