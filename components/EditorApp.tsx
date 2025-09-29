@@ -2277,10 +2277,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                     <YStack
                                         className="stage-zoom-bar zoom-control"
                                         aria-label="Zoom controls"
-                                        position="absolute" bottom={5} right={5} zIndex={2}
+                                        position="absolute" bottom={75} right={5} zIndex={2}
                                     >
-                                        <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
-                                            <MaterialCommunityIcons key="minus" name="minus" size={TOOLBAR_ICON_SIZE - 6} />
+                                        <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
+                                            <MaterialCommunityIcons key="plus" name="plus" size={TOOLBAR_ICON_SIZE - 6} />
                                         </Button>
                                         <Slider
                                             key="zoom"
@@ -2299,18 +2299,18 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             }}
                                             aria-label="Zoom level"
                                             className="zoom-slider"
-                                            size="$4"
+                                            size={TOOLBAR_ICON_SIZE - 6}
                                         >
                                             <Slider.Track>
                                                 <Slider.TrackActive />
                                             </Slider.Track>
-                                            <Slider.Thumb size="$4" index={0} circular />
+                                            <Slider.Thumb size="$2" index={0} circular />
                                         </Slider>
                                         <Text className="zoom-value" aria-live="polite">
                                             {zoomPercentage > 0 ? `+${zoomPercentage}` : zoomPercentage}%
                                         </Text>
-                                        <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
-                                            <MaterialCommunityIcons key="plus" name="plus" size={TOOLBAR_ICON_SIZE - 6} />
+                                        <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
+                                            <MaterialCommunityIcons key="minus" name="minus" size={TOOLBAR_ICON_SIZE - 6} />
                                         </Button>
                                     </YStack>
 
