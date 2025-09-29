@@ -93,9 +93,6 @@ const ZOOM_STEP = 0.05;
 const ZOOM_PERCENT_MIN = -100;
 const ZOOM_PERCENT_MAX = 100;
 const ZOOM_PERCENT_STEP = ZOOM_STEP * 100;
-const ZOOM_SLIDER_MIN = 0;
-const ZOOM_SLIDER_MAX = ZOOM_PERCENT_MAX - ZOOM_PERCENT_MIN;
-const ZOOM_SLIDER_STEP = ZOOM_PERCENT_STEP;
 const ZOOM_BASE_SCALE = 1;
 
 const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
@@ -1735,7 +1732,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         } as const;
     }, [options.backgroundColor, options.gridSize, options.showGrid, options.zoom]);
     const zoomSliderPercent = useMemo(() => zoomScaleToPercent(options.zoom), [options.zoom]);
-    const zoomSliderValue = useMemo(() => zoomSliderPercent - ZOOM_PERCENT_MIN, [zoomSliderPercent]);
     const zoomPercentage = useMemo(() => Math.round(zoomSliderPercent), [zoomSliderPercent]);
     const stageCursor = isPanning ? 'grabbing' : isPanMode ? 'grab' : undefined;
     const stageCanvasStyle = useMemo(() => {
@@ -2288,15 +2284,16 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         </Button>
                                         <Slider
                                             key="zoom"
-                                            value={[zoomSliderValue]}
-                                            min={ZOOM_SLIDER_MIN}
-                                            max={ZOOM_SLIDER_MAX}
-                                            step={ZOOM_SLIDER_STEP}
+                                            value={[zoomSliderPercent]}
+                                            min={ZOOM_PERCENT_MIN}
+                                            max={ZOOM_PERCENT_MAX}
+                                            step={ZOOM_PERCENT_STEP}
                                             height={200}
                                             orientation="vertical"
                                             onValueChange={(value) => {
-                                                if (value[0] != null) {
-                                                    const percent = clampZoomPercent(value[0] + ZOOM_PERCENT_MIN);
+                                                const rawValue = value[0];
+                                                if (rawValue != null) {
+                                                    const percent = clampZoomPercent(rawValue);
                                                     applyZoom(zoomPercentToScale(percent));
                                                 }
                                             }}
