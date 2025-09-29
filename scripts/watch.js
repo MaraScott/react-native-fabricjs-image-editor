@@ -130,39 +130,54 @@ async function startWatch() {
   fs.rmSync(outDir, { recursive: true, force: true });
   ensureOutDir();
 
-  const options = createBuildOptions({ mode });
   const server = startDevServer();
-  const ctx = await esbuild.context(options);
-  await ctx.watch({
-    onRebuild(error) {
-      if (error) {
-        console.error('Rebuild failed:', error);
-        return;
-      }
 
-      try {
-        const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
-        updateIndexHtml(manifest, { injectLiveReload: true });
-        const outputs = [manifest.js, manifest.css].filter(Boolean).join(', ');
-        console.log(`Rebuilt assets: ${outputs}`);
-        server.broadcastReload();
-      } catch (readError) {
-        updateIndexHtml(null, { injectLiveReload: true });
-        console.error('Rebuild completed, but the asset manifest could not be read.', readError);
-        server.broadcastReload();
-      }
+  const options = createBuildOptions({ mode });
+  let isInitialBuild = true;
+
+  options.plugins = [
+    ...options.plugins,
+    {
+      name: 'watch-index-html-plugin',
+      setup(build) {
+        build.onEnd((result) => {
+          if (result.errors.length > 0) {
+            const message = isInitialBuild
+              ? 'Initial build failed. Fix the errors above to start watching.'
+              : 'Rebuild failed. Fix the errors above to continue watching.';
+            console.error(message);
+            return;
+          }
+
+          try {
+            const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+            updateIndexHtml(manifest, { injectLiveReload: true });
+            const outputs = [manifest.js, manifest.css].filter(Boolean).join(', ');
+            if (isInitialBuild) {
+              console.log(`Watching for changes... Latest assets: ${outputs}`);
+            } else {
+              console.log(`Rebuilt assets: ${outputs}`);
+              server.broadcastReload();
+            }
+          } catch (readError) {
+            updateIndexHtml(null, { injectLiveReload: true });
+            const message = isInitialBuild
+              ? 'Build completed, but the asset manifest could not be read. Watching for changes with fallback assets.'
+              : 'Rebuild completed, but the asset manifest could not be read.';
+            console.error(message, readError);
+            if (!isInitialBuild) {
+              server.broadcastReload();
+            }
+          } finally {
+            isInitialBuild = false;
+          }
+        });
+      },
     },
-  });
+  ];
 
-  try {
-    const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
-    updateIndexHtml(manifest, { injectLiveReload: true });
-    const outputs = [manifest.js, manifest.css].filter(Boolean).join(', ');
-    console.log(`Watching for changes... Latest assets: ${outputs}`);
-  } catch (error) {
-    updateIndexHtml(null, { injectLiveReload: true });
-    console.log('Watching for changes...');
-  }
+  const ctx = await esbuild.context(options);
+  await ctx.watch();
 
   const stop = async () => {
     await ctx.dispose();
