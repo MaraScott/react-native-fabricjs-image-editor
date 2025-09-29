@@ -93,6 +93,9 @@ const ZOOM_STEP = 0.05;
 const ZOOM_PERCENT_MIN = -100;
 const ZOOM_PERCENT_MAX = 100;
 const ZOOM_PERCENT_STEP = ZOOM_STEP * 100;
+const ZOOM_SLIDER_MIN = 0;
+const ZOOM_SLIDER_MAX = ZOOM_PERCENT_MAX - ZOOM_PERCENT_MIN;
+const ZOOM_SLIDER_OFFSET = Math.abs(ZOOM_PERCENT_MIN);
 const ZOOM_BASE_SCALE = 1;
 
 const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
@@ -1732,6 +1735,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         } as const;
     }, [options.backgroundColor, options.gridSize, options.showGrid, options.zoom]);
     const zoomSliderPercent = useMemo(() => zoomScaleToPercent(options.zoom), [options.zoom]);
+    const zoomSliderValue = useMemo(
+        () => clampZoomPercent(zoomSliderPercent) + ZOOM_SLIDER_OFFSET,
+        [zoomSliderPercent],
+    );
     const zoomPercentage = useMemo(() => Math.round(zoomSliderPercent), [zoomSliderPercent]);
     const stageCursor = isPanning ? 'grabbing' : isPanMode ? 'grab' : undefined;
     const stageCanvasStyle = useMemo(() => {
@@ -2116,14 +2123,14 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                     </Stage>
                                     <Stack position="absolute" top={5} right={5} zIndex={2}>
                                         <Popover placement="bottom-end">
-                                            <Popover.Trigger position={`absolute`} top={5} right={5}>
+                                            <Popover.Trigger position={`absolute`} top={0} right={0}>
                                                 <Button type="button" aria-label="Zoom + Layers" title="Zoom + Layers">
                                                     <MaterialCommunityIcons key="cog" name="cog" size={TOOLBAR_ICON_SIZE * 1.5} />
                                                 </Button>
                                             </Popover.Trigger>
-                                            <Popover.Content>
+                                            <Popover.Content top={0} right={0}>
                                                 <Popover.Arrow />
-                                                <YStack top={5} right={5} >
+                                                <YStack>
                                                     <XStack>
                                                         <Heading tag="h2">Canvas</Heading>
                                                     </XStack>
@@ -2244,16 +2251,16 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             </Popover.Content>
                                         </Popover>
                                     </Stack>
-                                    <Stack position="absolute" bottom={5} right={5} zIndex={2}>
-                                        <Popover placement="top-end">
-                                            <Popover.Trigger position={`absolute`} bottom={5} right={5}>
+                                    <Stack bottom={5} left={5} zIndex={2}>
+                                        <Popover placement="top-start">
+                                            <Popover.Trigger position={`absolute`} bottom={0} left={0}>
                                                 <Button type="button" aria-label="Zoom + Layers" title="Zoom + Layers">
                                                     <MaterialCommunityIcons key="zoom_layers" name="zoom" size={TOOLBAR_ICON_SIZE * 1.5} />
                                                 </Button>
                                             </Popover.Trigger>
                                             <Popover.Content>
                                                 <Popover.Arrow />
-                                                <YStack bottom={10} right={10}>
+                                                <YStack>
                                                     <Heading tag="h2">Layers</Heading>
                                                     <Paragraph>{layers.length} layers</Paragraph>
                                                     <LayersPanel
@@ -2275,43 +2282,54 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         </Popover>
                                     </Stack>
                                     <YStack
-                                        className="stage-zoom-bar zoom-control"
                                         aria-label="Zoom controls"
-                                        position="absolute" bottom={75} right={5} zIndex={2}
+                                        position="absolute" bottom={5} right={5} zIndex={2}
                                     >
-                                        <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
-                                            <MaterialCommunityIcons key="plus" name="plus" size={TOOLBAR_ICON_SIZE - 6} />
-                                        </Button>
-                                        <Slider
-                                            key="zoom"
-                                            value={[zoomSliderPercent]}
-                                            min={ZOOM_PERCENT_MIN}
-                                            max={ZOOM_PERCENT_MAX}
-                                            step={ZOOM_PERCENT_STEP}
-                                            height={200}
-                                            orientation="vertical"
-                                            onValueChange={(value) => {
-                                                const rawValue = value[0];
-                                                if (rawValue != null) {
-                                                    const percent = clampZoomPercent(rawValue);
-                                                    applyZoom(zoomPercentToScale(percent));
-                                                }
-                                            }}
-                                            aria-label="Zoom level"
-                                            className="zoom-slider"
-                                            size={TOOLBAR_ICON_SIZE - 6}
-                                        >
-                                            <Slider.Track>
-                                                <Slider.TrackActive />
-                                            </Slider.Track>
-                                            <Slider.Thumb size="$2" index={0} circular />
-                                        </Slider>
-                                        <Text className="zoom-value" aria-live="polite">
-                                            {zoomPercentage > 0 ? `+${zoomPercentage}` : zoomPercentage}%
-                                        </Text>
-                                        <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
-                                            <MaterialCommunityIcons key="minus" name="minus" size={TOOLBAR_ICON_SIZE - 6} />
-                                        </Button>
+                                        <Popover placement="top-end">
+                                            <Popover.Trigger position={`absolute`} bottom={0} right={0}>
+                                                <Button type="button" aria-label="Zoom + Layers" title="Zoom + Layers">
+                                                    <MaterialCommunityIcons key="zoom_layers" name="zoom" size={TOOLBAR_ICON_SIZE * 1.5} />
+                                                </Button>
+                                            </Popover.Trigger>
+                                            <Popover.Content>
+                                                <Popover.Arrow />
+                                                <Button type="button" onPress={handleZoomIn} aria-label="Zoom in" title="Zoom in">
+                                                    <MaterialCommunityIcons key="plus" name="plus" size={TOOLBAR_ICON_SIZE - 6} />
+                                                </Button>
+                                                <Slider
+                                                    key="zoom"
+                                                    value={[zoomSliderValue]}
+                                                    min={ZOOM_SLIDER_MIN}
+                                                    max={ZOOM_SLIDER_MAX}
+                                                    step={ZOOM_PERCENT_STEP}
+                                                    height={200}
+                                                    orientation="vertical"
+                                                    onValueChange={(value) => {
+                                                        const rawValue = value[0];
+                                                        if (rawValue != null) {
+                                                            const percent = clampZoomPercent(rawValue - ZOOM_SLIDER_OFFSET);
+                                                            applyZoom(zoomPercentToScale(percent));
+                                                        }
+                                                    }}
+                                                    aria-label="Zoom level"
+                                                    className="zoom-slider"
+                                                    size="$4"
+                                                >
+                                                    <Slider.Track>
+                                                        <Slider.TrackActive />
+                                                    </Slider.Track>
+                                                    <Slider.Thumb size="$2" index={0} circular />
+                                                </Slider>
+                                                <Text className="zoom-value" aria-live="polite">
+                                                    {zoomPercentage > 0 ? `+${zoomPercentage}` : zoomPercentage}%
+                                                </Text>
+                                                <Button type="button" onPress={handleZoomOut} aria-label="Zoom out" title="Zoom out">
+                                                    <MaterialCommunityIcons key="minus" name="minus" size={TOOLBAR_ICON_SIZE - 6} />
+                                                </Button>
+
+                                            </Popover.Content>
+                                        </Popover>
+
                                     </YStack>
 
                                 </Stack>
