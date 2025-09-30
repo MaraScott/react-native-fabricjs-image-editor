@@ -867,15 +867,22 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             const measuredWidth = Math.max(0, rect.width - paddingX);
             const measuredHeight = Math.max(0, rect.height - paddingY);
 
+            let availableWidth = measuredWidth;
             let availableHeight = measuredHeight;
             if (typeof window !== 'undefined') {
-                const rawAvailableHeight = Math.max(0, window.innerHeight - rect.top);
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                const rawAvailableWidth = Math.max(0, viewportWidth - rect.left);
+                const rawAvailableHeight = Math.max(0, viewportHeight - rect.top);
+
+                availableWidth = Math.max(0, rawAvailableWidth - paddingX);
                 availableHeight = Math.max(0, rawAvailableHeight - paddingY);
+
                 element.style.minHeight = `${Math.max(0, Math.round(rawAvailableHeight))}px`;
             }
 
             const nextSize = {
-                width: Math.max(0, Math.round(measuredWidth)),
+                width: Math.max(0, Math.round(Math.min(measuredWidth, availableWidth))),
                 height: Math.max(0, Math.round(availableHeight || measuredHeight)),
             };
 
@@ -2183,16 +2190,19 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         const workspaceWidth = workspaceSize.width > 0 ? workspaceSize.width : paddedStageWidth;
         const workspaceHeight = workspaceSize.height > 0 ? workspaceSize.height : paddedStageHeight;
         return {
-            width: Math.max(paddedStageWidth, workspaceWidth),
-            height: Math.max(paddedStageHeight, workspaceHeight),
+            width: workspaceWidth,
+            height: workspaceHeight,
+            maxWidth: '100%',
         } as CSSProperties;
     }, [rulerPadding, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
     const stageCanvasStyle = useMemo(() => {
-        const width = Math.max(stageWidth, workspaceSize.width);
-        const height = Math.max(stageHeight, workspaceSize.height);
+        const width = workspaceSize.width > 0 ? workspaceSize.width : stageWidth;
+        const height = workspaceSize.height > 0 ? workspaceSize.height : stageHeight;
         const baseStyle: CSSProperties = {
             width,
             height,
+            maxWidth: '100%',
+            maxHeight: '100%',
             backgroundColor: WORKSPACE_COLOR,
         };
         if (stageCursor) {
