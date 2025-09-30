@@ -728,19 +728,20 @@ function clampStagePosition(
 function clampPointToStage(stage: StageType, point: Vector2d): Vector2d {
     const width = stage.width();
     const height = stage.height();
-    const maxX = Number.isFinite(width) ? width : 0;
-    const maxY = Number.isFinite(height) ? height : 0;
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+        return point;
+    }
 
     const clamp = (value: number, max: number) => {
-        if (!Number.isFinite(value) || max <= 0) {
+        if (!Number.isFinite(value)) {
             return 0;
         }
         return Math.min(max, Math.max(0, value));
     };
 
     return {
-        x: clamp(point.x, maxX),
-        y: clamp(point.y, maxY),
+        x: clamp(point.x, width),
+        y: clamp(point.y, height),
     };
 }
 
