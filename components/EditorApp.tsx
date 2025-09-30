@@ -134,6 +134,20 @@ interface SelectionRect {
     height: number;
 }
 
+const MERGED_DRAW_LAYER_KEY = 'mergedLayerId';
+
+async function loadImageElement(src: string): Promise<HTMLImageElement> {
+    if (typeof Image === 'undefined') {
+        throw new Error('Image constructor is not available in this environment');
+    }
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = (error) => reject(error);
+        image.src = src;
+    });
+}
+
 function getElementBounds(element: EditorElement, position: Vector2d): ElementBounds | null {
     switch (element.type) {
         case 'rect':
@@ -779,6 +793,11 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         [orderedElements],
     );
 
+    const elementsRef = useRef(elements);
+    useEffect(() => {
+        elementsRef.current = elements;
+    }, [elements]);
+
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
     const [activeTool, setActiveTool] = useState<Tool>('draw');
@@ -1341,6 +1360,151 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         [setDesign],
     );
 
+    const mergeStrokeIntoSingleLayer = useCallback(
+        async (strokeId: string) => {
+            if (!isBrowser) return;
+            if (layers.length !== 1) return;
+            if (stageWidth <= 0 || stageHeight <= 0) return;
+
+            const snapshot = elementsRef.current;
+            const strokeCandidate = snapshot.find((element) => element.id === strokeId);
+            if (!strokeCandidate || strokeCandidate.type !== 'pencil') {
+                return;
+            }
+
+            const layer = layers[0];
+            if (!layer) return;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = stageWidth;
+            canvas.height = stageHeight;
+            const context = canvas.getContext('2d');
+            if (!context) {
+                return;
+            }
+
+            const stroke = cloneElement(strokeCandidate) as PencilElement;
+
+            const existingImageSource = snapshot.find((element) => {
+                if (element.type !== 'image') return false;
+                if (element.layerId !== layer.id) return false;
+                const metadata = element.metadata as Record<string, unknown> | null | undefined;
+                return metadata?.[MERGED_DRAW_LAYER_KEY] === layer.id;
+            }) as ImageElement | undefined;
+
+            const existingImageId = existingImageSource?.id ?? null;
+            const existingImage = existingImageSource
+                ? (cloneElement(existingImageSource) as ImageElement)
+                : null;
+
+            if (existingImageSource) {
+                try {
+                    const imageInstance = await loadImageElement(existingImageSource.src);
+                    context.save();
+                    context.globalAlpha = existingImageSource.opacity ?? 1;
+                    context.drawImage(
+                        imageInstance,
+                        existingImageSource.x,
+                        existingImageSource.y,
+                        existingImageSource.width,
+                        existingImageSource.height,
+                    );
+                    context.restore();
+                } catch (error) {
+                    console.warn('[Editor] Unable to reuse merged drawing image', error);
+                    return;
+                }
+            }
+
+            if (stroke.points.length >= 2) {
+                context.save();
+                context.globalAlpha = stroke.opacity ?? 1;
+                context.lineCap = stroke.lineCap;
+                context.lineJoin = stroke.lineJoin;
+                context.lineWidth = stroke.strokeWidth;
+                context.strokeStyle = stroke.stroke;
+                const firstX = stroke.x + stroke.points[0];
+                const firstY = stroke.y + stroke.points[1];
+                if (stroke.points.length === 2) {
+                    context.beginPath();
+                    const radius = Math.max(1, stroke.strokeWidth / 2);
+                    context.fillStyle = stroke.stroke;
+                    context.arc(firstX, firstY, radius, 0, Math.PI * 2);
+                    context.fill();
+                } else {
+                    context.beginPath();
+                    context.moveTo(firstX, firstY);
+                    for (let index = 2; index < stroke.points.length; index += 2) {
+                        const nextX = stroke.x + stroke.points[index];
+                        const nextY = stroke.y + stroke.points[index + 1];
+                        context.lineTo(nextX, nextY);
+                    }
+                    context.stroke();
+                }
+                context.restore();
+            }
+
+            const dataUrl = canvas.toDataURL();
+
+            const metadata: Record<string, unknown> = {
+                ...(existingImage?.metadata ?? {}),
+                [MERGED_DRAW_LAYER_KEY]: layer.id,
+            };
+
+            let mergedElement: ImageElement;
+            if (existingImage) {
+                mergedElement = {
+                    ...existingImage,
+                    src: dataUrl,
+                    metadata,
+                    layerId: layer.id,
+                    visible: existingImage.visible && layer.visible,
+                    locked: existingImage.locked || layer.locked,
+                } satisfies ImageElement;
+            } else {
+                const base = createImage(options, dataUrl, {
+                    name: 'Merged drawing',
+                    x: 0,
+                    y: 0,
+                    width: stageWidth,
+                    height: stageHeight,
+                    keepRatio: false,
+                    metadata,
+                });
+                mergedElement = {
+                    ...base,
+                    layerId: layer.id,
+                    visible: base.visible && layer.visible,
+                    locked: base.locked || layer.locked,
+                } satisfies ImageElement;
+            }
+
+            updateElements((current) => {
+                const next: EditorElement[] = [];
+                current.forEach((element) => {
+                    if (element.type === 'guide') {
+                        next.push(element);
+                        return;
+                    }
+                    if (element.id === strokeId) {
+                        return;
+                    }
+                    if (existingImageId && element.id === existingImageId) {
+                        return;
+                    }
+                    if (element.layerId === layer.id && element.type === 'pencil') {
+                        return;
+                    }
+                    next.push(element);
+                });
+                next.push(mergedElement);
+                return next;
+            });
+            setSelectedIds([mergedElement.id]);
+        },
+        [isBrowser, layers, options, setSelectedIds, stageHeight, stageWidth, updateElements],
+    );
+
     const updateLayers = useCallback(
         (updater: (layers: EditorLayer[]) => EditorLayer[]) => {
             setDesign((current) => {
@@ -1859,10 +2023,24 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             selectionOriginRef.current = null;
             updateSelectionRect(null);
 
-            if (!drawingStateRef.current) return;
+            const drawingState = drawingStateRef.current;
+            if (!drawingState) return;
             drawingStateRef.current = null;
+            if (activeTool === 'draw') {
+                void mergeStrokeIntoSingleLayer(drawingState.id);
+            }
         },
-        [activeLayerId, activeTool, contentElements, layerMap, setIsPanning, setSelectedIds, startPanInertia, updateSelectionRect],
+        [
+            activeLayerId,
+            activeTool,
+            contentElements,
+            layerMap,
+            mergeStrokeIntoSingleLayer,
+            setIsPanning,
+            setSelectedIds,
+            startPanInertia,
+            updateSelectionRect,
+        ],
     );
 
     const handleSave = useCallback(() => {
