@@ -861,26 +861,44 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             const paddingY = style
                 ? parseSpacingValue(style.paddingTop) + parseSpacingValue(style.paddingBottom)
                 : 0;
+            const borderX = style
+                ? parseSpacingValue(style.borderLeftWidth) + parseSpacingValue(style.borderRightWidth)
+                : 0;
+            const borderY = style
+                ? parseSpacingValue(style.borderTopWidth) + parseSpacingValue(style.borderBottomWidth)
+                : 0;
+            const marginLeft = style ? parseSpacingValue(style.marginLeft) : 0;
+            const marginRight = style ? parseSpacingValue(style.marginRight) : 0;
+            const marginTop = style ? parseSpacingValue(style.marginTop) : 0;
+            const marginBottom = style ? parseSpacingValue(style.marginBottom) : 0;
 
             const measuredWidth = Math.max(0, rect.width - paddingX);
             const measuredHeight = Math.max(0, rect.height - paddingY);
 
             let availableWidth = measuredWidth;
             let availableHeight = measuredHeight;
+
             if (typeof window !== 'undefined') {
                 const viewportWidth = window.innerWidth;
                 const viewportHeight = window.innerHeight;
-                const rawAvailableWidth = Math.max(0, viewportWidth - rect.left);
-                const rawAvailableHeight = Math.max(0, viewportHeight - rect.top);
 
-                availableWidth = Math.max(0, rawAvailableWidth - paddingX);
-                availableHeight = Math.max(0, rawAvailableHeight - paddingY);
+                const offsetLeft = Math.max(0, rect.left - marginLeft);
+                const offsetRight = Math.max(0, viewportWidth - rect.right - marginRight);
+                const offsetTop = Math.max(0, rect.top - marginTop);
+                const offsetBottom = Math.max(0, viewportHeight - rect.bottom - marginBottom);
 
-                element.style.minHeight = `${Math.max(0, Math.round(rawAvailableHeight))}px`;
+                const totalHorizontalChrome = paddingX + borderX;
+                const totalVerticalChrome = paddingY + borderY;
+
+                availableWidth = Math.max(0, viewportWidth - offsetLeft - offsetRight - totalHorizontalChrome);
+                availableHeight = Math.max(0, viewportHeight - offsetTop - offsetBottom - totalVerticalChrome);
+
+                const minHeight = Math.max(0, Math.round(viewportHeight - offsetTop - offsetBottom));
+                element.style.minHeight = `${minHeight}px`;
             }
 
             const nextSize = {
-                width: Math.max(0, Math.round(Math.min(measuredWidth, availableWidth))),
+                width: Math.max(0, Math.round(availableWidth || measuredWidth)),
                 height: Math.max(0, Math.round(availableHeight || measuredHeight)),
             };
 
