@@ -1913,20 +1913,23 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     return;
                 }
 
-                const point = { x: pointer.x, y: pointer.y };
-                const stroke = createPencilStroke(drawSettings.color, drawSettings.width, point);
+                const elementPosition = { x: pointer.x, y: pointer.y };
+                const stroke = createPencilStroke(drawSettings.color, drawSettings.width, {
+                    x: 0,
+                    y: 0,
+                });
                 const element: PencilElement = {
                     ...createBaseElement('pencil', {
                         name: 'Free draw',
-                        x: 0,
-                        y: 0,
+                        x: elementPosition.x,
+                        y: elementPosition.y,
                         rotation: 0,
                         opacity: 1,
                         metadata: null,
                     }),
                     type: 'pencil',
-                    x: 0,
-                    y: 0,
+                    x: elementPosition.x,
+                    y: elementPosition.y,
                     points: [...stroke.points],
                     stroke: stroke.stroke,
                     strokeWidth: stroke.strokeWidth,
@@ -1937,7 +1940,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 drawingStateRef.current = {
                     id: element.id,
                     strokeIndex: 0,
-                    elementPosition: { x: element.x, y: element.y },
+                    elementPosition,
                 };
                 setSelectedIds([]);
                 addElement(element);
