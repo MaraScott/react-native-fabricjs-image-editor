@@ -834,10 +834,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         zoomRef.current = options.zoom;
     }, [options.zoom]);
 
-    const workspaceContainerNode = editorCanvasRef.current;
-
     useLayoutEffect(() => {
-        const element = workspaceContainerNode;
+        const element = editorCanvasRef.current;
         if (!element) {
             return;
         }
@@ -929,7 +927,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
             element.style.removeProperty('min-height');
         };
-    }, [workspaceContainerNode]);
+    }, [editorCanvasRef]);
 
     const restoreStageCursor = useCallback(() => {
         const stage = stageRef.current;
