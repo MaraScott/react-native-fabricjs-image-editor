@@ -842,14 +842,43 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             return;
         }
 
+        const parseSpacingValue = (value: string | null | undefined) => {
+            if (!value) {
+                return 0;
+            }
+            const parsed = Number.parseFloat(value);
+            return Number.isFinite(parsed) ? parsed : 0;
+        };
+
         let frame: number | null = null;
 
         const measure = () => {
             frame = null;
+
+            const rect = element.getBoundingClientRect();
+            const style = typeof window !== 'undefined' ? window.getComputedStyle(element) : null;
+            const paddingX = style
+                ? parseSpacingValue(style.paddingLeft) + parseSpacingValue(style.paddingRight)
+                : 0;
+            const paddingY = style
+                ? parseSpacingValue(style.paddingTop) + parseSpacingValue(style.paddingBottom)
+                : 0;
+
+            const measuredWidth = Math.max(0, rect.width - paddingX);
+            const measuredHeight = Math.max(0, rect.height - paddingY);
+
+            let availableHeight = measuredHeight;
+            if (typeof window !== 'undefined') {
+                const rawAvailableHeight = Math.max(0, window.innerHeight - rect.top);
+                availableHeight = Math.max(0, rawAvailableHeight - paddingY);
+                element.style.minHeight = `${Math.max(0, Math.round(rawAvailableHeight))}px`;
+            }
+
             const nextSize = {
-                width: Math.max(0, element.clientWidth - 28),
-                height: Math.max(0, element.clientHeight - 28),
+                width: Math.max(0, Math.round(measuredWidth)),
+                height: Math.max(0, Math.round(availableHeight || measuredHeight)),
             };
+
             setWorkspaceSize((current) =>
                 current.width === nextSize.width && current.height === nextSize.height ? current : nextSize,
             );
@@ -865,24 +894,33 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         measure();
 
         let observer: ResizeObserver | null = null;
+        const hasWindow = typeof window !== 'undefined';
 
         if (typeof ResizeObserver !== 'undefined') {
             observer = new ResizeObserver(() => scheduleMeasure());
             observer.observe(element);
-        } else {
+        }
+
+        if (hasWindow) {
             window.addEventListener('resize', scheduleMeasure);
+            window.addEventListener('scroll', scheduleMeasure, true);
         }
 
         return () => {
+            if (hasWindow) {
+                window.removeEventListener('resize', scheduleMeasure);
+                window.removeEventListener('scroll', scheduleMeasure, true);
+            }
+
             if (observer) {
                 observer.disconnect();
-            } else {
-                window.removeEventListener('resize', scheduleMeasure);
             }
 
             if (frame !== null) {
                 cancelAnimationFrame(frame);
             }
+
+            element.style.removeProperty('min-height');
         };
     }, [workspaceContainerNode]);
 
