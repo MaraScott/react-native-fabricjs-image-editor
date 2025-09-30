@@ -2370,17 +2370,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                         </YStack>
                     </YStack>
 
-                    {selectedElement ? (
-                        <YStack tag="aside" className="editor-sidebar">
-                            <Heading tag="h2">Selection</Heading>
-                            <PropertiesPanel
-                                element={selectedElement}
-                                onChange={(attributes) => updateElement(selectedElement.id, attributes)}
-                                onRemove={removeSelected}
-                            />
-                        </YStack>
-                    ) : null}
-
                     <Stack className="editor-layout">
                         <XStack ref={editorCanvasRef} className="editor-canvas">
                             <Stack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={stageWrapperStyle}>
@@ -2574,9 +2563,33 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             })}
                                         </Layer>
                                     </Stage>
+                                    {selectedElement ? <Stack position="absolute" top={5} left={5} zIndex={2}>
+                                        <Popover placement="bottom-start">
+                                            <Popover.Trigger position={`absolute`} top={0} left={0}>
+                                                <Button type="button" aria-label="tool" title="tool">
+                                                    <MaterialCommunityIcons key="tool" name="tool" size={TOOLBAR_ICON_SIZE * 1.5} />
+                                                </Button>
+                                            </Popover.Trigger>
+                                            <Popover.Content top={0} left={0}>
+                                                <Popover.Arrow />
+                                                <YStack className="tool-stats editor-sidebar">
+                                                    {selectedElement ? (
+                                                        <YStack tag="aside">
+                                                            <Heading tag="h2">Selection</Heading>
+                                                            <PropertiesPanel
+                                                                element={selectedElement}
+                                                                onChange={(attributes) => updateElement(selectedElement.id, attributes)}
+                                                                onRemove={removeSelected}
+                                                            />
+                                                        </YStack>
+                                                    ) : null}
+                                                </YStack>
+                                            </Popover.Content>
+                                        </Popover>
+                                    </Stack> : null}
                                     <Stack position="absolute" top={5} right={5} zIndex={2}>
                                         <Popover placement="bottom-end">
-                                            <Popover.Trigger position={`absolute`} top={5} right={5}>
+                                            <Popover.Trigger position={`absolute`} top={0} right={0}>
                                                 <Button type="button" aria-label="cog" title="cog">
                                                     <MaterialCommunityIcons key="cog" name="cog" size={TOOLBAR_ICON_SIZE * 1.5} />
                                                 </Button>
