@@ -8,7 +8,7 @@ import {
     type ChangeEvent,
     type CSSProperties,
 } from 'react';
-import { Layer, Stage } from 'react-konva';
+import { Layer, Rect as RectShape, Stage } from 'react-konva';
 import { Button, Heading, Image, Input, Label, Separator, Slider, Stack, Text, XStack, YStack, ZStack, useWindowDimensions, Theme, Popover, Paragraph, Switch } from 'tamagui';
 import { MaterialCommunityIcons } from './icons/MaterialCommunityIcons';
 // import { CiZoomIn } from "react-icons/ci";
@@ -98,6 +98,7 @@ const KEYBOARD_ZOOM_FACTOR = 1.1;
 const ZOOM_PERCENT_MIN = -100;
 const ZOOM_PERCENT_MAX = 100;
 const ZOOM_EXP_BASE = 2;
+const MIN_SELECTION_SIZE = 2;
 
 const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
     {
@@ -124,6 +125,13 @@ interface ElementBounds {
     bottom: number;
     centerX: number;
     centerY: number;
+}
+
+interface SelectionRect {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
 }
 
 function getElementBounds(element: EditorElement, position: Vector2d): ElementBounds | null {
@@ -183,9 +191,68 @@ function getElementBounds(element: EditorElement, position: Vector2d): ElementBo
                 centerX: position.x + element.width / 2,
                 centerY: position.y + element.fontSize / 2,
             };
+        case 'line':
+        case 'path':
+        case 'pencil': {
+            const { points } = element;
+            if (!points || points.length < 2) {
+                return {
+                    left: position.x,
+                    right: position.x,
+                    top: position.y,
+                    bottom: position.y,
+                    centerX: position.x,
+                    centerY: position.y,
+                };
+            }
+            let minX = Infinity;
+            let maxX = -Infinity;
+            let minY = Infinity;
+            let maxY = -Infinity;
+            for (let index = 0; index < points.length; index += 2) {
+                const px = points[index] ?? 0;
+                const py = points[index + 1] ?? 0;
+                if (px < minX) minX = px;
+                if (px > maxX) maxX = px;
+                if (py < minY) minY = py;
+                if (py > maxY) maxY = py;
+            }
+            if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) {
+                return null;
+            }
+            return {
+                left: position.x + minX,
+                right: position.x + maxX,
+                top: position.y + minY,
+                bottom: position.y + maxY,
+                centerX: position.x + (minX + maxX) / 2,
+                centerY: position.y + (minY + maxY) / 2,
+            };
+        }
         default:
             return null;
     }
+}
+
+function normalizeSelectionRect(start: Vector2d, end: Vector2d): SelectionRect {
+    const x = Math.min(start.x, end.x);
+    const y = Math.min(start.y, end.y);
+    return {
+        x,
+        y,
+        width: Math.abs(end.x - start.x),
+        height: Math.abs(end.y - start.y),
+    };
+}
+
+function isElementInsideSelection(element: EditorElement, rect: SelectionRect): boolean {
+    const bounds = getElementBounds(element, { x: element.x, y: element.y });
+    if (!bounds) {
+        return false;
+    }
+    const withinHorizontal = bounds.left >= rect.x && bounds.right <= rect.x + rect.width;
+    const withinVertical = bounds.top >= rect.y && bounds.bottom <= rect.y + rect.height;
+    return withinHorizontal && withinVertical;
 }
 
 function createDragBound(options: EditorOptions, guides: GuideElement[]): DragBoundFactory {
@@ -624,7 +691,13 @@ function getStagePointer(stage: StageType): Vector2d | null {
     }
     const transform = stage.getAbsoluteTransform().copy();
     transform.invert();
-    return transform.point(pointer);
+    const point = transform.point(pointer);
+    const width = stage.width();
+    const height = stage.height();
+    return {
+        x: Math.min(Math.max(point.x, 0), width),
+        y: Math.min(Math.max(point.y, 0), height),
+    };
 }
 
 function getInitialOptions(options?: Partial<EditorOptions>): EditorOptions {
@@ -710,6 +783,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
     const [activeTool, setActiveTool] = useState<Tool>('draw');
     const drawingStateRef = useRef<DrawingState | null>(null);
+    const selectionOriginRef = useRef<Vector2d | null>(null);
+    const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
     const [clipboard, setClipboard] = useState<EditorElement[] | null>(null);
     const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
     const [stagePosition, setStagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -776,6 +851,17 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             inertiaHandleRef.current = null;
         }
     }, []);
+
+    const updateSelectionRect = useCallback((rect: SelectionRect | null) => {
+        setSelectionRect(rect);
+    }, []);
+
+    useEffect(() => {
+        if (activeTool !== 'select') {
+            selectionOriginRef.current = null;
+            updateSelectionRect(null);
+        }
+    }, [activeTool, updateSelectionRect]);
 
     const startPanInertia = useCallback(
         (velocity: { vx: number; vy: number }) => {
@@ -1652,12 +1738,20 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 return;
             }
 
+            selectionOriginRef.current = null;
+            updateSelectionRect(null);
+
             if (event.target === stage) {
                 setSelectedIds([]);
-                setActiveTool('select');
+                if (activeTool === 'select') {
+                    selectionOriginRef.current = pointer;
+                    updateSelectionRect({ x: pointer.x, y: pointer.y, width: 0, height: 0 });
+                } else {
+                    setActiveTool('select');
+                }
             }
         },
-        [activeTool, addElement, drawSettings, isPanMode, stopInertia],
+        [activeTool, addElement, drawSettings, isPanMode, setActiveTool, setSelectedIds, stopInertia, updateSelectionRect],
     );
 
     const handleStagePointerMove = useCallback(
@@ -1696,6 +1790,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 return;
             }
 
+            if (selectionOriginRef.current && activeTool === 'select') {
+                const pointer = getStagePointer(stage);
+                if (!pointer) return;
+                updateSelectionRect(normalizeSelectionRect(selectionOriginRef.current, pointer));
+                return;
+            }
+
             const drawingState = drawingStateRef.current;
             if (!drawingState) return;
             const pointer = getStagePointer(stage);
@@ -1713,22 +1814,56 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 }),
             );
         },
-        [setStagePosition, stageHeight, stageWidth, updateElements],
+        [activeTool, setStagePosition, stageHeight, stageWidth, updateElements, updateSelectionRect],
     );
 
-    const handleStagePointerUp = useCallback(() => {
-        if (panStateRef.current) {
-            panStateRef.current = null;
-            setIsPanning(false);
-            const velocity = panVelocityRef.current;
-            panVelocityRef.current = { vx: 0, vy: 0 };
-            lastPanTimestampRef.current = null;
-            startPanInertia(velocity);
-            return;
-        }
-        if (!drawingStateRef.current) return;
-        drawingStateRef.current = null;
-    }, [setIsPanning, startPanInertia]);
+    const handleStagePointerUp = useCallback(
+        (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
+            if (panStateRef.current) {
+                panStateRef.current = null;
+                setIsPanning(false);
+                const velocity = panVelocityRef.current;
+                panVelocityRef.current = { vx: 0, vy: 0 };
+                lastPanTimestampRef.current = null;
+                startPanInertia(velocity);
+                return;
+            }
+
+            const stage = event.target.getStage();
+
+            if (selectionOriginRef.current && activeTool === 'select' && stage) {
+                const pointer = getStagePointer(stage);
+                if (pointer) {
+                    const rect = normalizeSelectionRect(selectionOriginRef.current, pointer);
+                    if (rect.width >= MIN_SELECTION_SIZE && rect.height >= MIN_SELECTION_SIZE) {
+                        const selected = contentElements.filter((element) => {
+                            if (!element.visible || element.locked) {
+                                return false;
+                            }
+                            if (activeLayerId && element.layerId !== activeLayerId) {
+                                return false;
+                            }
+                            if (element.layerId) {
+                                const layer = layerMap.get(element.layerId);
+                                if (layer?.locked) {
+                                    return false;
+                                }
+                            }
+                            return isElementInsideSelection(element, rect);
+                        });
+                        setSelectedIds(selected.map((element) => element.id));
+                    }
+                }
+            }
+
+            selectionOriginRef.current = null;
+            updateSelectionRect(null);
+
+            if (!drawingStateRef.current) return;
+            drawingStateRef.current = null;
+        },
+        [activeLayerId, activeTool, contentElements, layerMap, setIsPanning, setSelectedIds, startPanInertia, updateSelectionRect],
+    );
 
     const handleSave = useCallback(() => {
         postMessage('save', { json: stringifyDesign(design) });
@@ -2562,6 +2697,20 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                 }
                                             })}
                                         </Layer>
+                                        {selectionRect && selectionRect.width > 0 && selectionRect.height > 0 ? (
+                                            <Layer listening={false}>
+                                                <RectShape
+                                                    x={selectionRect.x}
+                                                    y={selectionRect.y}
+                                                    width={selectionRect.width}
+                                                    height={selectionRect.height}
+                                                    stroke="#38bdf8"
+                                                    dash={[4, 4]}
+                                                    strokeWidth={1}
+                                                    fill="rgba(56, 189, 248, 0.12)"
+                                                />
+                                            </Layer>
+                                        ) : null}
                                     </Stage>
                                     {selectedElement ? <Stack position="absolute" top={5} left={5} zIndex={2}>
                                         <Popover placement="bottom-start">
