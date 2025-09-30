@@ -52,10 +52,12 @@ import {
     createLayerDefinition,
     createRect,
     createText,
+    getPencilStrokes,
     getNextLayerName,
     orderElementsByLayer,
 } from '../utils/editorElements';
 import { createEmptyDesign, parseDesign, stringifyDesign } from '../utils/design';
+import { createEditorId } from '../utils/ids';
 
 import {
     SidebarContainer,
@@ -71,6 +73,7 @@ type Tool = 'select' | 'draw';
 type DrawingState = {
     id: string;
     origin: { x: number; y: number };
+    strokeId: string;
 };
 
 type TemplateDefinition = {
@@ -192,8 +195,7 @@ function getElementBounds(element: EditorElement, position: Vector2d): ElementBo
                 centerY: position.y + element.fontSize / 2,
             };
         case 'line':
-        case 'path':
-        case 'pencil': {
+        case 'path': {
             const { points } = element;
             if (!points || points.length < 2) {
                 return {
@@ -217,6 +219,45 @@ function getElementBounds(element: EditorElement, position: Vector2d): ElementBo
                 if (py < minY) minY = py;
                 if (py > maxY) maxY = py;
             }
+            if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) {
+                return null;
+            }
+            return {
+                left: position.x + minX,
+                right: position.x + maxX,
+                top: position.y + minY,
+                bottom: position.y + maxY,
+                centerX: position.x + (minX + maxX) / 2,
+                centerY: position.y + (minY + maxY) / 2,
+            };
+        }
+        case 'pencil': {
+            const pencil = element as PencilElement;
+            const strokes = getPencilStrokes(pencil);
+            if (strokes.length === 0) {
+                return {
+                    left: position.x,
+                    right: position.x,
+                    top: position.y,
+                    bottom: position.y,
+                    centerX: position.x,
+                    centerY: position.y,
+                };
+            }
+            let minX = Infinity;
+            let maxX = -Infinity;
+            let minY = Infinity;
+            let maxY = -Infinity;
+            strokes.forEach((stroke) => {
+                for (let index = 0; index < stroke.points.length; index += 2) {
+                    const px = stroke.points[index] ?? 0;
+                    const py = stroke.points[index + 1] ?? 0;
+                    if (px < minX) minX = px;
+                    if (px > maxX) maxX = px;
+                    if (py < minY) minY = py;
+                    if (py > maxY) maxY = py;
+                }
+            });
             if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) {
                 return null;
             }
@@ -1714,17 +1755,71 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             if (!pointer) return;
 
             if (activeTool === 'draw') {
+                const strokeId = createEditorId('stroke');
+                const activeExists = activeLayerId && layers.some((layer) => layer.id === activeLayerId);
+                const targetLayerId = activeExists
+                    ? activeLayerId
+                    : layers.length > 0
+                    ? layers[layers.length - 1]?.id ?? null
+                    : null;
+
+                const existingPencil = targetLayerId
+                    ? [...elements]
+                          .reverse()
+                          .find(
+                              (element) =>
+                                  element.type === 'pencil' &&
+                                  element.layerId === targetLayerId &&
+                                  !element.locked &&
+                                  element.visible,
+                          )
+                    : null;
+
+                if (existingPencil) {
+                    const origin = { x: existingPencil.x, y: existingPencil.y };
+                    const offsetX = pointer.x - origin.x;
+                    const offsetY = pointer.y - origin.y;
+                    const initialPoints = [offsetX, offsetY];
+                    updateElements((current) =>
+                        current.map((element) => {
+                            if (element.id !== existingPencil.id) {
+                                return element;
+                            }
+                            const pencil = element as PencilElement;
+                            const strokes = getPencilStrokes(pencil);
+                            const nextStrokes = [...strokes, { id: strokeId, points: initialPoints }];
+                            return {
+                                ...pencil,
+                                stroke: drawSettings.color,
+                                strokeWidth: drawSettings.width,
+                                points: initialPoints,
+                                strokes: nextStrokes,
+                            } satisfies PencilElement;
+                        }),
+                    );
+                    drawingStateRef.current = {
+                        id: existingPencil.id,
+                        origin,
+                        strokeId,
+                    };
+                    setSelectedIds([existingPencil.id]);
+                    return;
+                }
+
+                const origin = { x: pointer.x, y: pointer.y };
+                const stroke = { id: strokeId, points: [0, 0] };
                 const element: PencilElement = {
                     ...createBaseElement('pencil', {
                         name: 'Free draw',
-                        x: pointer.x,
-                        y: pointer.y,
+                        x: origin.x,
+                        y: origin.y,
                         rotation: 0,
                         opacity: 1,
                         metadata: null,
                     }),
                     type: 'pencil',
-                    points: [0, 0],
+                    points: stroke.points,
+                    strokes: [stroke],
                     stroke: drawSettings.color,
                     strokeWidth: drawSettings.width,
                     lineCap: 'round',
@@ -1732,7 +1827,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 };
                 drawingStateRef.current = {
                     id: element.id,
-                    origin: { x: pointer.x, y: pointer.y },
+                    origin,
+                    strokeId,
                 };
                 addElement(element);
                 return;
@@ -1751,7 +1847,20 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 }
             }
         },
-        [activeTool, addElement, drawSettings, isPanMode, setActiveTool, setSelectedIds, stopInertia, updateSelectionRect],
+        [
+            activeLayerId,
+            activeTool,
+            addElement,
+            drawSettings,
+            elements,
+            isPanMode,
+            layers,
+            setActiveTool,
+            setSelectedIds,
+            stopInertia,
+            updateElements,
+            updateSelectionRect,
+        ],
     );
 
     const handleStagePointerMove = useCallback(
@@ -1807,10 +1916,30 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     if (element.id !== drawingState.id) {
                         return element;
                     }
-                    const dx = pointer.x - drawingState.origin.x;
-                    const dy = pointer.y - drawingState.origin.y;
                     const pencil = element as PencilElement;
-                    return { ...pencil, points: [...pencil.points, dx, dy] };
+                    const strokes = getPencilStrokes(pencil);
+                    const strokeIndex = strokes.findIndex((stroke) => stroke.id === drawingState.strokeId);
+                    const offsetX = pointer.x - drawingState.origin.x;
+                    const offsetY = pointer.y - drawingState.origin.y;
+                    if (strokeIndex === -1) {
+                        const nextStroke = { id: drawingState.strokeId, points: [offsetX, offsetY] };
+                        return {
+                            ...pencil,
+                            points: nextStroke.points,
+                            strokes: [...strokes, nextStroke],
+                        } satisfies PencilElement;
+                    }
+                    const stroke = strokes[strokeIndex];
+                    const nextStroke = {
+                        ...stroke,
+                        points: [...stroke.points, offsetX, offsetY],
+                    };
+                    const nextStrokes = strokes.map((entry, index) => (index === strokeIndex ? nextStroke : entry));
+                    return {
+                        ...pencil,
+                        points: nextStroke.points,
+                        strokes: nextStrokes,
+                    } satisfies PencilElement;
                 }),
             );
         },

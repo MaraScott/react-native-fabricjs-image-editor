@@ -149,20 +149,34 @@ function PreviewShape({ element, onImageLoad }: { element: EditorElement; onImag
           {...common}
         />
       );
-    case 'pencil':
+    case 'pencil': {
+      const strokes = (element.strokes && element.strokes.length > 0)
+        ? element.strokes
+        : [
+            {
+              id: `${element.id}-stroke-preview`,
+              points: element.points,
+            },
+          ];
       return (
-        <Line
-          x={element.x}
-          y={element.y}
-          points={element.points}
-          stroke={element.stroke}
-          strokeWidth={element.strokeWidth}
-          lineCap={element.lineCap}
-          lineJoin={element.lineJoin}
-          tension={0.4}
-          {...common}
-        />
+        <Group x={element.x} y={element.y} rotation={element.rotation} opacity={element.opacity} listening={false}>
+          {strokes
+            .filter((stroke) => Array.isArray(stroke.points) && stroke.points.length > 1)
+            .map((stroke) => (
+              <Line
+                key={stroke.id}
+                points={stroke.points}
+                stroke={element.stroke}
+                strokeWidth={element.strokeWidth}
+                lineCap={element.lineCap}
+                lineJoin={element.lineJoin}
+                tension={0.4}
+                listening={false}
+              />
+            ))}
+        </Group>
       );
+    }
     case 'text': {
       const fontParts: string[] = [];
       if (element.fontStyle === 'italic') {

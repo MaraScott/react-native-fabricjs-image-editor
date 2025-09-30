@@ -9,6 +9,7 @@ import type {
   LineElement,
   PathElement,
   PencilElement,
+  PencilStroke,
   RectElement,
   TextElement,
   TriangleElement,
@@ -238,16 +239,43 @@ function normalisePath(element: any): PathElement {
 
 function normalisePencil(element: any): PencilElement {
   const base = normaliseBase(element, 'pencil');
-  const points = Array.isArray(element.points) ? [...element.points.map((value: unknown) => Number(value) || 0)] : [0, 0];
+  const rawStrokes: PencilStroke[] = Array.isArray(element.strokes)
+    ? element.strokes
+        .map((stroke: any, index: number) => {
+          const id = typeof stroke?.id === 'string' && stroke.id.trim().length > 0
+            ? stroke.id
+            : `${base.id}-stroke-${index}`;
+          const points = Array.isArray(stroke?.points)
+            ? stroke.points.map((value: unknown) => Number(value) || 0)
+            : [0, 0, 1, 1];
+          return { id, points } satisfies PencilStroke;
+        })
+        .filter((stroke) => Array.isArray(stroke.points) && stroke.points.length > 1)
+    : [];
+
+  const fallbackPoints = Array.isArray(element.points)
+    ? element.points.map((value: unknown) => Number(value) || 0)
+    : [0, 0];
+
+  const strokes = rawStrokes.length > 0
+    ? rawStrokes
+    : [
+        {
+          id: `${base.id}-stroke-0`,
+          points: fallbackPoints.length > 1 ? fallbackPoints : [0, 0, 1, 1],
+        },
+      ];
+
   return {
     ...base,
     type: 'pencil',
-    points: points.length > 1 ? points : [0, 0, 1, 1],
+    points: strokes[strokes.length - 1]?.points ?? [0, 0, 1, 1],
+    strokes,
     stroke: typeof element.stroke === 'string' ? element.stroke : '#2563eb',
     strokeWidth: Math.max(1, toNumber(element.strokeWidth, 4)),
     lineCap: element.lineCap === 'butt' || element.lineCap === 'square' ? element.lineCap : 'round',
     lineJoin: element.lineJoin === 'miter' || element.lineJoin === 'bevel' ? element.lineJoin : 'round',
-  };
+  } satisfies PencilElement;
 }
 
 function normaliseGuide(element: any): GuideElement {

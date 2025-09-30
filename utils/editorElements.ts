@@ -9,6 +9,7 @@ import type {
   LineElement,
   PathElement,
   PencilElement,
+  PencilStroke,
   RectElement,
   TextElement,
   TriangleElement,
@@ -118,6 +119,19 @@ export function orderElementsByLayer(elements: EditorElement[], layers: EditorLa
   }
 
   return ordered;
+}
+
+export function getPencilStrokes(element: PencilElement): PencilStroke[] {
+  if (Array.isArray(element.strokes) && element.strokes.length > 0) {
+    return element.strokes;
+  }
+  const fallbackPoints = Array.isArray(element.points) && element.points.length > 1 ? [...element.points] : [0, 0, 1, 1];
+  return [
+    {
+      id: `${element.id}-stroke-0`,
+      points: fallbackPoints,
+    },
+  ];
 }
 
 export function createRect(options: EditorOptions, overrides: Partial<RectElement> = {}): RectElement {
@@ -464,8 +478,26 @@ export function cloneElement(element: EditorElement): EditorElement {
       } satisfies LineElement;
     case 'path':
       return { ...base, type: 'path', points: [...element.points], closed: element.closed } satisfies PathElement;
-    case 'pencil':
-      return { ...base, type: 'pencil', points: [...element.points] } satisfies PencilElement;
+    case 'pencil': {
+      const strokes: PencilStroke[] =
+        element.strokes && element.strokes.length > 0
+          ? element.strokes.map((stroke) => ({
+              id: createEditorId('stroke'),
+              points: [...stroke.points],
+            }))
+          : [
+              {
+                id: createEditorId('stroke'),
+                points: [...element.points],
+              },
+            ];
+      return {
+        ...base,
+        type: 'pencil',
+        points: [...(strokes[strokes.length - 1]?.points ?? element.points)],
+        strokes,
+      } satisfies PencilElement;
+    }
     case 'text':
       return { ...base, type: 'text', text: element.text } satisfies TextElement;
     case 'image':

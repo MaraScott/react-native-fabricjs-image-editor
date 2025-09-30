@@ -1,7 +1,8 @@
 import { useRef } from 'react';
-import { Line as LineShape, Transformer as TransformerShape } from 'react-konva';
+import { Group, Line as LineShape, Transformer as TransformerShape } from 'react-konva';
 import type { KonvaEventObject } from '../../types/konva';
 import type { PencilElement } from '../../types/editor';
+import { getPencilStrokes } from '../../utils/editorElements';
 import {
   TRANSFORMER_PROPS,
   shouldListen,
@@ -26,25 +27,20 @@ export function PencilNode({
   useApplyZIndex(zIndex, shapeRef);
 
   const draggable = selectionEnabled && shape.draggable && !shape.locked;
+  const strokes = getPencilStrokes(shape);
 
   return (
     <>
-      <LineShape
+      <Group
         ref={shapeRef}
         x={shape.x}
         y={shape.y}
-        points={shape.points}
-        stroke={shape.stroke}
-        strokeWidth={shape.strokeWidth}
-        opacity={shape.opacity}
         rotation={shape.rotation}
+        opacity={shape.opacity}
         visible={shape.visible}
         draggable={draggable}
         dragBoundFunc={dragBoundFunc}
         listening={shouldListen(draggable, shape.visible)}
-        lineCap={shape.lineCap}
-        lineJoin={shape.lineJoin}
-        tension={0.4}
         onClick={onSelect}
         onTap={onSelect}
         onDragEnd={(event: KonvaEventObject<DragEvent>) => {
@@ -57,17 +53,32 @@ export function PencilNode({
           const scaleY = node.scaleY();
           node.scaleX(1);
           node.scaleY(1);
-          const nextPoints = node
-            .points()
-            .map((value, index) => (index % 2 === 0 ? value * scaleX : value * scaleY));
+          const nextStrokes = strokes.map((stroke) => ({
+            ...stroke,
+            points: stroke.points.map((value, index) => (index % 2 === 0 ? value * scaleX : value * scaleY)),
+          }));
           onChange({
             x: node.x(),
             y: node.y(),
             rotation: node.rotation(),
-            points: nextPoints,
+            strokes: nextStrokes,
+            points: nextStrokes[nextStrokes.length - 1]?.points ?? shape.points,
           });
         }}
-      />
+      >
+        {strokes.map((stroke) => (
+          <LineShape
+            key={stroke.id}
+            points={stroke.points}
+            stroke={shape.stroke}
+            strokeWidth={shape.strokeWidth}
+            lineCap={shape.lineCap}
+            lineJoin={shape.lineJoin}
+            tension={0.4}
+            listening={shouldListen(draggable, shape.visible)}
+          />
+        ))}
+      </Group>
       {isSelected && selectionEnabled && (
         <TransformerShape ref={transformerRef} {...TRANSFORMER_PROPS} />
       )}
