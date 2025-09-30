@@ -95,8 +95,9 @@ const PAN_MIN_VELOCITY = 0.01;
 const WORKSPACE_COLOR = '#2b2b2b';
 const MIN_ZOOM_FALLBACK = 0.05;
 const KEYBOARD_ZOOM_FACTOR = 1.1;
-const MAX_ZOOM_PERCENT = 100;
-const MIN_ZOOM_PERCENT = -100;
+const ZOOM_PERCENT_MIN = -100;
+const ZOOM_PERCENT_MAX = 100;
+const ZOOM_EXP_BASE = 2;
 
 const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
     {
@@ -543,24 +544,31 @@ function clampZoom(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
 }
 
-function scaleToPercent(scale: number): number {
-    if (!Number.isFinite(scale)) {
+function scaleToPercent(scale: number, referenceScale: number): number {
+    if (!Number.isFinite(scale) || !Number.isFinite(referenceScale) || referenceScale <= 0) {
         return 0;
     }
-    if (scale >= 1) {
-        return ((scale - 1) / (MAX_ZOOM - 1)) * MAX_ZOOM_PERCENT;
+    const ratio = scale / referenceScale;
+    if (ratio <= 0) {
+        return ZOOM_PERCENT_MIN;
     }
-    return ((scale - 1) / (MIN_ZOOM_FALLBACK - 1)) * Math.abs(MIN_ZOOM_PERCENT);
+    const percent = Math.log(ratio) / Math.log(ZOOM_EXP_BASE);
+    if (!Number.isFinite(percent)) {
+        return 0;
+    }
+    const scaled = percent * 100;
+    return Math.max(ZOOM_PERCENT_MIN, Math.min(ZOOM_PERCENT_MAX, scaled));
 }
 
-function percentToScale(percent: number): number {
+function percentToScale(percent: number, referenceScale: number): number {
+    if (!Number.isFinite(referenceScale) || referenceScale <= 0) {
+        return MIN_ZOOM_FALLBACK;
+    }
     if (!Number.isFinite(percent)) {
-        return 1;
+        return referenceScale;
     }
-    if (percent >= 0) {
-        return 1 + (percent / MAX_ZOOM_PERCENT) * (MAX_ZOOM - 1);
-    }
-    return 1 + (percent / Math.abs(MIN_ZOOM_PERCENT)) * (1 - MIN_ZOOM_FALLBACK);
+    const clampedPercent = Math.max(ZOOM_PERCENT_MIN, Math.min(ZOOM_PERCENT_MAX, percent));
+    return referenceScale * Math.pow(ZOOM_EXP_BASE, clampedPercent / 100);
 }
 
 function computeFitScale(stageWidth: number, stageHeight: number, viewportWidth: number, viewportHeight: number): number {
@@ -586,9 +594,8 @@ function clampStagePosition(
     let minX: number;
     let maxX: number;
     if (scaledWidth <= viewportSize.width) {
-        const centeredX = (viewportSize.width - scaledWidth) / 2;
-        minX = centeredX;
-        maxX = centeredX;
+        minX = 0;
+        maxX = viewportSize.width - scaledWidth;
     } else {
         minX = viewportSize.width - scaledWidth;
         maxX = 0;
@@ -597,9 +604,8 @@ function clampStagePosition(
     let minY: number;
     let maxY: number;
     if (scaledHeight <= viewportSize.height) {
-        const centeredY = (viewportSize.height - scaledHeight) / 2;
-        minY = centeredY;
-        maxY = centeredY;
+        minY = 0;
+        maxY = viewportSize.height - scaledHeight;
     } else {
         minY = viewportSize.height - scaledHeight;
         maxY = 0;
@@ -710,6 +716,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const stagePositionRef = useRef(stagePosition);
     const [workspaceSize, setWorkspaceSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
     const workspaceSizeRef = useRef(workspaceSize);
+    const [fitScale, setFitScale] = useState(1);
+    const fitScaleRef = useRef(fitScale);
     const [zoomBounds, setZoomBounds] = useState<{ min: number; max: number }>({ min: 1, max: MAX_ZOOM });
     const zoomBoundsRef = useRef(zoomBounds);
     const zoomRef = useRef(options.zoom);
@@ -740,10 +748,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
     const sliderBounds = useMemo(
         () => ({
-            min: scaleToPercent(zoomBounds.min),
-            max: scaleToPercent(zoomBounds.max),
+            min: ZOOM_PERCENT_MIN,
+            max: ZOOM_PERCENT_MAX,
         }),
-        [zoomBounds.max, zoomBounds.min],
+        [],
     );
     const sliderStep = useMemo(() => {
         const range = sliderBounds.max - sliderBounds.min;
@@ -755,9 +763,12 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const sliderValue = useMemo(() => {
         const value = Number.isFinite(options.zoom) ? options.zoom : zoomBounds.min;
         const clamped = clampZoom(value, zoomBounds.min, zoomBounds.max);
-        return [scaleToPercent(clamped)];
+        return [scaleToPercent(clamped, fitScaleRef.current)];
     }, [options.zoom, zoomBounds.max, zoomBounds.min]);
-    const zoomPercentage = useMemo(() => Math.round(scaleToPercent(options.zoom)), [options.zoom]);
+    const zoomPercentage = useMemo(
+        () => Math.round(scaleToPercent(options.zoom, fitScale)),
+        [fitScale, options.zoom],
+    );
 
     const stopInertia = useCallback(() => {
         if (inertiaHandleRef.current !== null) {
@@ -829,6 +840,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     useEffect(() => {
         zoomBoundsRef.current = zoomBounds;
     }, [zoomBounds]);
+
+    useEffect(() => {
+        fitScaleRef.current = fitScale;
+    }, [fitScale]);
 
     useEffect(() => {
         zoomRef.current = options.zoom;
@@ -998,30 +1013,50 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         }
 
         const fitScaleRaw = computeFitScale(stageWidth, stageHeight, viewportWidth, viewportHeight);
-        const nextMin = clampZoom(Math.max(fitScaleRaw, MIN_ZOOM_FALLBACK), MIN_ZOOM_FALLBACK, MAX_ZOOM);
+        const nextFit = clampZoom(Math.max(fitScaleRaw, MIN_ZOOM_FALLBACK), MIN_ZOOM_FALLBACK, MAX_ZOOM);
+        const previousFit = fitScaleRef.current;
+        fitScaleRef.current = nextFit;
+        setFitScale((current) => (Math.abs(current - nextFit) < 0.0001 ? current : nextFit));
+
+        const minScale = Math.max(MIN_ZOOM_FALLBACK, nextFit * Math.pow(ZOOM_EXP_BASE, ZOOM_PERCENT_MIN / 100));
+        const maxScale = Math.max(minScale, nextFit * Math.pow(ZOOM_EXP_BASE, ZOOM_PERCENT_MAX / 100));
 
         setZoomBounds((current) =>
-            current.min === nextMin && current.max === MAX_ZOOM ? current : { min: nextMin, max: MAX_ZOOM },
+            current.min === minScale && current.max === maxScale ? current : { min: minScale, max: maxScale },
         );
 
-        const clampedZoom = clampZoom(zoomRef.current, nextMin, MAX_ZOOM);
-        if (clampedZoom !== zoomRef.current) {
+        const currentZoom = zoomRef.current;
+        const shouldSnapToFit =
+            !Number.isFinite(currentZoom) || Math.abs(currentZoom - previousFit) < 0.0001;
+        const clampedZoom = shouldSnapToFit
+            ? nextFit
+            : clampZoom(currentZoom, minScale, maxScale);
+        if (clampedZoom !== currentZoom || shouldSnapToFit) {
             zoomRef.current = clampedZoom;
             setOptions((current) => (current.zoom === clampedZoom ? current : { ...current, zoom: clampedZoom }));
         }
 
+        const scaledWidth = stageWidth * clampedZoom;
+        const scaledHeight = stageHeight * clampedZoom;
+        const preferredPosition = clampStagePosition(
+            {
+                x: Math.max(0, (viewportWidth - scaledWidth) / 2),
+                y: Math.max(0, (viewportHeight - scaledHeight) / 2),
+            },
+            clampedZoom,
+            { width: stageWidth, height: stageHeight },
+            { width: viewportWidth, height: viewportHeight },
+        );
         const clampedPosition = clampStagePosition(
             stagePositionRef.current,
             clampedZoom,
             { width: stageWidth, height: stageHeight },
             { width: viewportWidth, height: viewportHeight },
         );
+        const nextPosition = shouldSnapToFit ? preferredPosition : clampedPosition;
 
-        if (
-            clampedPosition.x !== stagePositionRef.current.x ||
-            clampedPosition.y !== stagePositionRef.current.y
-        ) {
-            setStagePosition(clampedPosition);
+        if (nextPosition.x !== stagePositionRef.current.x || nextPosition.y !== stagePositionRef.current.y) {
+            setStagePosition(nextPosition);
         }
     }, [setOptions, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
 
@@ -1807,7 +1842,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             if (typeof next !== 'number' || Number.isNaN(next)) {
                 return;
             }
-            applyZoom(percentToScale(next));
+            applyZoom(percentToScale(next, fitScaleRef.current));
         },
         [applyZoom],
     );
@@ -2132,19 +2167,21 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const stageCursor = isPanning ? 'grabbing' : isPanMode ? 'grab' : undefined;
     const rulerPadding = options.showRulers ? 24 : 0;
     const stageWrapperStyle = useMemo((): CSSProperties => {
-        const paddedStageWidth = stageWidth + rulerPadding;
-        const paddedStageHeight = stageHeight + rulerPadding;
-        const measuredWidth = workspaceSize.width > 0 ? workspaceSize.width : paddedStageWidth;
-        const measuredHeight = workspaceSize.height > 0 ? workspaceSize.height : paddedStageHeight;
+        const viewportWidth = workspaceSize.width > 0 ? workspaceSize.width : stageWidth;
+        const viewportHeight = workspaceSize.height > 0 ? workspaceSize.height : stageHeight;
+        const width = options.showRulers ? viewportWidth + rulerPadding : viewportWidth;
+        const height = options.showRulers ? viewportHeight + rulerPadding : viewportHeight;
         return {
-            width: Math.max(measuredWidth, paddedStageWidth),
-            height: Math.max(measuredHeight, paddedStageHeight),
+            width,
+            height,
         } as CSSProperties;
-    }, [rulerPadding, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
+    }, [options.showRulers, rulerPadding, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
     const stageCanvasStyle = useMemo(() => {
+        const viewportWidth = workspaceSize.width > 0 ? workspaceSize.width : stageWidth;
+        const viewportHeight = workspaceSize.height > 0 ? workspaceSize.height : stageHeight;
         const baseStyle: CSSProperties = {
-            width: stageWidth,
-            height: stageHeight,
+            width: viewportWidth,
+            height: viewportHeight,
             backgroundColor: WORKSPACE_COLOR,
             overflow: 'hidden',
         };
@@ -2152,7 +2189,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             baseStyle.cursor = stageCursor;
         }
         return baseStyle;
-    }, [stageCursor, stageHeight, stageWidth]);
+    }, [stageCursor, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
     const stageBackgroundStyle = useMemo(() => {
         return {
             position: 'absolute' as const,
