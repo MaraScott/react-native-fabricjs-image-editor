@@ -2180,8 +2180,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const stageWrapperStyle = useMemo((): CSSProperties => {
         const paddedStageWidth = stageWidth + rulerPadding;
         const paddedStageHeight = stageHeight + rulerPadding;
-        const workspaceWidth = workspaceSize.width > 0 ? workspaceSize.width + rulerPadding : paddedStageWidth;
-        const workspaceHeight = workspaceSize.height > 0 ? workspaceSize.height + rulerPadding : paddedStageHeight;
+        const workspaceWidth = workspaceSize.width > 0 ? workspaceSize.width : paddedStageWidth;
+        const workspaceHeight = workspaceSize.height > 0 ? workspaceSize.height : paddedStageHeight;
         return {
             width: Math.max(paddedStageWidth, workspaceWidth),
             height: Math.max(paddedStageHeight, workspaceHeight),
