@@ -95,6 +95,8 @@ const PAN_MIN_VELOCITY = 0.01;
 const WORKSPACE_COLOR = '#2b2b2b';
 const MIN_ZOOM_FALLBACK = 0.05;
 const KEYBOARD_ZOOM_FACTOR = 1.1;
+const MAX_ZOOM_PERCENT = 100;
+const MIN_ZOOM_PERCENT = -100;
 
 const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
     {
@@ -541,6 +543,26 @@ function clampZoom(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
 }
 
+function scaleToPercent(scale: number): number {
+    if (!Number.isFinite(scale)) {
+        return 0;
+    }
+    if (scale >= 1) {
+        return ((scale - 1) / (MAX_ZOOM - 1)) * MAX_ZOOM_PERCENT;
+    }
+    return ((scale - 1) / (MIN_ZOOM_FALLBACK - 1)) * Math.abs(MIN_ZOOM_PERCENT);
+}
+
+function percentToScale(percent: number): number {
+    if (!Number.isFinite(percent)) {
+        return 1;
+    }
+    if (percent >= 0) {
+        return 1 + (percent / MAX_ZOOM_PERCENT) * (MAX_ZOOM - 1);
+    }
+    return 1 + (percent / Math.abs(MIN_ZOOM_PERCENT)) * (1 - MIN_ZOOM_FALLBACK);
+}
+
 function computeFitScale(stageWidth: number, stageHeight: number, viewportWidth: number, viewportHeight: number): number {
     if (stageWidth === 0 || stageHeight === 0 || viewportWidth === 0 || viewportHeight === 0) {
         return 1;
@@ -716,18 +738,26 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const stageWidth = Math.round(options.width);
     const stageHeight = Math.round(options.height);
     const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
+    const sliderBounds = useMemo(
+        () => ({
+            min: scaleToPercent(zoomBounds.min),
+            max: scaleToPercent(zoomBounds.max),
+        }),
+        [zoomBounds.max, zoomBounds.min],
+    );
     const sliderStep = useMemo(() => {
-        const range = zoomBounds.max - zoomBounds.min;
+        const range = sliderBounds.max - sliderBounds.min;
         if (!Number.isFinite(range) || range <= 0) {
-            return 0.01;
+            return 1;
         }
-        return Math.max(0.01, range / 200);
-    }, [zoomBounds.max, zoomBounds.min]);
+        return Math.max(1, range / 200);
+    }, [sliderBounds.max, sliderBounds.min]);
     const sliderValue = useMemo(() => {
         const value = Number.isFinite(options.zoom) ? options.zoom : zoomBounds.min;
-        return [clampZoom(value, zoomBounds.min, zoomBounds.max)];
+        const clamped = clampZoom(value, zoomBounds.min, zoomBounds.max);
+        return [scaleToPercent(clamped)];
     }, [options.zoom, zoomBounds.max, zoomBounds.min]);
-    const zoomPercentage = useMemo(() => Math.round(options.zoom * 100), [options.zoom]);
+    const zoomPercentage = useMemo(() => Math.round(scaleToPercent(options.zoom)), [options.zoom]);
 
     const stopInertia = useCallback(() => {
         if (inertiaHandleRef.current !== null) {
@@ -1785,7 +1815,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             if (typeof next !== 'number' || Number.isNaN(next)) {
                 return;
             }
-            applyZoom(next);
+            applyZoom(percentToScale(next));
         },
         [applyZoom],
     );
@@ -2546,8 +2576,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         </Button>
                                         <Slider
                                             value={sliderValue}
-                                            min={zoomBounds.min}
-                                            max={zoomBounds.max}
+                                            min={sliderBounds.min}
+                                            max={sliderBounds.max}
                                             step={sliderStep}
                                             orientation="vertical"
                                             height={200}
