@@ -725,6 +725,25 @@ function clampStagePosition(
     };
 }
 
+function clampPointToStage(stage: StageType, point: Vector2d): Vector2d {
+    const width = stage.width();
+    const height = stage.height();
+    const maxX = Number.isFinite(width) ? width : 0;
+    const maxY = Number.isFinite(height) ? height : 0;
+
+    const clamp = (value: number, max: number) => {
+        if (!Number.isFinite(value) || max <= 0) {
+            return 0;
+        }
+        return Math.min(max, Math.max(0, value));
+    };
+
+    return {
+        x: clamp(point.x, maxX),
+        y: clamp(point.y, maxY),
+    };
+}
+
 function getStagePointer(stage: StageType): Vector2d | null {
     const pointer = stage.getPointerPosition();
     if (!pointer) {
@@ -732,13 +751,7 @@ function getStagePointer(stage: StageType): Vector2d | null {
     }
     const transform = stage.getAbsoluteTransform().copy();
     transform.invert();
-    const point = transform.point(pointer);
-    const width = stage.width();
-    const height = stage.height();
-    return {
-        x: Math.min(Math.max(point.x, 0), width),
-        y: Math.min(Math.max(point.y, 0), height),
-    };
+    return transform.point(pointer);
 }
 
 function getInitialOptions(options?: Partial<EditorOptions>): EditorOptions {
@@ -1751,8 +1764,9 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 return;
             }
 
-            const pointer = getStagePointer(stage);
-            if (!pointer) return;
+            const rawPointer = getStagePointer(stage);
+            if (!rawPointer) return;
+            const pointer = clampPointToStage(stage, rawPointer);
 
             if (activeTool === 'draw') {
                 const strokeId = createEditorId('stroke');
@@ -1900,16 +1914,18 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             }
 
             if (selectionOriginRef.current && activeTool === 'select') {
-                const pointer = getStagePointer(stage);
-                if (!pointer) return;
+                const rawPointer = getStagePointer(stage);
+                if (!rawPointer) return;
+                const pointer = clampPointToStage(stage, rawPointer);
                 updateSelectionRect(normalizeSelectionRect(selectionOriginRef.current, pointer));
                 return;
             }
 
             const drawingState = drawingStateRef.current;
             if (!drawingState) return;
-            const pointer = getStagePointer(stage);
-            if (!pointer) return;
+            const rawPointer = getStagePointer(stage);
+            if (!rawPointer) return;
+            const pointer = clampPointToStage(stage, rawPointer);
 
             updateElements((current) =>
                 current.map((element) => {
@@ -1961,8 +1977,9 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             const stage = event.target.getStage();
 
             if (selectionOriginRef.current && activeTool === 'select' && stage) {
-                const pointer = getStagePointer(stage);
-                if (pointer) {
+                const rawPointer = getStagePointer(stage);
+                if (rawPointer) {
+                    const pointer = clampPointToStage(stage, rawPointer);
                     const rect = normalizeSelectionRect(selectionOriginRef.current, pointer);
                     if (rect.width >= MIN_SELECTION_SIZE && rect.height >= MIN_SELECTION_SIZE) {
                         const selected = contentElements.filter((element) => {
