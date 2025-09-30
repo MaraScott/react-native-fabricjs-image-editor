@@ -13,7 +13,7 @@ import {
 } from 'react-konva';
 import type { Group as GroupType } from 'konva/lib/Group';
 import type { Stage as StageType } from 'konva/lib/Stage';
-import type { EditorElement, ImageElement } from '../types/editor';
+import type { EditorElement, ImageElement, PencilElement, PencilStroke } from '../types/editor';
 import useImage from '../hooks/useImage';
 
 interface LayerPreviewProps {
@@ -149,20 +149,34 @@ function PreviewShape({ element, onImageLoad }: { element: EditorElement; onImag
           {...common}
         />
       );
-    case 'pencil':
+    case 'pencil': {
+      const pencil = element as PencilElement;
+      const strokes = Array.isArray(pencil.strokes) && pencil.strokes.length > 0
+        ? pencil.strokes
+        : ([
+            {
+              points: pencil.points,
+              stroke: pencil.stroke,
+              strokeWidth: pencil.strokeWidth,
+            },
+          ] satisfies PencilStroke[]);
       return (
-        <Line
-          x={element.x}
-          y={element.y}
-          points={element.points}
-          stroke={element.stroke}
-          strokeWidth={element.strokeWidth}
-          lineCap={element.lineCap}
-          lineJoin={element.lineJoin}
-          tension={0.4}
-          {...common}
-        />
+        <Group x={pencil.x} y={pencil.y} opacity={pencil.opacity} rotation={pencil.rotation} listening={false}>
+          {strokes.map((stroke, index) => (
+            <Line
+              key={index}
+              points={stroke.points}
+              stroke={stroke.stroke}
+              strokeWidth={stroke.strokeWidth}
+              lineCap={pencil.lineCap}
+              lineJoin={pencil.lineJoin}
+              tension={0.4}
+              listening={false}
+            />
+          ))}
+        </Group>
       );
+    }
     case 'text': {
       const fontParts: string[] = [];
       if (element.fontStyle === 'italic') {

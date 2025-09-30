@@ -39,6 +39,7 @@ import type {
     ImageElement,
     LineElement,
     PencilElement,
+    PencilStroke,
     RectElement,
     TextElement,
 } from '../types/editor';
@@ -70,7 +71,8 @@ type Tool = 'select' | 'draw';
 
 type DrawingState = {
     id: string;
-    origin: { x: number; y: number };
+    strokeIndex: number;
+    elementPosition: { x: number; y: number };
 };
 
 type TemplateDefinition = {
@@ -99,6 +101,71 @@ const ZOOM_PERCENT_MIN = -100;
 const ZOOM_PERCENT_MAX = 100;
 const ZOOM_EXP_BASE = 2;
 const MIN_SELECTION_SIZE = 2;
+
+function ensurePencilStrokes(element: PencilElement): PencilStroke[] {
+    if (Array.isArray(element.strokes) && element.strokes.length > 0) {
+        return element.strokes.map((stroke) => ({
+            points: Array.isArray(stroke.points) ? [...stroke.points] : [...element.points],
+            stroke: typeof stroke.stroke === 'string' ? stroke.stroke : element.stroke,
+            strokeWidth: typeof stroke.strokeWidth === 'number' && Number.isFinite(stroke.strokeWidth)
+                ? stroke.strokeWidth
+                : element.strokeWidth,
+        }));
+    }
+
+    return [
+        {
+            points: [...element.points],
+            stroke: element.stroke,
+            strokeWidth: element.strokeWidth,
+        },
+    ];
+}
+
+function applyPencilStrokes(element: PencilElement, strokes: PencilStroke[]): PencilElement {
+    const normalised = strokes.map((stroke) => ({
+        points: Array.isArray(stroke.points) ? [...stroke.points] : [],
+        stroke: typeof stroke.stroke === 'string' ? stroke.stroke : element.stroke,
+        strokeWidth: typeof stroke.strokeWidth === 'number' && Number.isFinite(stroke.strokeWidth)
+            ? stroke.strokeWidth
+            : element.strokeWidth,
+    }));
+    const last = normalised[normalised.length - 1] ?? {
+        points: [...element.points],
+        stroke: element.stroke,
+        strokeWidth: element.strokeWidth,
+    };
+
+    return {
+        ...element,
+        strokes: normalised,
+        points: [...last.points],
+        stroke: last.stroke,
+        strokeWidth: last.strokeWidth,
+    } satisfies PencilElement;
+}
+
+function createPencilStroke(color: string, width: number, point: Vector2d): PencilStroke {
+    return {
+        points: [point.x, point.y],
+        stroke: color,
+        strokeWidth: width,
+    } satisfies PencilStroke;
+}
+
+function appendPointToStroke(stroke: PencilStroke, point: Vector2d): PencilStroke {
+    const nextPoints = [...stroke.points];
+    const lastX = nextPoints[nextPoints.length - 2];
+    const lastY = nextPoints[nextPoints.length - 1];
+    if (lastX === point.x && lastY === point.y) {
+        return stroke;
+    }
+    nextPoints.push(point.x, point.y);
+    return {
+        ...stroke,
+        points: nextPoints,
+    } satisfies PencilStroke;
+}
 
 const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
     {
@@ -1388,7 +1455,11 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             });
 
             if (assigned) {
-                setSelectedIds([assigned.id]);
+                if (assigned.type === 'pencil') {
+                    setSelectedIds([]);
+                } else {
+                    setSelectedIds([assigned.id]);
+                }
             }
             if (targetLayerId && targetLayerId !== activeLayerId) {
                 setActiveLayerId(targetLayerId);
@@ -1400,7 +1471,53 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const updateElement = useCallback(
         (id: string, attributes: Partial<EditorElement>) => {
             updateElements((current) =>
-                current.map((element) => (element.id === id ? ({ ...element, ...attributes } as EditorElement) : element)),
+                current.map((element) => {
+                    if (element.id !== id) {
+                        return element;
+                    }
+
+                    if (element.type === 'pencil') {
+                        const pencil = element as PencilElement;
+                        const pencilAttributes = attributes as Partial<PencilElement>;
+                        const base = { ...pencil, ...attributes } as PencilElement;
+
+                        if (Array.isArray(pencilAttributes.strokes)) {
+                            return applyPencilStrokes(base, pencilAttributes.strokes);
+                        }
+
+                        let next = base;
+                        let changed = false;
+
+                        const nextStrokeColor = pencilAttributes.stroke;
+                        const nextStrokeWidth = pencilAttributes.strokeWidth;
+                        if (nextStrokeColor !== undefined || nextStrokeWidth !== undefined) {
+                            const strokes = ensurePencilStrokes(next).map((stroke) => ({
+                                ...stroke,
+                                stroke: nextStrokeColor ?? stroke.stroke,
+                                strokeWidth: nextStrokeWidth ?? stroke.strokeWidth,
+                            }));
+                            next = applyPencilStrokes(next, strokes);
+                            changed = true;
+                        }
+
+                        if (Array.isArray(pencilAttributes.points)) {
+                            const points = pencilAttributes.points.map((value) => Number(value) || 0);
+                            const strokes = ensurePencilStrokes(next);
+                            const targetIndex = strokes.length - 1;
+                            if (targetIndex >= 0) {
+                                const nextStrokes = strokes.map((stroke, index) =>
+                                    index === targetIndex ? { ...stroke, points: [...points] } : stroke,
+                                );
+                                next = applyPencilStrokes(next, nextStrokes);
+                                changed = true;
+                            }
+                        }
+
+                        return changed ? next : base;
+                    }
+
+                    return { ...element, ...attributes } as EditorElement;
+                }),
             );
         },
         [updateElements],
@@ -1714,26 +1831,115 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             if (!pointer) return;
 
             if (activeTool === 'draw') {
+                let targetLayerId: string | null = null;
+                if (layers.length > 0) {
+                    const activeExists = activeLayerId && layers.some((layer) => layer.id === activeLayerId);
+                    targetLayerId = activeExists ? activeLayerId! : layers[layers.length - 1]?.id ?? null;
+                }
+
+                if (targetLayerId && targetLayerId !== activeLayerId) {
+                    setActiveLayerId(targetLayerId);
+                }
+
+                const existingPencil = targetLayerId
+                    ? (elements.find(
+                          (element) => element.type === 'pencil' && element.layerId === targetLayerId,
+                      ) as PencilElement | undefined)
+                    : undefined;
+
+                if (existingPencil) {
+                    let baseElementId: string | null = null;
+                    let basePosition = { x: existingPencil.x, y: existingPencil.y };
+                    let strokeIndex = 0;
+                    setSelectedIds([]);
+                    updateElements((current) => {
+                        const nextElements: EditorElement[] = [];
+                        const pencilsInLayer: PencilElement[] = [];
+                        let baseOrderIndex = 0;
+
+                        current.forEach((element) => {
+                            if (element.type === 'pencil' && element.layerId === targetLayerId) {
+                                const pencil = element as PencilElement;
+                                if (pencilsInLayer.length === 0) {
+                                    basePosition = { x: pencil.x, y: pencil.y };
+                                    baseOrderIndex = nextElements.length;
+                                }
+                                pencilsInLayer.push(pencil);
+                                return;
+                            }
+                            nextElements.push(element);
+                        });
+
+                        if (pencilsInLayer.length === 0) {
+                            return current;
+                        }
+
+                        const mergedStrokes: PencilStroke[] = [];
+                        pencilsInLayer.forEach((pencil) => {
+                            const offsetX = pencil.x - basePosition.x;
+                            const offsetY = pencil.y - basePosition.y;
+                            ensurePencilStrokes(pencil).forEach((stroke) => {
+                                mergedStrokes.push({
+                                    stroke: stroke.stroke,
+                                    strokeWidth: stroke.strokeWidth,
+                                    points: stroke.points.map((value, index) =>
+                                        index % 2 === 0 ? value + offsetX : value + offsetY,
+                                    ),
+                                });
+                            });
+                        });
+
+                        const localPoint = { x: pointer.x - basePosition.x, y: pointer.y - basePosition.y };
+                        mergedStrokes.push(createPencilStroke(drawSettings.color, drawSettings.width, localPoint));
+                        strokeIndex = mergedStrokes.length - 1;
+
+                        const base = pencilsInLayer[0];
+                        baseElementId = base.id;
+                        const mergedElement = applyPencilStrokes(
+                            { ...base, x: basePosition.x, y: basePosition.y },
+                            mergedStrokes,
+                        );
+                        nextElements.splice(baseOrderIndex, 0, mergedElement);
+                        return nextElements;
+                    });
+
+                    if (baseElementId) {
+                        drawingStateRef.current = {
+                            id: baseElementId,
+                            strokeIndex,
+                            elementPosition: basePosition,
+                        };
+                    }
+                    return;
+                }
+
+                const point = { x: pointer.x, y: pointer.y };
+                const stroke = createPencilStroke(drawSettings.color, drawSettings.width, point);
                 const element: PencilElement = {
                     ...createBaseElement('pencil', {
                         name: 'Free draw',
-                        x: pointer.x,
-                        y: pointer.y,
+                        x: 0,
+                        y: 0,
                         rotation: 0,
                         opacity: 1,
                         metadata: null,
                     }),
                     type: 'pencil',
-                    points: [0, 0],
-                    stroke: drawSettings.color,
-                    strokeWidth: drawSettings.width,
+                    x: 0,
+                    y: 0,
+                    points: [...stroke.points],
+                    stroke: stroke.stroke,
+                    strokeWidth: stroke.strokeWidth,
                     lineCap: 'round',
                     lineJoin: 'round',
+                    strokes: [stroke],
                 };
                 drawingStateRef.current = {
                     id: element.id,
-                    origin: { x: pointer.x, y: pointer.y },
+                    strokeIndex: 0,
+                    elementPosition: { x: element.x, y: element.y },
                 };
+                setSelectedIds([]);
                 addElement(element);
                 return;
             }
@@ -1751,7 +1957,21 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 }
             }
         },
-        [activeTool, addElement, drawSettings, isPanMode, setActiveTool, setSelectedIds, stopInertia, updateSelectionRect],
+        [
+            activeLayerId,
+            activeTool,
+            addElement,
+            drawSettings,
+            elements,
+            isPanMode,
+            layers,
+            setActiveLayerId,
+            setActiveTool,
+            setSelectedIds,
+            stopInertia,
+            updateElements,
+            updateSelectionRect,
+        ],
     );
 
     const handleStagePointerMove = useCallback(
@@ -1807,10 +2027,22 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     if (element.id !== drawingState.id) {
                         return element;
                     }
-                    const dx = pointer.x - drawingState.origin.x;
-                    const dy = pointer.y - drawingState.origin.y;
                     const pencil = element as PencilElement;
-                    return { ...pencil, points: [...pencil.points, dx, dy] };
+                    const strokes = ensurePencilStrokes(pencil);
+                    const targetIndex = Math.min(Math.max(drawingState.strokeIndex, 0), strokes.length - 1);
+                    const target = strokes[targetIndex];
+                    if (!target) {
+                        return pencil;
+                    }
+                    const localPoint = {
+                        x: pointer.x - drawingState.elementPosition.x,
+                        y: pointer.y - drawingState.elementPosition.y,
+                    };
+                    const updatedStroke = appendPointToStroke(target, localPoint);
+                    const nextStrokes = strokes.map((stroke, index) =>
+                        index === targetIndex ? updatedStroke : stroke,
+                    );
+                    return applyPencilStrokes(pencil, nextStrokes);
                 }),
             );
         },
@@ -2712,30 +2944,66 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             </Layer>
                                         ) : null}
                                     </Stage>
-                                    {selectedElement ? <Stack position="absolute" top={5} left={5} zIndex={2}>
-                                        <Popover placement="bottom-start">
-                                            <Popover.Trigger position={`absolute`} top={0} left={0}>
-                                                <Button type="button" aria-label="tool" title="tool">
-                                                    <MaterialCommunityIcons key="tool" name="tool" size={TOOLBAR_ICON_SIZE * 1.5} />
-                                                </Button>
-                                            </Popover.Trigger>
-                                            <Popover.Content top={0} left={0}>
-                                                <Popover.Arrow />
-                                                <YStack className="tool-stats editor-sidebar">
-                                                    {selectedElement ? (
-                                                        <YStack tag="aside">
-                                                            <Heading tag="h2">Selection</Heading>
-                                                            <PropertiesPanel
-                                                                element={selectedElement}
-                                                                onChange={(attributes) => updateElement(selectedElement.id, attributes)}
-                                                                onRemove={removeSelected}
-                                                            />
-                                                        </YStack>
-                                                    ) : null}
-                                                </YStack>
-                                            </Popover.Content>
-                                        </Popover>
-                                    </Stack> : null}
+                                    {activeTool === 'draw' || selectedElement ? (
+                                        <Stack position="absolute" top={5} left={5} zIndex={2}>
+                                            <Popover placement="bottom-start">
+                                                <Popover.Trigger position={`absolute`} top={0} left={0}>
+                                                    <Button type="button" aria-label="tool" title="tool">
+                                                        <MaterialCommunityIcons key="tool" name="tool" size={TOOLBAR_ICON_SIZE * 1.5} />
+                                                    </Button>
+                                                </Popover.Trigger>
+                                                <Popover.Content top={0} left={0}>
+                                                    <Popover.Arrow />
+                                                    <YStack className="tool-stats editor-sidebar">
+                                                        {activeTool === 'draw' ? (
+                                                            <YStack tag="aside" gap="$2">
+                                                                <Heading tag="h2">Draw tool</Heading>
+                                                                <label className="full-width">
+                                                                    Color
+                                                                    <input
+                                                                        type="color"
+                                                                        value={drawSettings.color}
+                                                                        onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                                                                            setDrawSettings((current) => ({
+                                                                                ...current,
+                                                                                color: event.target.value,
+                                                                            }))
+                                                                        }
+                                                                    />
+                                                                </label>
+                                                                <label className="full-width">
+                                                                    Width
+                                                                    <input
+                                                                        type="number"
+                                                                        min={1}
+                                                                        value={Number(drawSettings.width.toFixed(2))}
+                                                                        onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                                                                            const value = Number(event.target.value);
+                                                                            setDrawSettings((current) => ({
+                                                                                ...current,
+                                                                                width: Number.isFinite(value)
+                                                                                    ? Math.max(1, value)
+                                                                                    : current.width,
+                                                                            }));
+                                                                        }}
+                                                                    />
+                                                                </label>
+                                                            </YStack>
+                                                        ) : selectedElement ? (
+                                                            <YStack tag="aside">
+                                                                <Heading tag="h2">Selection</Heading>
+                                                                <PropertiesPanel
+                                                                    element={selectedElement}
+                                                                    onChange={(attributes) => updateElement(selectedElement.id, attributes)}
+                                                                    onRemove={removeSelected}
+                                                                />
+                                                            </YStack>
+                                                        ) : null}
+                                                    </YStack>
+                                                </Popover.Content>
+                                            </Popover>
+                                        </Stack>
+                                    ) : null}
                                     <Stack position="absolute" top={5} right={5} zIndex={2}>
                                         <Popover placement="bottom-end">
                                             <Popover.Trigger position={`absolute`} top={0} right={0}>

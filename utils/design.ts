@@ -9,6 +9,7 @@ import type {
   LineElement,
   PathElement,
   PencilElement,
+  PencilStroke,
   RectElement,
   TextElement,
   TriangleElement,
@@ -238,15 +239,42 @@ function normalisePath(element: any): PathElement {
 
 function normalisePencil(element: any): PencilElement {
   const base = normaliseBase(element, 'pencil');
+  const defaultStroke = typeof element.stroke === 'string' ? element.stroke : '#2563eb';
+  const defaultWidth = Math.max(1, toNumber(element.strokeWidth, 4));
   const points = Array.isArray(element.points) ? [...element.points.map((value: unknown) => Number(value) || 0)] : [0, 0];
+  const strokes = Array.isArray(element.strokes)
+    ? (element.strokes
+        .map((entry: any) => {
+          if (!entry || typeof entry !== 'object') {
+            return null;
+          }
+          const rawPoints = Array.isArray(entry.points)
+            ? entry.points.map((value: unknown) => Number(value) || 0)
+            : null;
+          if (!rawPoints || rawPoints.length < 2) {
+            return null;
+          }
+          const stroke = typeof entry.stroke === 'string' ? entry.stroke : defaultStroke;
+          const widthValue = Number(entry.strokeWidth);
+          const strokeWidth = Number.isFinite(widthValue) ? Math.max(1, widthValue) : defaultWidth;
+          return {
+            points: rawPoints,
+            stroke,
+            strokeWidth,
+          } satisfies PencilStroke;
+        })
+        .filter(Boolean) as PencilStroke[])
+    : undefined;
+  const fallbackStroke = strokes && strokes.length > 0 ? strokes[strokes.length - 1] : null;
   return {
     ...base,
     type: 'pencil',
-    points: points.length > 1 ? points : [0, 0, 1, 1],
-    stroke: typeof element.stroke === 'string' ? element.stroke : '#2563eb',
-    strokeWidth: Math.max(1, toNumber(element.strokeWidth, 4)),
+    points: fallbackStroke ? [...fallbackStroke.points] : points.length > 1 ? points : [0, 0, 1, 1],
+    stroke: fallbackStroke ? fallbackStroke.stroke : defaultStroke,
+    strokeWidth: fallbackStroke ? fallbackStroke.strokeWidth : defaultWidth,
     lineCap: element.lineCap === 'butt' || element.lineCap === 'square' ? element.lineCap : 'round',
     lineJoin: element.lineJoin === 'miter' || element.lineJoin === 'bevel' ? element.lineJoin : 'round',
+    strokes: strokes && strokes.length > 0 ? strokes : undefined,
   };
 }
 

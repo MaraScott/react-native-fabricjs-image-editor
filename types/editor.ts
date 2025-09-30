@@ -83,6 +83,12 @@ export interface PathElement extends BaseElement {
   fill?: string;
 }
 
+export interface PencilStroke {
+  points: number[];
+  stroke: string;
+  strokeWidth: number;
+}
+
 export interface PencilElement extends BaseElement {
   type: 'pencil';
   points: number[];
@@ -90,6 +96,7 @@ export interface PencilElement extends BaseElement {
   strokeWidth: number;
   lineCap: 'round' | 'butt' | 'square';
   lineJoin: 'round' | 'miter' | 'bevel';
+  strokes?: PencilStroke[];
 }
 
 export interface TextElement extends BaseElement {

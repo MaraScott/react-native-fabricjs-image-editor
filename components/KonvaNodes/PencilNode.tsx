@@ -1,7 +1,7 @@
 import { useRef } from 'react';
-import { Line as LineShape, Transformer as TransformerShape } from 'react-konva';
+import { Group as GroupShape, Line as LineShape, Transformer as TransformerShape } from 'react-konva';
 import type { KonvaEventObject } from '../../types/konva';
-import type { PencilElement } from '../../types/editor';
+import type { PencilElement, PencilStroke } from '../../types/editor';
 import {
   TRANSFORMER_PROPS,
   shouldListen,
@@ -9,6 +9,26 @@ import {
   useAttachTransformer,
   type BaseNodeProps,
 } from './common';
+
+function getStrokeList(shape: PencilElement): PencilStroke[] {
+  if (Array.isArray(shape.strokes) && shape.strokes.length > 0) {
+    return shape.strokes.map((stroke) => ({
+      points: Array.isArray(stroke.points) ? [...stroke.points] : [...shape.points],
+      stroke: stroke.stroke ?? shape.stroke,
+      strokeWidth:
+        typeof stroke.strokeWidth === 'number' && Number.isFinite(stroke.strokeWidth)
+          ? stroke.strokeWidth
+          : shape.strokeWidth,
+    }));
+  }
+  return [
+    {
+      points: [...shape.points],
+      stroke: shape.stroke,
+      strokeWidth: shape.strokeWidth,
+    },
+  ];
+}
 
 export function PencilNode({
   shape,
@@ -26,25 +46,20 @@ export function PencilNode({
   useApplyZIndex(zIndex, shapeRef);
 
   const draggable = selectionEnabled && shape.draggable && !shape.locked;
+  const strokes = getStrokeList(shape);
 
   return (
     <>
-      <LineShape
+      <GroupShape
         ref={shapeRef}
         x={shape.x}
         y={shape.y}
-        points={shape.points}
-        stroke={shape.stroke}
-        strokeWidth={shape.strokeWidth}
         opacity={shape.opacity}
         rotation={shape.rotation}
         visible={shape.visible}
         draggable={draggable}
         dragBoundFunc={dragBoundFunc}
         listening={shouldListen(draggable, shape.visible)}
-        lineCap={shape.lineCap}
-        lineJoin={shape.lineJoin}
-        tension={0.4}
         onClick={onSelect}
         onTap={onSelect}
         onDragEnd={(event: KonvaEventObject<DragEvent>) => {
@@ -57,17 +72,37 @@ export function PencilNode({
           const scaleY = node.scaleY();
           node.scaleX(1);
           node.scaleY(1);
-          const nextPoints = node
-            .points()
-            .map((value, index) => (index % 2 === 0 ? value * scaleX : value * scaleY));
+          const nextStrokes = getStrokeList(shape).map((stroke) => ({
+            ...stroke,
+            points: stroke.points.map((value, index) =>
+              index % 2 === 0 ? value * scaleX : value * scaleY,
+            ),
+          }));
+          const lastStroke = nextStrokes[nextStrokes.length - 1] ?? null;
           onChange({
             x: node.x(),
             y: node.y(),
             rotation: node.rotation(),
-            points: nextPoints,
+            strokes: nextStrokes,
+            points: lastStroke ? lastStroke.points : shape.points,
+            stroke: lastStroke ? lastStroke.stroke : shape.stroke,
+            strokeWidth: lastStroke ? lastStroke.strokeWidth : shape.strokeWidth,
           });
         }}
-      />
+      >
+        {strokes.map((stroke, index) => (
+          <LineShape
+            key={index}
+            points={stroke.points}
+            stroke={stroke.stroke}
+            strokeWidth={stroke.strokeWidth}
+            lineCap={shape.lineCap}
+            lineJoin={shape.lineJoin}
+            tension={0.4}
+            listening={false}
+          />
+        ))}
+      </GroupShape>
       {isSelected && selectionEnabled && (
         <TransformerShape ref={transformerRef} {...TRANSFORMER_PROPS} />
       )}
