@@ -968,75 +968,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         previousCursorRef.current = null;
     }, []);
 
-    useLayoutEffect(() => {
-        if (options.fixedCanvas) {
-            return;
-        }
-
-        if (typeof window === 'undefined') {
-            return;
-        }
-
-        const element = editorCanvasRef.current;
-        if (!element) {
-            return;
-        }
-
-        const measure = () => {
-            const style = window.getComputedStyle(element);
-            const paddingX = Number.parseFloat(style.paddingLeft || '0') + Number.parseFloat(style.paddingRight || '0');
-            const paddingY = Number.parseFloat(style.paddingTop || '0') + Number.parseFloat(style.paddingBottom || '0');
-            const nextWidth = Math.max(1, Math.round(element.clientWidth - paddingX));
-            const nextHeight = Math.max(1, Math.round(element.clientHeight - paddingY));
-
-            setOptions((current) => {
-                if (current.fixedCanvas) {
-                    return current;
-                }
-
-                const widthChanged = Math.abs(current.width - nextWidth) > 0.5;
-                const heightChanged = Math.abs(current.height - nextHeight) > 0.5;
-
-                if (!widthChanged && !heightChanged) {
-                    return current;
-                }
-
-                return { ...current, width: nextWidth, height: nextHeight };
-            });
-        };
-
-        let frame = 0;
-        const scheduleMeasure = () => {
-            if (frame) {
-                window.cancelAnimationFrame(frame);
-            }
-            frame = window.requestAnimationFrame(measure);
-        };
-
-        measure();
-
-        let observer: ResizeObserver | null = null;
-
-        if ('ResizeObserver' in window) {
-            observer = new ResizeObserver(scheduleMeasure);
-            observer.observe(element);
-        } else {
-            window.addEventListener('resize', scheduleMeasure);
-        }
-
-        return () => {
-            if (observer) {
-                observer.disconnect();
-            } else {
-                window.removeEventListener('resize', scheduleMeasure);
-            }
-
-            if (frame) {
-                window.cancelAnimationFrame(frame);
-            }
-        };
-    }, [options.fixedCanvas, setOptions]);
-
     useEffect(() => {
         const stage = stageRef.current;
         const container = typeof stage?.container === 'function' ? stage.container() : null;
@@ -2203,29 +2134,25 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const stageWrapperStyle = useMemo((): CSSProperties => {
         const paddedStageWidth = stageWidth + rulerPadding;
         const paddedStageHeight = stageHeight + rulerPadding;
-        const workspaceWidth = workspaceSize.width > 0 ? workspaceSize.width : paddedStageWidth;
-        const workspaceHeight = workspaceSize.height > 0 ? workspaceSize.height : paddedStageHeight;
+        const measuredWidth = workspaceSize.width > 0 ? workspaceSize.width : paddedStageWidth;
+        const measuredHeight = workspaceSize.height > 0 ? workspaceSize.height : paddedStageHeight;
         return {
-            width: workspaceWidth,
-            height: workspaceHeight,
-            maxWidth: '100%',
+            width: Math.max(measuredWidth, paddedStageWidth),
+            height: Math.max(measuredHeight, paddedStageHeight),
         } as CSSProperties;
     }, [rulerPadding, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
     const stageCanvasStyle = useMemo(() => {
-        const width = workspaceSize.width > 0 ? workspaceSize.width : stageWidth;
-        const height = workspaceSize.height > 0 ? workspaceSize.height : stageHeight;
         const baseStyle: CSSProperties = {
-            width,
-            height,
-            maxWidth: '100%',
-            maxHeight: '100%',
+            width: stageWidth,
+            height: stageHeight,
             backgroundColor: WORKSPACE_COLOR,
+            overflow: 'hidden',
         };
         if (stageCursor) {
             baseStyle.cursor = stageCursor;
         }
         return baseStyle;
-    }, [stageCursor, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
+    }, [stageCursor, stageHeight, stageWidth]);
     const stageBackgroundStyle = useMemo(() => {
         return {
             position: 'absolute' as const,
