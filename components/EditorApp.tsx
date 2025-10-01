@@ -8,25 +8,9 @@ import {
     type ChangeEvent,
     type CSSProperties,
 } from 'react';
-import { Layer, Rect as RectShape, Stage } from 'react-konva';
-import { Button, Heading, Image, Input, Label, Separator, Slider, Stack, Text, XStack, YStack, ZStack, useWindowDimensions, Theme, Popover, Paragraph, Switch } from 'tamagui';
-import { MaterialCommunityIcons } from './icons/MaterialCommunityIcons';
+import { Image, Text, XStack, YStack, useWindowDimensions, Theme } from 'tamagui';
 // import { CiZoomIn } from "react-icons/ci";
 import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
-import LayersPanel from './LayersPanel';
-import {
-    CircleNode,
-    EllipseNode,
-    FrameNode,
-    GuideNode,
-    ImageNode,
-    LineNode,
-    PathNode,
-    PencilNode,
-    RectNode,
-    TextNode,
-    TriangleNode,
-} from './KonvaNodes';
 import { useHistory } from '../hooks/useHistory';
 import type {
     EditorDocument,
@@ -56,6 +40,11 @@ import {
 } from '../utils/editorElements';
 import { createEmptyDesign, parseDesign, stringifyDesign } from '../utils/design';
 
+import EditorStageViewport from './editor/EditorStageViewport';
+import PrimaryToolbar from './editor/PrimaryToolbar';
+import { ExportActions, HistoryActions } from './editor/ToolbarActions';
+import type { DragBoundFactory, SelectionRect, Tool } from './editor/types';
+
 import {
     SidebarContainer,
     SidebarPanel,
@@ -64,8 +53,6 @@ import {
     SidebarToggleLabel,
     SidebarContent,
 } from '../../../../theme/ui/styles'
-
-type Tool = 'select' | 'draw';
 
 type DrawingState = {
     id: string;
@@ -78,8 +65,6 @@ type TemplateDefinition = {
     description: string;
     apply: () => { design: EditorDocument; options?: Partial<EditorOptions> };
 };
-
-type DragBoundFactory = (element: EditorElement) => ((position: Vector2d) => Vector2d) | undefined;
 
 const SNAP_THRESHOLD = 12;
 const STORAGE_KEY = 'konva-image-editor-design';
@@ -124,13 +109,6 @@ interface ElementBounds {
     bottom: number;
     centerX: number;
     centerY: number;
-}
-
-interface SelectionRect {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
 }
 
 function getElementBounds(element: EditorElement, position: Vector2d): ElementBounds | null {
@@ -787,6 +765,9 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
     const [clipboard, setClipboard] = useState<EditorElement[] | null>(null);
     const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
+    const handleDrawSettingsChange = useCallback((updates: Partial<typeof DEFAULT_DRAW>) => {
+        setDrawSettings((current) => ({ ...current, ...updates }));
+    }, []);
     const [stagePosition, setStagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
     const stagePositionRef = useRef(stagePosition);
     const [workspaceSize, setWorkspaceSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
@@ -1912,6 +1893,47 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         }
     }, [resetDesign]);
 
+    const handleCanvasWidthChange = useCallback(
+        (value: number) => {
+            if (!Number.isFinite(value)) {
+                return;
+            }
+            setOptions((current) => {
+                const nextWidth = Math.max(100, value);
+                if (nextWidth === current.width) {
+                    return current;
+                }
+                return { ...current, width: nextWidth };
+            });
+        },
+        [setOptions],
+    );
+
+    const handleCanvasHeightChange = useCallback(
+        (value: number) => {
+            if (!Number.isFinite(value)) {
+                return;
+            }
+            setOptions((current) => {
+                const nextHeight = Math.max(100, value);
+                if (nextHeight === current.height) {
+                    return current;
+                }
+                return { ...current, height: nextHeight };
+            });
+        },
+        [setOptions],
+    );
+
+    const handleCanvasBackgroundChange = useCallback(
+        (value: string) => {
+            setOptions((current) =>
+                current.backgroundColor === value ? current : { ...current, backgroundColor: value },
+            );
+        },
+        [setOptions],
+    );
+
     const applyZoom = useCallback(
         (value: number | ((current: number) => number), anchor: { clientX: number; clientY: number } | null = null) => {
             stopInertia();
@@ -2344,88 +2366,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         };
     }, [gridBackground, options.zoom, stageHeight, stagePosition.x, stagePosition.y, stageWidth]);
 
-    const activeToolLabel = useMemo(() => (activeTool === 'draw' ? 'Draw' : 'Select'), [activeTool]);
-
-    const XYStack = ({ isSmall, ...props }) => {
-        const XYStack = isSmall ? YStack : XStack
-        return <XYStack {...props} />
-    }
-
-    const EditorTools = () => (
-        <XYStack isSmall={isSmall} className="toolbar-group">
-            <Button type="button" onPress={undo} disabled={!canUndo} aria-label="Undo" title="Undo">
-                <MaterialCommunityIcons key="undo" name="undo" size={TOOLBAR_ICON_SIZE} />
-            </Button>
-            <Button type="button" onPress={redo} disabled={!canRedo} aria-label="Redo" title="Redo">
-                <MaterialCommunityIcons key="redo" name="redo" size={TOOLBAR_ICON_SIZE} />
-            </Button>
-            <Button
-                type="button"
-                onPress={handleCopy}
-                disabled={selectedIds.length === 0}
-                aria-label="Copy"
-                title="Copy"
-            >
-                <MaterialCommunityIcons key="content-copy" name="content-copy" size={TOOLBAR_ICON_SIZE} />
-            </Button>
-            <Button
-                type="button"
-                onPress={handlePaste}
-                disabled={!clipboard || clipboard.length === 0}
-                aria-label="Paste"
-                title="Paste"
-            >
-                <MaterialCommunityIcons key="content-paste" name="content-paste" size={TOOLBAR_ICON_SIZE} />
-            </Button>
-            <Button
-                type="button"
-                onPress={handleDuplicate}
-                disabled={selectedIds.length === 0}
-                aria-label="Duplicate"
-                title="Duplicate"
-            >
-                <MaterialCommunityIcons key="content-duplicate" name="content-duplicate" size={TOOLBAR_ICON_SIZE} />
-            </Button>
-            <Button
-                type="button"
-                onPress={removeSelected}
-                disabled={selectedIds.length === 0}
-                aria-label="Delete"
-                title="Delete"
-            >
-                <MaterialCommunityIcons key="trash-can-outline" name="trash-can-outline" size={TOOLBAR_ICON_SIZE} />
-            </Button>
-            <Button type="button" onPress={handleClear} aria-label="Clear canvas" title="Clear canvas">
-                <MaterialCommunityIcons key="eraser-variant" name="eraser-variant" size={TOOLBAR_ICON_SIZE} />
-            </Button>
-        </XYStack>
-    )
-
-    const EditorSave = () => (
-        <XYStack isSmall={isSmall} className="toolbar-group">
-            <Button type="button" onPress={handleSave} aria-label="Save" title="Save">
-                <MaterialCommunityIcons key="content-save-outline" name="content-save-outline" size={TOOLBAR_ICON_SIZE} />
-            </Button>
-            <Button type="button" onPress={handleLoadFromBrowser} aria-label="Load" title="Load">
-                <MaterialCommunityIcons key="folder-open-outline" name="folder-open-outline" size={TOOLBAR_ICON_SIZE} />
-            </Button>
-            <Button type="button" onPress={() => handleExport('png')} aria-label="Export PNG" title="Export PNG">
-                <MaterialCommunityIcons key="file-image" name="file-image" size={TOOLBAR_ICON_SIZE} />
-            </Button>
-            <Button type="button" onPress={() => handleExport('jpeg')} aria-label="Export JPEG" title="Export JPEG">
-                <MaterialCommunityIcons key="file-jpg-box" name="file-jpg-box" size={TOOLBAR_ICON_SIZE} />
-            </Button>
-            <Button type="button" onPress={() => handleExport('svg')} aria-label="Export SVG" title="Export SVG">
-                <MaterialCommunityIcons key="svg" name="svg" size={TOOLBAR_ICON_SIZE} />
-            </Button>
-            <Button type="button" onPress={() => handleExport('json')} aria-label="Export JSON" title="Export JSON">
-                <MaterialCommunityIcons key="code-json" name="code-json" size={TOOLBAR_ICON_SIZE} />
-            </Button>
-        </XYStack>
-    )
-
     const displayWidth = Math.round(options.width)
     const displayHeight = Math.round(options.height)
+    const hasSelection = selectedIds.length > 0
+    const hasClipboard = Boolean(clipboard && clipboard.length > 0)
 
     return (
         <YStack>
@@ -2436,8 +2380,28 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                             <SidebarScroll>
                                 <SidebarContent>
                                     <YStack className="editor-header">
-                                        <EditorTools />
-                                        <EditorSave />
+                                        <HistoryActions
+                                            isCompact
+                                            canUndo={canUndo}
+                                            canRedo={canRedo}
+                                            hasSelection={hasSelection}
+                                            hasClipboard={hasClipboard}
+                                            onUndo={undo}
+                                            onRedo={redo}
+                                            onCopy={handleCopy}
+                                            onPaste={handlePaste}
+                                            onDuplicate={handleDuplicate}
+                                            onRemoveSelected={removeSelected}
+                                            onClear={handleClear}
+                                            iconSize={TOOLBAR_ICON_SIZE}
+                                        />
+                                        <ExportActions
+                                            isCompact
+                                            onSave={handleSave}
+                                            onLoad={handleLoadFromBrowser}
+                                            onExport={handleExport}
+                                            iconSize={TOOLBAR_ICON_SIZE}
+                                        />
                                     </YStack>
                                 </SidebarContent>
                             </SidebarScroll>
@@ -2467,512 +2431,100 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     </XStack>
                     {!isSmall && (
                         <XStack>
-                            <EditorTools />
-                            <EditorSave />
+                            <HistoryActions
+                                isCompact={false}
+                                canUndo={canUndo}
+                                canRedo={canRedo}
+                                hasSelection={hasSelection}
+                                hasClipboard={hasClipboard}
+                                onUndo={undo}
+                                onRedo={redo}
+                                onCopy={handleCopy}
+                                onPaste={handlePaste}
+                                onDuplicate={handleDuplicate}
+                                onRemoveSelected={removeSelected}
+                                onClear={handleClear}
+                                iconSize={TOOLBAR_ICON_SIZE}
+                            />
+                            <ExportActions
+                                isCompact={false}
+                                onSave={handleSave}
+                                onLoad={handleLoadFromBrowser}
+                                onExport={handleExport}
+                                iconSize={TOOLBAR_ICON_SIZE}
+                            />
                         </XStack>
                     )}
 
 
                 </XStack>
                 <XStack width={mainLayoutWidth} className="editor-shell-layout" zIndex={0} >
-                    <YStack className="editor-toolbar">
-                        <YStack className="toolbar-group">
-                            <Button
-                                type="button"
-                                className={activeTool === 'select' ? 'active' : ''}
-                                onPress={() => setActiveTool('select')}
-                                aria-label="Select"
-                                title="Select"
-                            >
-                                <MaterialCommunityIcons key="cursor-default" name="cursor-default" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button
-                                type="button"
-                                className={activeTool === 'draw' ? 'active' : ''}
-                                onPress={handleAddDraw}
-                                aria-label="Draw"
-                                title="Draw"
-                            >
-                                <MaterialCommunityIcons key="pencil-outline" name="pencil-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                        </YStack>
-                        <Text className="active-tool-status" aria-live="polite">
-                            Active tool: {activeToolLabel}
-                        </Text>
-                        <YStack className="toolbar-group">
-                            <Button type="button" onPress={handleAddText} aria-label="Add text" title="Add text">
-                                <MaterialCommunityIcons key="format-text" name="format-text" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                            <Button type="button" onPress={handleRequestImage} aria-label="Add image" title="Add image">
-                                <MaterialCommunityIcons key="image-outline" name="image-outline" size={TOOLBAR_ICON_SIZE} />
-                            </Button>
-                        </YStack>
-                    </YStack>
+                    <PrimaryToolbar
+                        activeTool={activeTool}
+                        onSelectTool={(tool) => setActiveTool(tool)}
+                        onAddDraw={handleAddDraw}
+                        onAddText={handleAddText}
+                        onRequestImage={handleRequestImage}
+                        iconSize={TOOLBAR_ICON_SIZE}
+                    />
 
-                    <Stack className="editor-layout">
-                        <XStack ref={editorCanvasRef} className="editor-canvas">
-                            <Stack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={stageWrapperStyle}>
-                                {options.showRulers && (
-                                    <Stack
-                                        className="stage-ruler stage-ruler-horizontal"
-                                        style={{ width: stageWidth, backgroundSize: `${rulerStep}px 100%` }}
-                                    />
-                                )}
-                                {options.showRulers && (
-                                    <Stack
-                                        className="stage-ruler stage-ruler-vertical"
-                                        style={{ height: stageHeight, backgroundSize: `100% ${rulerStep}px` }}
-                                    />
-                                )}
-                                <Stack className="stage-canvas" style={stageCanvasStyle} position="relative">
-                                    <Stack aria-hidden className="stage-surface" style={stageBackgroundStyle} />
-                                    <Stage
-                                        ref={stageRef}
-                                        width={stageWidth}
-                                        height={stageHeight}
-                                        x={stagePosition.x}
-                                        y={stagePosition.y}
-                                        scaleX={options.zoom}
-                                        scaleY={options.zoom}
-                                        onMouseEnter={handleStageMouseEnter}
-                                        onMouseLeave={handleStageMouseLeave}
-                                        onMouseDown={handleStagePointerDown}
-                                        onTouchStart={handleStagePointerDown}
-                                        onMouseMove={handleStagePointerMove}
-                                        onTouchMove={handleStagePointerMove}
-                                        onMouseUp={handleStagePointerUp}
-                                        onTouchEnd={handleStagePointerUp}
-                                        onTouchCancel={handleStagePointerUp}
-                                    >
-                                        <Layer>
-                                            {options.showGuides &&
-                                                guides.map((guide, guideIndex) => (
-                                                    <GuideNode
-                                                        key={guide.id}
-                                                        shape={guide}
-                                                        isSelected={selectedIds.includes(guide.id)}
-                                                        selectionEnabled={activeTool === 'select'}
-                                                        onSelect={() => handleSelectElement(guide.id)}
-                                                        onChange={(attributes) => updateElement(guide.id, attributes)}
-                                                        zIndex={guideIndex}
-                                                    />
-                                                ))}
-                                            {contentElements.map((element, elementIndex) => {
-                                                const zIndex = guides.length + elementIndex;
-                                                const layer = element.layerId ? layerMap.get(element.layerId) ?? null : null;
-                                                const isLayerLocked = layer?.locked ?? false;
-                                                const isSelected = selectedIds.includes(element.id);
-                                                const selectionEnabled = activeTool === 'select' && !isLayerLocked;
-                                                const dragBound = dragBoundFactory(element);
-
-                                                switch (element.type) {
-                                                    case 'rect':
-                                                        return (
-                                                            <RectNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'frame':
-                                                        return (
-                                                            <FrameNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'circle':
-                                                        return (
-                                                            <CircleNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'ellipse':
-                                                        return (
-                                                            <EllipseNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'triangle':
-                                                        return (
-                                                            <TriangleNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'line':
-                                                        return (
-                                                            <LineNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'path':
-                                                        return (
-                                                            <PathNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'pencil':
-                                                        return (
-                                                            <PencilNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'text':
-                                                        return (
-                                                            <TextNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    case 'image':
-                                                        return (
-                                                            <ImageNode
-                                                                key={element.id}
-                                                                shape={element}
-                                                                isSelected={isSelected}
-                                                                selectionEnabled={selectionEnabled}
-                                                                onSelect={() => handleSelectElement(element.id)}
-                                                                onChange={(attributes) => updateElement(element.id, attributes)}
-                                                                dragBoundFunc={dragBound}
-                                                                zIndex={zIndex}
-                                                            />
-                                                        );
-                                                    default:
-                                                        return null;
-                                                }
-                                            })}
-                                        </Layer>
-                                        {selectionRect && selectionRect.width > 0 && selectionRect.height > 0 ? (
-                                            <Layer listening={false}>
-                                                <RectShape
-                                                    x={selectionRect.x}
-                                                    y={selectionRect.y}
-                                                    width={selectionRect.width}
-                                                    height={selectionRect.height}
-                                                    stroke="#38bdf8"
-                                                    dash={[4, 4]}
-                                                    strokeWidth={1}
-                                                    fill="rgba(56, 189, 248, 0.12)"
-                                                />
-                                            </Layer>
-                                        ) : null}
-                                    </Stage>
-                                    <Stack position="absolute" top={5} left={5} zIndex={2}>
-                                        <Popover placement="bottom-start" open={toolSettingsOpen} onOpenChange={setToolSettingsOpen}>
-                                            <Popover.Trigger position={`absolute`} top={0} left={0}>
-                                                <Button type="button" aria-label="tool" title="tool">
-                                                    <MaterialCommunityIcons key="tool" name="tool" size={TOOLBAR_ICON_SIZE * 1.5} />
-                                                </Button>
-                                            </Popover.Trigger>
-                                            <Popover.Content top={0} left={0}>
-                                                <Popover.Arrow />
-                                                <YStack className="tool-stats editor-sidebar">
-                                                    <YStack tag="aside">
-                                                        <Heading tag="h2">{activeTool === 'draw' ? 'Draw settings' : 'Selection'}</Heading>
-                                                        {activeTool === 'draw' ? (
-                                                            <YStack gap="$3" paddingTop="$3">
-                                                                <XStack alignItems="center" gap="$3">
-                                                                    <Label htmlFor="draw-color" flex={1}>
-                                                                        Stroke color
-                                                                    </Label>
-                                                                    <input
-                                                                        id="draw-color"
-                                                                        type="color"
-                                                                        aria-label="Stroke color"
-                                                                        value={drawSettings.color}
-                                                                        onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                                                                            setDrawSettings((current) => ({
-                                                                                ...current,
-                                                                                color: event.target.value,
-                                                                            }))
-                                                                        }
-                                                                        style={{
-                                                                            width: 44,
-                                                                            height: 44,
-                                                                            padding: 0,
-                                                                            border: 'none',
-                                                                            background: 'transparent',
-                                                                            cursor: 'pointer',
-                                                                        }}
-                                                                    />
-                                                                </XStack>
-                                                                <YStack gap="$2">
-                                                                    <XStack alignItems="center" justifyContent="space-between">
-                                                                        <Label htmlFor="draw-width">Stroke width</Label>
-                                                                        <Text fontSize={12} fontWeight="600">
-                                                                            {Math.round(drawSettings.width)} px
-                                                                        </Text>
-                                                                    </XStack>
-                                                                    <Slider
-                                                                        id="draw-width"
-                                                                        value={[drawSettings.width]}
-                                                                        min={1}
-                                                                        max={64}
-                                                                        step={1}
-                                                                        onValueChange={(value) => {
-                                                                            const width = value[0] ?? drawSettings.width;
-                                                                            setDrawSettings((current) => ({
-                                                                                ...current,
-                                                                                width,
-                                                                            }));
-                                                                        }}
-                                                                        aria-label="Stroke width"
-                                                                    >
-                                                                        <Slider.Track>
-                                                                            <Slider.TrackActive />
-                                                                        </Slider.Track>
-                                                                        <Slider.Thumb index={0} circular size="$2" />
-                                                                    </Slider>
-                                                                </YStack>
-                                                            </YStack>
-                                                        ) : (
-                                                            <Paragraph paddingTop="$3" fontSize={12} color="rgba(226, 232, 240, 0.65)">
-                                                                Select an element on the canvas to view its properties.
-                                                            </Paragraph>
-                                                        )}
-                                                    </YStack>
-                                                </YStack>
-                                            </Popover.Content>
-                                        </Popover>
-                                    </Stack>
-                                    <Stack position="absolute" top={5} right={5} zIndex={2}>
-                                        <Popover placement="bottom-end">
-                                            <Popover.Trigger position={`absolute`} top={0} right={0}>
-                                                <Button type="button" aria-label="cog" title="cog">
-                                                    <MaterialCommunityIcons key="cog" name="cog" size={TOOLBAR_ICON_SIZE * 1.5} />
-                                                </Button>
-                                            </Popover.Trigger>
-                                            <Popover.Content top={0} right={0}>
-                                                <Popover.Arrow />
-                                                <YStack>
-                                                    <XStack>
-                                                        <Heading tag="h2">Canvas</Heading>
-                                                    </XStack>
-                                                    <XStack>
-                                                        <YStack className="canvas-stats">
-                                                            <XStack gap="$2">
-                                                                <Label>
-                                                                    Width
-                                                                </Label>
-                                                                <Input
-                                                                    size="$2"
-                                                                    min={100}
-                                                                    value={displayWidth}
-                                                                    onChange={(event) => setOptions((current) => {
-                                                                        const value = Number(event.target.value)
-                                                                        return {
-                                                                            ...current,
-                                                                            width: Number.isFinite(value) ? Math.max(100, value) : current.width,
-                                                                        }
-                                                                    })}
-                                                                    disabled={options.canvasSizeLocked || !options.fixedCanvas}
-                                                                />
-                                                            </XStack>
-                                                            <XStack gap="$2">
-                                                                <Label>
-                                                                    Height
-                                                                </Label>
-                                                                <Input
-                                                                    size="$2"
-                                                                    min={100}
-                                                                    value={displayHeight}
-                                                                    onChange={(event) =>
-                                                                        setOptions((current) => {
-                                                                            const value = Number(event.target.value)
-                                                                            return {
-                                                                                ...current,
-                                                                                height: Number.isFinite(value) ? Math.max(100, value) : current.height,
-                                                                            }
-                                                                        })
-                                                                    }
-                                                                    disabled={options.canvasSizeLocked || !options.fixedCanvas}
-                                                                />
-                                                            </XStack>
-                                                            <XStack gap="$2">
-                                                                <Label className="full-width">
-                                                                    Background
-                                                                </Label>
-                                                                <Input
-                                                                    size="$2"
-                                                                    value={options.backgroundColor}
-                                                                    onChange={(event) =>
-                                                                        setOptions((current) => ({ ...current, backgroundColor: event.target.value }))
-                                                                    }
-                                                                />
-                                                            </XStack>
-                                                        </YStack>
-                                                    </XStack>
-                                                </YStack>
-                                            </Popover.Content>
-                                        </Popover>
-                                    </Stack>
-                                    <Stack position="absolute" bottom={5} left={5} zIndex={2}>
-                                        <Popover placement="top-start">
-                                            <Popover.Trigger position={`absolute`} bottom={0} left={0}>
-                                                <Button type="button" aria-label="Layers" title="Layers">
-                                                    <MaterialCommunityIcons key="layers" name="layers" size={TOOLBAR_ICON_SIZE * 1.5} />
-                                                </Button>
-                                            </Popover.Trigger>
-                                            <Popover.Content>
-                                                <Popover.Arrow />
-                                                <YStack>
-                                                    <Heading tag="h2">Layers</Heading>
-                                                    <Paragraph>{layers.length} layers</Paragraph>
-                                                    <LayersPanel
-                                                        layers={layers}
-                                                        elements={contentElements}
-                                                        activeLayerId={activeLayerId}
-                                                        selectedElementIds={selectedIds}
-                                                        onSelectLayer={handleSelectLayer}
-                                                        onToggleVisibility={handleToggleVisibility}
-                                                        onToggleLock={handleToggleLock}
-                                                        onRemoveLayer={handleRemoveLayer}
-                                                        onMoveLayer={handleLayerMove}
-                                                        onAddLayer={handleAddLayer}
-                                                    />
-
-
-                                                </YStack>
-                                            </Popover.Content>
-                                        </Popover>
-                                    </Stack>
-                                    {isBrowser ? (
-                                        <Stack position="absolute" bottom={5} right={5} zIndex={2}>
-                                            <Popover placement="top-end">
-                                                <Popover.Trigger position={`absolute`} bottom={0} right={0}>
-                                                    <Button type="button" aria-label="Zoom" title="Zoom">
-                                                        <MaterialCommunityIcons key="zoom" name="zoom" size={TOOLBAR_ICON_SIZE * 1.5} />
-                                                    </Button>
-                                                </Popover.Trigger>
-                                                <Popover.Content>
-                                                    <Popover.Arrow />
-                                                    <YStack
-                                                        gap="$2"
-                                                        padding="$3"
-                                                        alignItems="center"
-                                                        borderRadius={12}
-                                                        borderWidth={1}
-                                                        borderColor="rgba(148, 163, 184, 0.35)"
-                                                        backgroundColor="rgba(15, 23, 42, 0.8)"
-                                                        className="stage-zoom-bar"
-                                                    >
-                                                        <Text fontSize={12} fontWeight="600" aria-live="polite">
-                                                            {zoomPercentage}%
-                                                        </Text>
-                                                        <Button
-                                                            type="button"
-                                                            onPress={handleZoomIn}
-                                                            aria-label="Zoom in"
-                                                            title="Zoom in"
-                                                            size="$2"
-                                                        >
-                                                            <MaterialCommunityIcons
-                                                                key="plus"
-                                                                name="plus"
-                                                                size={TOOLBAR_ICON_SIZE - 4}
-                                                            />
-                                                        </Button>
-                                                        <Slider
-                                                            value={sliderValue}
-                                                            min={sliderBounds.min}
-                                                            max={sliderBounds.max}
-                                                            step={sliderStep}
-                                                            orientation="vertical"
-                                                            height={200}
-                                                            onValueChange={handleSliderChange}
-                                                            aria-label="Zoom level"
-                                                            width={36}
-                                                        >
-                                                            <Slider.Track>
-                                                                <Slider.TrackActive />
-                                                            </Slider.Track>
-                                                            <Slider.Thumb index={0} circular size="$2" />
-                                                        </Slider>
-                                                        <Button
-                                                            type="button"
-                                                            onPress={handleZoomOut}
-                                                            aria-label="Zoom out"
-                                                            title="Zoom out"
-                                                            size="$2"
-                                                        >
-                                                            <MaterialCommunityIcons
-                                                                key="minus"
-                                                                name="minus"
-                                                                size={TOOLBAR_ICON_SIZE - 4}
-                                                            />
-                                                        </Button>
-                                                    </YStack>
-                                                </Popover.Content>
-                                            </Popover>
-                                        </Stack>
-                                    ) : null}
-                                </Stack>
-                            </Stack>
-                        </XStack>
-
-                    </Stack>
+                    <EditorStageViewport
+                        stageRef={stageRef}
+                        editorCanvasRef={editorCanvasRef}
+                        stageWrapperStyle={stageWrapperStyle}
+                        stageCanvasStyle={stageCanvasStyle}
+                        stageBackgroundStyle={stageBackgroundStyle}
+                        stageWidth={stageWidth}
+                        stageHeight={stageHeight}
+                        stagePosition={stagePosition}
+                        options={options}
+                        guides={guides}
+                        contentElements={contentElements}
+                        selectedIds={selectedIds}
+                        activeTool={activeTool}
+                        layerMap={layerMap}
+                        dragBoundFactory={dragBoundFactory}
+                        onSelectElement={handleSelectElement}
+                        onUpdateElement={updateElement}
+                        onStageMouseEnter={handleStageMouseEnter}
+                        onStageMouseLeave={handleStageMouseLeave}
+                        onStagePointerDown={handleStagePointerDown}
+                        onStagePointerMove={handleStagePointerMove}
+                        onStagePointerUp={handleStagePointerUp}
+                        selectionRect={selectionRect}
+                        toolSettingsOpen={toolSettingsOpen}
+                        onToolSettingsOpenChange={(open) => setToolSettingsOpen(open)}
+                        drawSettings={drawSettings}
+                        onDrawSettingsChange={handleDrawSettingsChange}
+                        layers={layers}
+                        activeLayerId={activeLayerId}
+                        onSelectLayer={handleSelectLayer}
+                        onToggleVisibility={handleToggleVisibility}
+                        onToggleLock={handleToggleLock}
+                        onRemoveLayer={handleRemoveLayer}
+                        onMoveLayer={handleLayerMove}
+                        onAddLayer={handleAddLayer}
+                        displayWidth={displayWidth}
+                        displayHeight={displayHeight}
+                        canvasSizeLocked={options.canvasSizeLocked}
+                        fixedCanvas={options.fixedCanvas}
+                        onCanvasWidthChange={handleCanvasWidthChange}
+                        onCanvasHeightChange={handleCanvasHeightChange}
+                        onCanvasBackgroundChange={handleCanvasBackgroundChange}
+                        onZoomIn={handleZoomIn}
+                        onZoomOut={handleZoomOut}
+                        sliderValue={sliderValue}
+                        sliderBounds={sliderBounds}
+                        sliderStep={sliderStep}
+                        onSliderChange={handleSliderChange}
+                        zoomPercentage={zoomPercentage}
+                        isBrowser={isBrowser}
+                        rulerStep={rulerStep}
+                        iconSize={TOOLBAR_ICON_SIZE}
+                    />
                 </XStack>
 
-                <Input
+                <input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
