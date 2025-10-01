@@ -777,6 +777,11 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         () => orderedElements.filter((element) => element.type !== 'guide'),
         [orderedElements],
     );
+    const visibleLayerCount = useMemo(
+        () => layers.filter((layer) => layer.visible).length,
+        [layers],
+    );
+    const shouldRasterizeElements = visibleLayerCount <= 1;
 
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
@@ -2555,6 +2560,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                         onSelect={() => handleSelectElement(guide.id)}
                                                         onChange={(attributes) => updateElement(guide.id, attributes)}
                                                         zIndex={guideIndex}
+                                                        rasterize={false}
                                                     />
                                                 ))}
                                             {contentElements.map((element, elementIndex) => {
@@ -2577,6 +2583,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
                                                                 zIndex={zIndex}
+                                                                rasterize={shouldRasterizeElements}
                                                             />
                                                         );
                                                     case 'frame':
@@ -2590,6 +2597,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
                                                                 zIndex={zIndex}
+                                                                rasterize={shouldRasterizeElements}
                                                             />
                                                         );
                                                     case 'circle':
@@ -2603,6 +2611,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
                                                                 zIndex={zIndex}
+                                                                rasterize={shouldRasterizeElements}
                                                             />
                                                         );
                                                     case 'ellipse':
@@ -2616,6 +2625,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
                                                                 zIndex={zIndex}
+                                                                rasterize={shouldRasterizeElements}
                                                             />
                                                         );
                                                     case 'triangle':
@@ -2629,6 +2639,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
                                                                 zIndex={zIndex}
+                                                                rasterize={shouldRasterizeElements}
                                                             />
                                                         );
                                                     case 'line':
@@ -2642,6 +2653,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
                                                                 zIndex={zIndex}
+                                                                rasterize={shouldRasterizeElements}
                                                             />
                                                         );
                                                     case 'path':
@@ -2655,6 +2667,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
                                                                 zIndex={zIndex}
+                                                                rasterize={shouldRasterizeElements}
                                                             />
                                                         );
                                                     case 'pencil':
@@ -2668,6 +2681,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
                                                                 zIndex={zIndex}
+                                                                rasterize={shouldRasterizeElements}
                                                             />
                                                         );
                                                     case 'text':
@@ -2681,6 +2695,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
                                                                 zIndex={zIndex}
+                                                                rasterize={shouldRasterizeElements}
                                                             />
                                                         );
                                                     case 'image':
@@ -2694,6 +2709,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                 onChange={(attributes) => updateElement(element.id, attributes)}
                                                                 dragBoundFunc={dragBound}
                                                                 zIndex={zIndex}
+                                                                rasterize={shouldRasterizeElements}
                                                             />
                                                         );
                                                     default:

@@ -7,6 +7,7 @@ import {
   shouldListen,
   useApplyZIndex,
   useAttachTransformer,
+  useRasterization,
   type BaseNodeProps,
 } from './common';
 
@@ -18,12 +19,14 @@ export function CircleNode({
   onChange,
   dragBoundFunc,
   zIndex,
+  rasterize,
 }: BaseNodeProps<CircleElement>) {
   const shapeRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
 
   useAttachTransformer(isSelected, selectionEnabled, shapeRef, transformerRef);
   useApplyZIndex(zIndex, shapeRef);
+  useRasterization(rasterize, shapeRef, [shape]);
 
   const draggable = selectionEnabled && shape.draggable && !shape.locked;
 

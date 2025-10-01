@@ -8,6 +8,7 @@ import {
   shouldListen,
   useApplyZIndex,
   useAttachTransformer,
+  useRasterization,
   type BaseNodeProps,
 } from './common';
 
@@ -19,6 +20,7 @@ export function ImageNode({
   onChange,
   dragBoundFunc,
   zIndex,
+  rasterize,
 }: BaseNodeProps<ImageElement>) {
   const shapeRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
@@ -26,6 +28,7 @@ export function ImageNode({
 
   useAttachTransformer(isSelected, selectionEnabled, shapeRef, transformerRef);
   useApplyZIndex(zIndex, shapeRef);
+  useRasterization(rasterize && Boolean(image), shapeRef, [shape, image]);
 
   const draggable = selectionEnabled && shape.draggable && !shape.locked;
 

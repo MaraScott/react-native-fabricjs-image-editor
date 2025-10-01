@@ -7,6 +7,7 @@ import {
   shouldListen,
   useApplyZIndex,
   useAttachTransformer,
+  useRasterization,
   type BaseNodeProps,
 } from './common';
 
@@ -18,12 +19,14 @@ export function TriangleNode({
   onChange,
   dragBoundFunc,
   zIndex,
+  rasterize,
 }: BaseNodeProps<TriangleElement>) {
   const shapeRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
 
   useAttachTransformer(isSelected, selectionEnabled, shapeRef, transformerRef);
   useApplyZIndex(zIndex, shapeRef);
+  useRasterization(rasterize, shapeRef, [shape]);
 
   const draggable = selectionEnabled && shape.draggable && !shape.locked;
   const radius = useMemo(() => Math.max(shape.width, shape.height) / 2, [shape.width, shape.height]);
