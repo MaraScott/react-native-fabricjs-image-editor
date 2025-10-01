@@ -1,11 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { TamaguiProvider, Theme } from 'tamagui';
-import { tamaguiConfig } from '../../../../tamagui.config';
+import { tamaguiConfig } from './tamagui.config';
 import EditorApp from './components/EditorApp';
 import type { EditorDocument, EditorOptions } from './types/editor';
 import { createEmptyDesign, parseDesign } from './utils/design';
-import '../../tamagui/tamagui.css';
+import './tamagui/tamagui.css';
 import './styles.css';
 
 const DEFAULT_OPTIONS: EditorOptions = {

@@ -52,7 +52,7 @@ import {
     SidebarToggle,
     SidebarToggleLabel,
     SidebarContent,
-} from '../../../../theme/ui/styles'
+} from '../theme/ui/styles'
 
 type DrawingState = {
     id: string;
