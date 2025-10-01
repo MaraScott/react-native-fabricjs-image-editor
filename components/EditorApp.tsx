@@ -70,7 +70,12 @@ type Tool = 'select' | 'draw';
 type DrawingState = {
     id: string;
     origin: { x: number; y: number };
+    layerId: string | null;
 };
+
+type AddElementResult = { layerId: string | null; elementId: string };
+
+type AddElementOptions = { skipMerge?: boolean };
 
 type TemplateDefinition = {
     id: string;
@@ -1451,9 +1456,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         }
 
         const handlePointerRelease = () => {
-            if (drawingStateRef.current) {
-                drawingStateRef.current = null;
-            }
+            finalizeDrawing();
         };
 
         window.addEventListener('mouseup', handlePointerRelease);
@@ -1465,7 +1468,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             window.removeEventListener('touchend', handlePointerRelease);
             window.removeEventListener('touchcancel', handlePointerRelease);
         };
-    }, []);
+    }, [finalizeDrawing]);
 
     useEffect(() => {
         const isSpaceEvent = (event: KeyboardEvent) => {
@@ -1701,8 +1704,40 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         [],
     );
 
+    const flattenLayer = useCallback(
+        (layerId: string | null) => {
+            if (!layerId) {
+                return;
+            }
+
+            let rasterId: string | null = null;
+            setDesign((current) => {
+                if (current.layers.length === 0) {
+                    return current;
+                }
+
+                const merged = mergeLayerElements(current.elements, layerId, current.layers);
+                if (merged.elements === current.elements) {
+                    return current;
+                }
+
+                if (merged.rasterId) {
+                    rasterId = merged.rasterId;
+                }
+
+                const orderedElements = orderElementsByLayer(merged.elements, current.layers);
+                return { ...current, elements: orderedElements };
+            });
+
+            if (rasterId) {
+                setSelectedIds([rasterId]);
+            }
+        },
+        [mergeLayerElements, setDesign, setSelectedIds],
+    );
+
     const addElement = useCallback(
-        (element: EditorElement) => {
+        (element: EditorElement, options?: AddElementOptions): AddElementResult | null => {
             let assigned: EditorElement | null = null;
             let targetLayerId: string | null = null;
             let nextSelectedId: string | null = null;
@@ -1723,13 +1758,16 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     element.type === 'guide'
                         ? { ...element, layerId: null }
                         : {
-                            ...element,
-                            layerId: targetLayerId,
-                            visible: layer ? element.visible && layer.visible : element.visible,
-                            locked: layer ? element.locked || layer.locked : element.locked,
-                        };
+                              ...element,
+                              layerId: targetLayerId,
+                              visible: layer ? element.visible && layer.visible : element.visible,
+                              locked: layer ? element.locked || layer.locked : element.locked,
+                          };
 
-                const merged = mergeLayerElements([...current.elements, assigned!], targetLayerId, nextLayers);
+                const baseElements = [...current.elements, assigned!];
+                const merged = options?.skipMerge
+                    ? { elements: baseElements, rasterId: null }
+                    : mergeLayerElements(baseElements, targetLayerId, nextLayers);
                 if (merged.rasterId) {
                     nextSelectedId = merged.rasterId;
                 }
@@ -1743,6 +1781,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             if (targetLayerId && targetLayerId !== activeLayerId) {
                 setActiveLayerId(targetLayerId);
             }
+
+            return assigned ? { layerId: targetLayerId, elementId: assigned.id } : null;
         },
         [activeLayerId, mergeLayerElements, setDesign, setSelectedIds],
     );
@@ -1801,6 +1841,15 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         },
         [addElement, options],
     );
+
+    const finalizeDrawing = useCallback(() => {
+        const state = drawingStateRef.current;
+        if (!state) {
+            return;
+        }
+        drawingStateRef.current = null;
+        flattenLayer(state.layerId);
+    }, [flattenLayer]);
 
     const handleRequestImage = useCallback(() => {
         if (window.ReactNativeWebView) {
@@ -2064,6 +2113,12 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             if (!pointer) return;
 
             if (activeTool === 'draw') {
+                const predictedLayerId =
+                    activeLayerId && layers.some((layer) => layer.id === activeLayerId)
+                        ? activeLayerId
+                        : layers.length > 0
+                        ? layers[layers.length - 1].id
+                        : null;
                 const element: PencilElement = {
                     ...createBaseElement('pencil', {
                         name: 'Free draw',
@@ -2080,11 +2135,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     lineCap: 'round',
                     lineJoin: 'round',
                 };
+                const result = addElement(element, { skipMerge: true });
+                const layerId = result?.layerId ?? predictedLayerId ?? null;
                 drawingStateRef.current = {
                     id: element.id,
                     origin: { x: pointer.x, y: pointer.y },
+                    layerId,
                 };
-                addElement(element);
                 setToolSettingsOpen(false);
                 return;
             }
@@ -2102,7 +2159,19 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 }
             }
         },
-        [activeTool, addElement, drawSettings, isPanMode, setActiveTool, setSelectedIds, stopInertia, updateSelectionRect, setToolSettingsOpen],
+        [
+            activeLayerId,
+            activeTool,
+            addElement,
+            drawSettings,
+            isPanMode,
+            layers,
+            setActiveTool,
+            setSelectedIds,
+            stopInertia,
+            updateSelectionRect,
+            setToolSettingsOpen,
+        ],
     );
 
     const handleStagePointerMove = useCallback(
@@ -2210,10 +2279,19 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             selectionOriginRef.current = null;
             updateSelectionRect(null);
 
-            if (!drawingStateRef.current) return;
-            drawingStateRef.current = null;
+            finalizeDrawing();
         },
-        [activeLayerId, activeTool, contentElements, layerMap, setIsPanning, setSelectedIds, startPanInertia, updateSelectionRect],
+        [
+            activeLayerId,
+            activeTool,
+            contentElements,
+            finalizeDrawing,
+            layerMap,
+            setIsPanning,
+            setSelectedIds,
+            startPanInertia,
+            updateSelectionRect,
+        ],
     );
 
     const handleSave = useCallback(() => {
