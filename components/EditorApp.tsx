@@ -785,6 +785,21 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const drawingStateRef = useRef<DrawingState | null>(null);
     const selectionOriginRef = useRef<Vector2d | null>(null);
     const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
+    const normalizedSelectionRect = useMemo(() => {
+        if (!selectionRect) {
+            return null;
+        }
+        const width = Math.max(0, selectionRect.width);
+        const height = Math.max(0, selectionRect.height);
+        if (width === 0 && height === 0) {
+            return null;
+        }
+        return {
+            ...selectionRect,
+            width,
+            height,
+        };
+    }, [selectionRect]);
     const [clipboard, setClipboard] = useState<EditorElement[] | null>(null);
     const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
     const [stagePosition, setStagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -2701,13 +2716,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                 }
                                             })}
                                         </Layer>
-                                        {selectionRect && selectionRect.width > 0 && selectionRect.height > 0 ? (
+                                        {normalizedSelectionRect ? (
                                             <Layer listening={false}>
                                                 <RectShape
-                                                    x={selectionRect.x}
-                                                    y={selectionRect.y}
-                                                    width={selectionRect.width}
-                                                    height={selectionRect.height}
+                                                    x={normalizedSelectionRect.x}
+                                                    y={normalizedSelectionRect.y}
+                                                    width={normalizedSelectionRect.width}
+                                                    height={normalizedSelectionRect.height}
                                                     stroke="#38bdf8"
                                                     dash={[4, 4]}
                                                     strokeWidth={1}
