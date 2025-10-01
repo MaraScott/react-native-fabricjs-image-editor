@@ -782,6 +782,11 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
     const [activeTool, setActiveTool] = useState<Tool>('draw');
+    const selectedElement = useMemo(
+        () => contentElements.find((element) => selectedIds.includes(element.id)) ?? null,
+        [contentElements, selectedIds],
+    );
+    const selectionPopoverOpen = activeTool === 'select' && selectedElement !== null;
     const drawingStateRef = useRef<DrawingState | null>(null);
     const selectionOriginRef = useRef<Vector2d | null>(null);
     const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
@@ -1307,11 +1312,6 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     }, [layers, elements, setDesign]);
 
     const dragBoundFactory = useMemo(() => createDragBound(options, guides), [options, guides]);
-
-    const selectedElement = useMemo(
-        () => contentElements.find((element) => selectedIds.includes(element.id)) ?? null,
-        [contentElements, selectedIds],
-    );
 
     const templates = useMemo(() => createDefaultTemplates(options), [options.width, options.height, options.backgroundColor]);
     const frames = useMemo(() => createDefaultFrames(options), [options.width, options.height]);
@@ -2713,7 +2713,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         ) : null}
                                     </Stage>
                                     {selectedElement ? <Stack position="absolute" top={5} left={5} zIndex={2}>
-                                        <Popover placement="bottom-start">
+                                        <Popover placement="bottom-start" open={selectionPopoverOpen}>
                                             <Popover.Trigger position={`absolute`} top={0} left={0}>
                                                 <Button type="button" aria-label="tool" title="tool">
                                                     <MaterialCommunityIcons key="tool" name="tool" size={TOOLBAR_ICON_SIZE * 1.5} />
