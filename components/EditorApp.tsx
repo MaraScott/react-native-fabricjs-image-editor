@@ -2734,13 +2734,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                     <Label htmlFor="draw-color" flex={1}>
                                                                         Stroke color
                                                                     </Label>
-                                                                    <Input
+                                                                    <input
                                                                         id="draw-color"
                                                                         type="color"
                                                                         aria-label="Stroke color"
-                                                                        width={44}
-                                                                        height={44}
-                                                                        padding={0}
                                                                         value={drawSettings.color}
                                                                         onChange={(event: ChangeEvent<HTMLInputElement>) =>
                                                                             setDrawSettings((current) => ({
@@ -2748,6 +2745,14 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                                                 color: event.target.value,
                                                                             }))
                                                                         }
+                                                                        style={{
+                                                                            width: 44,
+                                                                            height: 44,
+                                                                            padding: 0,
+                                                                            border: 'none',
+                                                                            background: 'transparent',
+                                                                            cursor: 'pointer',
+                                                                        }}
                                                                     />
                                                                 </XStack>
                                                                 <YStack gap="$2">
