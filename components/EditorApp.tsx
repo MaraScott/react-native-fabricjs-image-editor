@@ -1,1244 +1,208 @@
-import {
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useMemo,
-    useRef,
-    useState,
-    type ChangeEvent,
-    type CSSProperties,
-} from 'react';
-import { Image, Text, XStack, YStack, useWindowDimensions, Theme } from 'tamagui';
-// import { CiZoomIn } from "react-icons/ci";
-import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
-import { useHistory } from '../hooks/useHistory';
-import type {
-    EditorDocument,
-    EditorElement,
-    EditorLayer,
-    EditorOptions,
-    FrameElement,
-    GuideElement,
-    ImageElement,
-    LineElement,
-    PencilElement,
-    RectElement,
-    TextElement,
-} from '../types/editor';
-import {
-    assignElementsToLayer,
-    cloneElement,
-    createBaseElement,
-    createCircle,
-    createFrame,
-    createImage,
-    createLayerDefinition,
-    createRect,
-    createText,
-    getNextLayerName,
-    orderElementsByLayer,
-} from '../utils/editorElements';
-import { createEmptyDesign, parseDesign, stringifyDesign } from '../utils/design';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Stage, Layer, Line, Circle, Rect, Text as KonvaText, RegularPolygon, Transformer } from 'react-konva';
+import type { KonvaEventObject } from '../types/konva';
 
-import EditorStageViewport from './editor/EditorStageViewport';
-import PrimaryToolbar from './editor/PrimaryToolbar';
-import { ExportActions, HistoryActions } from './editor/ToolbarActions';
-import type { DragBoundFactory, SelectionRect, Tool } from './editor/types';
+// ===== TYPES =====
 
-import {
-    SidebarContainer,
-    SidebarPanel,
-    SidebarScroll,
-    SidebarToggle,
-    SidebarToggleLabel,
-    SidebarContent,
-} from '../../../../theme/ui/styles'
+type Tool = 'select' | 'pencil' | 'eraser' | 'circle' | 'rect' | 'triangle' | 'star' | 'text';
 
-type DrawingState = {
+interface DrawingLine {
     id: string;
-    origin: { x: number; y: number };
-};
+    tool: string;
+    points: number[];
+    color: string;
+    size: number;
+    layerId: string;
+}
 
-type TemplateDefinition = {
+interface Shape {
+    id: string;
+    type: 'circle' | 'rect' | 'triangle' | 'star';
+    x: number;
+    y: number;
+    width?: number;
+    height?: number;
+    radius?: number;
+    color: string;
+    rotation: number;
+    layerId: string;
+}
+
+interface TextItem {
+    id: string;
+    text: string;
+    x: number;
+    y: number;
+    color: string;
+    fontSize: number;
+    rotation: number;
+    layerId: string;
+}
+
+interface StickerItem {
+    id: string;
+    emoji: string;
+    x: number;
+    y: number;
+    size: number;
+    rotation: number;
+    layerId: string;
+}
+
+interface LayerType {
     id: string;
     name: string;
-    description: string;
-    apply: () => { design: EditorDocument; options?: Partial<EditorOptions> };
-};
-
-const SNAP_THRESHOLD = 12;
-const STORAGE_KEY = 'konva-image-editor-design';
-
-const DEFAULT_DRAW = { color: '#2563eb', width: 5 };
-const TOOLBAR_ICON_SIZE = 12;
-const MAX_ZOOM = 8;
-const DOUBLE_TAP_ZOOM = 2;
-const WHEEL_ZOOM_SENSITIVITY = 0.0015;
-const PAN_INERTIA_FRICTION = 0.9;
-const PAN_MIN_VELOCITY = 0.01;
-const WORKSPACE_COLOR = '#2b2b2b';
-const MIN_ZOOM_FALLBACK = 0.05;
-const KEYBOARD_ZOOM_FACTOR = 1.1;
-const ZOOM_PERCENT_MIN = -100;
-const ZOOM_PERCENT_MAX = 100;
-const ZOOM_EXP_BASE = 2;
-const MIN_SELECTION_SIZE = 2;
-
-const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
-    {
-        id: 'mountains',
-        name: 'Mountain view',
-        src: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=60',
-    },
-    {
-        id: 'workspace',
-        name: 'Workspace',
-        src: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=900&q=60',
-    },
-    {
-        id: 'city',
-        name: 'City skyline',
-        src: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=900&q=60',
-    },
-];
-
-interface ElementBounds {
-    left: number;
-    right: number;
-    top: number;
-    bottom: number;
-    centerX: number;
-    centerY: number;
-}
-
-function getElementBounds(element: EditorElement, position: Vector2d): ElementBounds | null {
-    switch (element.type) {
-        case 'rect':
-        case 'frame':
-            return {
-                left: position.x,
-                right: position.x + element.width,
-                top: position.y,
-                bottom: position.y + element.height,
-                centerX: position.x + element.width / 2,
-                centerY: position.y + element.height / 2,
-            };
-        case 'triangle':
-            return {
-                left: position.x,
-                right: position.x + element.width,
-                top: position.y,
-                bottom: position.y + element.height,
-                centerX: position.x + element.width / 2,
-                centerY: position.y + element.height / 2,
-            };
-        case 'circle':
-            return {
-                left: position.x - element.radius,
-                right: position.x + element.radius,
-                top: position.y - element.radius,
-                bottom: position.y + element.radius,
-                centerX: position.x,
-                centerY: position.y,
-            };
-        case 'ellipse':
-            return {
-                left: position.x - element.radiusX,
-                right: position.x + element.radiusX,
-                top: position.y - element.radiusY,
-                bottom: position.y + element.radiusY,
-                centerX: position.x,
-                centerY: position.y,
-            };
-        case 'image':
-            return {
-                left: position.x,
-                right: position.x + element.width,
-                top: position.y,
-                bottom: position.y + element.height,
-                centerX: position.x + element.width / 2,
-                centerY: position.y + element.height / 2,
-            };
-        case 'text':
-            return {
-                left: position.x,
-                right: position.x + element.width,
-                top: position.y,
-                bottom: position.y + element.fontSize,
-                centerX: position.x + element.width / 2,
-                centerY: position.y + element.fontSize / 2,
-            };
-        case 'line':
-        case 'path':
-        case 'pencil': {
-            const { points } = element;
-            if (!points || points.length < 2) {
-                return {
-                    left: position.x,
-                    right: position.x,
-                    top: position.y,
-                    bottom: position.y,
-                    centerX: position.x,
-                    centerY: position.y,
-                };
-            }
-            let minX = Infinity;
-            let maxX = -Infinity;
-            let minY = Infinity;
-            let maxY = -Infinity;
-            for (let index = 0; index < points.length; index += 2) {
-                const px = points[index] ?? 0;
-                const py = points[index + 1] ?? 0;
-                if (px < minX) minX = px;
-                if (px > maxX) maxX = px;
-                if (py < minY) minY = py;
-                if (py > maxY) maxY = py;
-            }
-            if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) {
-                return null;
-            }
-            return {
-                left: position.x + minX,
-                right: position.x + maxX,
-                top: position.y + minY,
-                bottom: position.y + maxY,
-                centerX: position.x + (minX + maxX) / 2,
-                centerY: position.y + (minY + maxY) / 2,
-            };
-        }
-        default:
-            return null;
-    }
-}
-
-function normalizeSelectionRect(start: Vector2d, end: Vector2d): SelectionRect {
-    const x = Math.min(start.x, end.x);
-    const y = Math.min(start.y, end.y);
-    return {
-        x,
-        y,
-        width: Math.abs(end.x - start.x),
-        height: Math.abs(end.y - start.y),
-    };
-}
-
-function isElementInsideSelection(element: EditorElement, rect: SelectionRect): boolean {
-    const bounds = getElementBounds(element, { x: element.x, y: element.y });
-    if (!bounds) {
-        return false;
-    }
-    const withinHorizontal = bounds.left >= rect.x && bounds.right <= rect.x + rect.width;
-    const withinVertical = bounds.top >= rect.y && bounds.bottom <= rect.y + rect.height;
-    return withinHorizontal && withinVertical;
-}
-
-function createDragBound(options: EditorOptions, guides: GuideElement[]): DragBoundFactory {
-    if (!options.snapToGrid && (!options.snapToGuides || guides.length === 0)) {
-        return () => undefined;
-    }
-
-    const verticalGuides = guides.filter((guide) => guide.orientation === 'vertical').map((guide) => guide.x);
-    const horizontalGuides = guides.filter((guide) => guide.orientation === 'horizontal').map((guide) => guide.y);
-
-    return (element: EditorElement) => {
-        if (element.type === 'guide') return undefined;
-
-        return (position: Vector2d) => {
-            let { x, y } = position;
-
-            if (options.snapToGrid) {
-                const grid = Math.max(2, options.gridSize);
-                x = Math.round(x / grid) * grid;
-                y = Math.round(y / grid) * grid;
-            }
-
-            if (options.snapToGuides && (verticalGuides.length > 0 || horizontalGuides.length > 0)) {
-                const bounds = getElementBounds(element, { x, y });
-                if (bounds) {
-                    if (verticalGuides.length > 0) {
-                        const verticalCandidates = [
-                            {
-                                value: bounds.left,
-                                apply: (target: number) => {
-                                    x += target - bounds.left;
-                                },
-                            },
-                            {
-                                value: bounds.centerX,
-                                apply: (target: number) => {
-                                    x += target - bounds.centerX;
-                                },
-                            },
-                            {
-                                value: bounds.right,
-                                apply: (target: number) => {
-                                    x += target - bounds.right;
-                                },
-                            },
-                        ];
-                        let bestX: { diff: number; apply: (target: number) => void; target: number } | null = null;
-                        verticalCandidates.forEach((candidate) => {
-                            verticalGuides.forEach((guide) => {
-                                const diff = Math.abs(candidate.value - guide);
-                                if (diff <= SNAP_THRESHOLD && (!bestX || diff < bestX.diff)) {
-                                    bestX = { diff, apply: candidate.apply, target: guide };
-                                }
-                            });
-                        });
-                        if (bestX) {
-                            bestX.apply(bestX.target);
-                        }
-                    }
-
-                    if (horizontalGuides.length > 0) {
-                        const horizontalCandidates = [
-                            {
-                                value: bounds.top,
-                                apply: (target: number) => {
-                                    y += target - bounds.top;
-                                },
-                            },
-                            {
-                                value: bounds.centerY,
-                                apply: (target: number) => {
-                                    y += target - bounds.centerY;
-                                },
-                            },
-                            {
-                                value: bounds.bottom,
-                                apply: (target: number) => {
-                                    y += target - bounds.bottom;
-                                },
-                            },
-                        ];
-                        let bestY: { diff: number; apply: (target: number) => void; target: number } | null = null;
-                        horizontalCandidates.forEach((candidate) => {
-                            horizontalGuides.forEach((guide) => {
-                                const diff = Math.abs(candidate.value - guide);
-                                if (diff <= SNAP_THRESHOLD && (!bestY || diff < bestY.diff)) {
-                                    bestY = { diff, apply: candidate.apply, target: guide };
-                                }
-                            });
-                        });
-                        if (bestY) {
-                            bestY.apply(bestY.target);
-                        }
-                    }
-                }
-            }
-
-            return { x, y };
-        };
-    };
-}
-
-function createDefaultTemplates(options: EditorOptions): TemplateDefinition[] {
-    return [
-        {
-            id: 'hero-banner',
-            name: 'Hero banner',
-            description: 'A bold hero layout with accent circle and button.',
-            apply: () => {
-                const background = createRect(options, {
-                    name: 'Hero block',
-                    width: options.width * 0.7,
-                    height: options.height * 0.7,
-                    x: options.width * 0.15,
-                    y: options.height * 0.15,
-                    fill: '#0f172a',
-                    stroke: '#1d4ed8',
-                    strokeWidth: 6,
-                    cornerRadius: 32,
-                });
-                const circle = createCircle(options, {
-                    name: 'Accent circle',
-                    x: options.width * 0.75,
-                    y: options.height * 0.3,
-                    radius: options.height * 0.25,
-                    fill: '#2563eb',
-                    stroke: '#93c5fd',
-                    strokeWidth: 12,
-                });
-                const heading = createText(options, {
-                    name: 'Heading',
-                    text: 'Create something amazing',
-                    fontSize: 64,
-                    width: options.width * 0.6,
-                    x: options.width * 0.2,
-                    y: options.height * 0.25,
-                    align: 'left',
-                    fill: '#f8fafc',
-                    fontWeight: 'bold',
-                    stroke: 'transparent',
-                });
-                const subheading = createText(options, {
-                    name: 'Subheading',
-                    text: 'Craft beautiful stories with the power of React + Konva.',
-                    fontSize: 28,
-                    width: options.width * 0.5,
-                    x: options.width * 0.2,
-                    y: options.height * 0.4,
-                    align: 'left',
-                    fill: '#cbd5f5',
-                    fontWeight: 'normal',
-                });
-                const button = createRect(options, {
-                    name: 'Primary button',
-                    x: options.width * 0.2,
-                    y: options.height * 0.55,
-                    width: 220,
-                    height: 64,
-                    cornerRadius: 32,
-                    fill: '#f97316',
-                    stroke: '#fb923c',
-                    strokeWidth: 0,
-                });
-                const buttonText = createText(options, {
-                    name: 'Button text',
-                    text: 'Get started',
-                    fontSize: 28,
-                    width: 220,
-                    x: button.x,
-                    y: button.y + 14,
-                    fill: '#0f172a',
-                });
-
-                const layer = createLayerDefinition('Layer 1');
-                const assigned = assignElementsToLayer(
-                    [background, circle, heading, subheading, button, buttonText],
-                    layer.id,
-                );
-
-                return {
-                    design: {
-                        elements: assigned,
-                        layers: [layer],
-                        metadata: null,
-                    },
-                    options: {
-                        backgroundColor: '#020617',
-                        showGrid: false,
-                    },
-                };
-            },
-        },
-        {
-            id: 'quote-card',
-            name: 'Quote card',
-            description: 'Centered quote with framed border.',
-            apply: () => {
-                const frame = createFrame(options, {
-                    width: options.width * 0.8,
-                    height: options.height * 0.6,
-                    x: options.width * 0.1,
-                    y: options.height * 0.2,
-                    stroke: '#f97316',
-                    strokeWidth: 12,
-                });
-                const quote = createText(options, {
-                    text: '“Design is the silent ambassador of your brand.”',
-                    fontSize: 48,
-                    width: options.width * 0.7,
-                    x: options.width * 0.15,
-                    y: options.height * 0.3,
-                    align: 'center',
-                    fill: '#f8fafc',
-                    stroke: 'transparent',
-                });
-                const author = createText(options, {
-                    text: '— Paul Rand',
-                    fontSize: 28,
-                    width: options.width * 0.7,
-                    x: options.width * 0.15,
-                    y: options.height * 0.45,
-                    align: 'center',
-                    fill: '#cbd5f5',
-                });
-                const accent = createCircle(options, {
-                    name: 'Accent dot',
-                    radius: 24,
-                    fill: '#38bdf8',
-                    stroke: 'transparent',
-                    x: frame.x + frame.width - 40,
-                    y: frame.y + 40,
-                });
-
-                const layer = createLayerDefinition('Layer 1');
-                const assigned = assignElementsToLayer([frame, quote, author, accent], layer.id);
-
-                return {
-                    design: {
-                        elements: assigned,
-                        layers: [layer],
-                        metadata: null,
-                    },
-                    options: {
-                        backgroundColor: '#0f172a',
-                        showGrid: false,
-                    },
-                };
-            },
-        },
-        {
-            id: 'photo-card',
-            name: 'Photo focus',
-            description: 'Photo with caption and callout rectangle.',
-            apply: () => {
-                const frame = createFrame(options, {
-                    width: options.width * 0.6,
-                    height: options.height * 0.6,
-                    x: options.width * 0.3,
-                    y: options.height * 0.2,
-                    stroke: '#38bdf8',
-                    strokeWidth: 8,
-                });
-                const caption = createText(options, {
-                    text: 'Exploring the vibrant streets of Tokyo at night.',
-                    fontSize: 28,
-                    width: options.width * 0.6,
-                    x: options.width * 0.32,
-                    y: frame.y + frame.height + 16,
-                    align: 'left',
-                    fill: '#f8fafc',
-                });
-                const callout = createRect(options, {
-                    name: 'Callout',
-                    x: options.width * 0.05,
-                    y: options.height * 0.25,
-                    width: options.width * 0.22,
-                    height: options.height * 0.5,
-                    fill: '#1e293b',
-                    stroke: '#38bdf8',
-                    strokeWidth: 2,
-                    cornerRadius: 18,
-                });
-                const calloutText = createText(options, {
-                    text: 'Travel Journal\nVolume 05',
-                    fontSize: 34,
-                    width: callout.width,
-                    x: callout.x,
-                    y: callout.y + 32,
-                    align: 'center',
-                    fill: '#38bdf8',
-                });
-
-                const layer = createLayerDefinition('Layer 1');
-                const assigned = assignElementsToLayer([frame, caption, callout, calloutText], layer.id);
-
-                return {
-                    design: {
-                        elements: assigned,
-                        layers: [layer],
-                        metadata: null,
-                    },
-                    options: {
-                        backgroundColor: '#020617',
-                        showGrid: false,
-                    },
-                };
-            },
-        },
-    ];
-}
-
-function createDefaultFrames(options: EditorOptions): FrameElement[] {
-    return [
-        createFrame(options, {
-            name: 'Simple frame',
-            width: options.width - 80,
-            height: options.height - 80,
-            x: 40,
-            y: 40,
-            stroke: '#f8fafc',
-            strokeWidth: 12,
-            cornerRadius: 24,
-        }),
-        createFrame(options, {
-            name: 'Poster border',
-            width: options.width - 120,
-            height: options.height - 120,
-            x: 60,
-            y: 60,
-            stroke: '#38bdf8',
-            strokeWidth: 18,
-            cornerRadius: 0,
-        }),
-    ];
-}
-
-const DEFAULT_OPTIONS: EditorOptions = {
-    width: 960,
-    height: 540,
-    backgroundColor: '#0f172a',
-    showGrid: true,
-    gridSize: 32,
-    snapToGrid: true,
-    snapToGuides: true,
-    showGuides: true,
-    showRulers: false,
-    zoom: 1,
-    fixedCanvas: false,
-    canvasSizeLocked: false,
-};
-
-function clampZoom(value: number, min: number, max: number): number {
-    if (!Number.isFinite(value)) {
-        return min;
-    }
-    return Math.min(max, Math.max(min, value));
-}
-
-function scaleToPercent(scale: number, referenceScale: number): number {
-    if (!Number.isFinite(scale) || !Number.isFinite(referenceScale) || referenceScale <= 0) {
-        return 0;
-    }
-    const ratio = scale / referenceScale;
-    if (ratio <= 0) {
-        return ZOOM_PERCENT_MIN;
-    }
-    const percent = Math.log(ratio) / Math.log(ZOOM_EXP_BASE);
-    if (!Number.isFinite(percent)) {
-        return 0;
-    }
-    const scaled = percent * 100;
-    return Math.max(ZOOM_PERCENT_MIN, Math.min(ZOOM_PERCENT_MAX, scaled));
-}
-
-function percentToScale(percent: number, referenceScale: number): number {
-    if (!Number.isFinite(referenceScale) || referenceScale <= 0) {
-        return MIN_ZOOM_FALLBACK;
-    }
-    if (!Number.isFinite(percent)) {
-        return referenceScale;
-    }
-    const clampedPercent = Math.max(ZOOM_PERCENT_MIN, Math.min(ZOOM_PERCENT_MAX, percent));
-    return referenceScale * Math.pow(ZOOM_EXP_BASE, clampedPercent / 100);
-}
-
-function computeFitScale(stageWidth: number, stageHeight: number, viewportWidth: number, viewportHeight: number): number {
-    if (stageWidth === 0 || stageHeight === 0 || viewportWidth === 0 || viewportHeight === 0) {
-        return 1;
-    }
-    return Math.min(viewportWidth / stageWidth, viewportHeight / stageHeight);
-}
-
-function clampStagePosition(
-    position: { x: number; y: number },
-    scale: number,
-    stageSize: { width: number; height: number },
-    viewportSize: { width: number; height: number },
-): { x: number; y: number } {
-    if (viewportSize.width <= 0 || viewportSize.height <= 0) {
-        return position;
-    }
-
-    const scaledWidth = stageSize.width * scale;
-    const scaledHeight = stageSize.height * scale;
-
-    let minX: number;
-    let maxX: number;
-    if (scaledWidth <= viewportSize.width) {
-        minX = 0;
-        maxX = viewportSize.width - scaledWidth;
-    } else {
-        minX = viewportSize.width - scaledWidth;
-        maxX = 0;
-    }
-
-    let minY: number;
-    let maxY: number;
-    if (scaledHeight <= viewportSize.height) {
-        minY = 0;
-        maxY = viewportSize.height - scaledHeight;
-    } else {
-        minY = viewportSize.height - scaledHeight;
-        maxY = 0;
-    }
-
-    return {
-        x: Math.min(maxX, Math.max(minX, position.x)),
-        y: Math.min(maxY, Math.max(minY, position.y)),
-    };
-}
-
-function getStagePointer(stage: StageType): Vector2d | null {
-    const pointer = stage.getPointerPosition();
-    if (!pointer) {
-        return null;
-    }
-    const transform = stage.getAbsoluteTransform().copy();
-    transform.invert();
-    const point = transform.point(pointer);
-    const width = stage.width();
-    const height = stage.height();
-    return {
-        x: Math.min(Math.max(point.x, 0), width),
-        y: Math.min(Math.max(point.y, 0), height),
-    };
-}
-
-function getInitialOptions(options?: Partial<EditorOptions>): EditorOptions {
-    return { ...DEFAULT_OPTIONS, ...(options ?? {}) };
-}
-
-interface BridgeMessage {
-    type: string;
-    payload?: any;
-}
-
-function parseBridgeMessage(raw: unknown): BridgeMessage | null {
-    if (typeof raw === 'string') {
-        try {
-            const parsed = JSON.parse(raw);
-            if (parsed && typeof parsed.type === 'string') {
-                return parsed as BridgeMessage;
-            }
-        } catch (error) {
-            console.warn('[Editor] Unable to parse message', error);
-        }
-        return null;
-    }
-
-    if (raw && typeof raw === 'object' && typeof (raw as any).type === 'string') {
-        return raw as BridgeMessage;
-    }
-
-    return null;
-}
-
-function useBridge() {
-    const postMessage = useCallback((type: string, payload?: unknown) => {
-        const message = JSON.stringify({ type, payload });
-        if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
-            window.ReactNativeWebView.postMessage(message);
-        }
-        if (window.parent && window.parent !== window && typeof window.parent.postMessage === 'function') {
-            window.parent.postMessage(message, '*');
-        }
-    }, []);
-
-    return { postMessage };
-}
-
-function cloneDocument(document: EditorDocument): EditorDocument {
-    const sourceLayers = document.layers && document.layers.length > 0 ? document.layers : [createLayerDefinition('Layer 1')];
-    return {
-        elements: document.elements.map((element) => cloneElement(element)),
-        layers: sourceLayers.map((layer) => ({ ...layer })),
-        metadata: document.metadata ? { ...document.metadata } : null,
-    } satisfies EditorDocument;
+    visible: boolean;
+    locked: boolean;
 }
 
 interface EditorAppProps {
-    initialDesign?: EditorDocument | null;
-    initialOptions?: Partial<EditorOptions>;
+    initialDesign?: any;
+    initialOptions?: any;
+    backgroundColor?: string;
 }
 
-export default function EditorApp({ initialDesign, initialOptions }: EditorAppProps) {
-    const [options, setOptions] = useState<EditorOptions>(getInitialOptions(initialOptions));
-    const stageRef = useRef<StageType | null>(null);
-    const editorCanvasRef = useRef<HTMLDivElement | null>(null);
-    const fileInputRef = useRef<HTMLInputElement | null>(null);
+// ===== CONSTANTS =====
 
-    const initialDocument = useMemo(() => initialDesign ?? createEmptyDesign(), [initialDesign]);
-    const { value: design, set: setDesign, reset: resetDesign, undo, redo, canUndo, canRedo } =
-        useHistory<EditorDocument>(initialDocument);
+const COLORS = [
+    // Primary jewel tones
+    { name: '💎 Emerald', value: '#50C878' },
+    { name: '💎 Light Emerald', value: '#7FD99F' },
+    { name: '💎 Dark Emerald', value: '#2E8B57' },
+    { name: '💙 Sapphire', value: '#0F52BA' },
+    { name: '💙 Light Sapphire', value: '#4682E1' },
+    { name: '💙 Deep Sapphire', value: '#082567' },
+    { name: '✨ Gold', value: '#FFD700' },
+    { name: '✨ Light Gold', value: '#FFED4E' },
+    { name: '✨ Rose Gold', value: '#E0BFB8' },
+    { name: '🍷 Burgundy', value: '#800020' },
+    { name: '🍷 Light Burgundy', value: '#A94064' },
+    { name: '🍷 Wine', value: '#5C001A' },
+    // Complementary colors for kids
+    { name: '🌸 Pink', value: '#FFB6C1' },
+    { name: '🟠 Orange', value: '#FFA500' },
+    { name: '🟣 Purple', value: '#9370DB' },
+    { name: '⚪ White', value: '#FFFFFF' },
+    { name: '⚫ Black', value: '#2C3E50' },
+    { name: '🤎 Brown', value: '#8B4513' },
+];
 
-    const elements = design.elements;
-    const layers = design.layers;
-    const orderedElements = useMemo(() => orderElementsByLayer(elements, layers), [elements, layers]);
-    const guides = useMemo(
-        () => orderedElements.filter((element) => element.type === 'guide') as GuideElement[],
-        [orderedElements],
-    );
-    const contentElements = useMemo(
-        () => orderedElements.filter((element) => element.type !== 'guide'),
-        [orderedElements],
-    );
+const STICKERS = [
+    '😀', '😃', '😄', '😁', '😊', '🥰', '😍', '🤩', '😎', '🤗',
+    '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯',
+    '⭐', '🌟', '✨', '💫', '🌈', '🌸', '🌺', '🌻', '🌼', '🌷',
+    '🎈', '🎉', '🎊', '🎁', '🎂', '🍰', '🍭', '🍬', '🍩', '🍪',
+];
 
-    const [selectedIds, setSelectedIds] = useState<string[]>([]);
-    const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
-    const [activeTool, setActiveTool] = useState<Tool>('draw');
-    const [toolSettingsOpen, setToolSettingsOpen] = useState(false);
-    const drawingStateRef = useRef<DrawingState | null>(null);
-    const selectionOriginRef = useRef<Vector2d | null>(null);
-    const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
-    const [clipboard, setClipboard] = useState<EditorElement[] | null>(null);
-    const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
-    const handleDrawSettingsChange = useCallback((updates: Partial<typeof DEFAULT_DRAW>) => {
-        setDrawSettings((current) => ({ ...current, ...updates }));
-    }, []);
-    const [stagePosition, setStagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-    const stagePositionRef = useRef(stagePosition);
-    const [workspaceSize, setWorkspaceSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
-    const workspaceSizeRef = useRef(workspaceSize);
-    const [fitScale, setFitScale] = useState(1);
-    const fitScaleRef = useRef(fitScale);
-    const [zoomBounds, setZoomBounds] = useState<{ min: number; max: number }>({ min: 1, max: MAX_ZOOM });
-    const zoomBoundsRef = useRef(zoomBounds);
-    const zoomRef = useRef(options.zoom);
-    const panStateRef = useRef<{
-        startPointer: Vector2d;
-        startPosition: { x: number; y: number };
-    } | null>(null);
-    const panVelocityRef = useRef<{ vx: number; vy: number }>({ vx: 0, vy: 0 });
-    const lastPanTimestampRef = useRef<number | null>(null);
-    const inertiaHandleRef = useRef<number | null>(null);
-    const spacePressedRef = useRef(false);
-    const stageHoverRef = useRef(false);
-    const previousCursorRef = useRef<{ inline: string; hadInline: boolean } | null>(null);
-    const [isPanMode, setIsPanMode] = useState(false);
+// ===== MAIN COMPONENT =====
+
+export default function EditorApp({ initialOptions }: EditorAppProps) {
+    // Canvas settings
+    const [canvasWidth, setCanvasWidth] = useState(initialOptions?.width || 1024);
+    const [canvasHeight, setCanvasHeight] = useState(initialOptions?.height || 1024);
+    const [canvasColor, setCanvasColor] = useState(initialOptions?.backgroundColor || '#FFFFFF');
+    const [showCanvasSettings, setShowCanvasSettings] = useState(false);
+
+    // Workspace container ref for calculating initial position
+    const workspaceRef = useRef<HTMLDivElement>(null);
+
+    // Zoom and pan
+    const [scale, setScale] = useState(1);
+    const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
     const [isPanning, setIsPanning] = useState(false);
+    const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+    const [spacePressed, setSpacePressed] = useState(false);
 
-    const { width } = useWindowDimensions();
-    // const { width } = Dimensions.get('window')
-    const isSmall = width < 600;
-    const mainLayoutWidth = isSmall ? width - 30 : width - 90
-    const collapsedWidth = isSmall ? 30 : 10
-    const sidebarWidth = isSmall ? width - 30 : 90
-    // const sidebarImageSize = isSmall ? 120 : 80
-    const [leftOpen, setLeftOpen] = useState(false);
+    // Tools and drawing
+    const [tool, setTool] = useState<Tool>('pencil');
+    const [color, setColor] = useState('#2C3E50');
+    const [brushSize, setBrushSize] = useState(10);
+    const [isDrawing, setIsDrawing] = useState(false);
 
-    const stageWidth = Math.round(options.width);
-    const stageHeight = Math.round(options.height);
-    const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
-    const sliderBounds = useMemo(
-        () => ({
-            min: ZOOM_PERCENT_MIN,
-            max: ZOOM_PERCENT_MAX,
-        }),
-        [],
-    );
-    const sliderStep = useMemo(() => {
-        const range = sliderBounds.max - sliderBounds.min;
-        if (!Number.isFinite(range) || range <= 0) {
-            return 1;
-        }
-        return Math.max(1, range / 200);
-    }, [sliderBounds.max, sliderBounds.min]);
-    const sliderValue = useMemo(() => {
-        const value = Number.isFinite(options.zoom) ? options.zoom : zoomBounds.min;
-        const clamped = clampZoom(value, zoomBounds.min, zoomBounds.max);
-        return [scaleToPercent(clamped, fitScaleRef.current)];
-    }, [options.zoom, zoomBounds.max, zoomBounds.min]);
-    const zoomPercentage = useMemo(
-        () => Math.round(scaleToPercent(options.zoom, fitScale)),
-        [fitScale, options.zoom],
-    );
+    // Layers
+    const [layers, setLayers] = useState<LayerType[]>([
+        { id: 'layer-1', name: 'Layer 1', visible: true, locked: false }
+    ]);
+    const [selectedLayerId, setSelectedLayerId] = useState('layer-1');
 
-    const stopInertia = useCallback(() => {
-        if (inertiaHandleRef.current !== null) {
-            cancelAnimationFrame(inertiaHandleRef.current);
-            inertiaHandleRef.current = null;
-        }
-    }, []);
+    // Elements
+    const [lines, setLines] = useState<DrawingLine[]>([]);
+    const [shapes, setShapes] = useState<Shape[]>([]);
+    const [texts, setTexts] = useState<TextItem[]>([]);
+    const [stickers, setStickers] = useState<StickerItem[]>([]);
 
-    const updateSelectionRect = useCallback((rect: SelectionRect | null) => {
-        setSelectionRect(rect);
-    }, []);
+    // Selection
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [toolSettingsOpen, setToolSettingsOpen] = useState(true);
 
+    // History
+    const [history, setHistory] = useState<any[]>([]);
+    const [historyStep, setHistoryStep] = useState(-1);
+
+    // Refs
+    const stageRef = useRef<any>(null);
+    const transformerRef = useRef<any>(null);
+    const isDrawingRef = useRef(false);
+    const spaceKeyRef = useRef(false);
+    const lastCenterRef = useRef<any>(null);
+    const lastDistRef = useRef<number>(0);
+
+    // Update transformer when selection changes
     useEffect(() => {
-        if (activeTool !== 'select') {
-            selectionOriginRef.current = null;
-            updateSelectionRect(null);
-        }
-    }, [activeTool, updateSelectionRect]);
-
-    useEffect(() => {
-        if (activeTool === 'draw') {
-            setToolSettingsOpen(true);
-        } else {
-            setToolSettingsOpen(false);
-        }
-    }, [activeTool]);
-
-    const startPanInertia = useCallback(
-        (velocity: { vx: number; vy: number }) => {
-            let { vx, vy } = velocity;
-            if (Math.abs(vx) < PAN_MIN_VELOCITY && Math.abs(vy) < PAN_MIN_VELOCITY) {
-                return;
-            }
-
-            stopInertia();
-
-            let lastTime: number | null = null;
-
-            const step = (time: number) => {
-                if (lastTime === null) {
-                    lastTime = time;
+        if (transformerRef.current && selectedId) {
+            const stage = stageRef.current;
+            if (stage) {
+                const selectedNode = stage.findOne(`#${selectedId}`);
+                if (selectedNode) {
+                    transformerRef.current.nodes([selectedNode]);
+                    transformerRef.current.getLayer()?.batchDraw();
                 }
-                const delta = time - lastTime;
-                lastTime = time;
-
-                const decay = Math.pow(PAN_INERTIA_FRICTION, delta / 16.67);
-                vx *= decay;
-                vy *= decay;
-
-                if (Math.abs(vx) < PAN_MIN_VELOCITY && Math.abs(vy) < PAN_MIN_VELOCITY) {
-                    stopInertia();
-                    return;
-                }
-
-                const nextPosition = clampStagePosition(
-                    {
-                        x: stagePositionRef.current.x + vx * delta,
-                        y: stagePositionRef.current.y + vy * delta,
-                    },
-                    zoomRef.current,
-                    { width: stageWidth, height: stageHeight },
-                    workspaceSizeRef.current,
-                );
-
-                if (
-                    nextPosition.x === stagePositionRef.current.x &&
-                    nextPosition.y === stagePositionRef.current.y
-                ) {
-                    stopInertia();
-                    return;
-                }
-
-                setStagePosition(nextPosition);
-                inertiaHandleRef.current = requestAnimationFrame(step);
-            };
-
-            inertiaHandleRef.current = requestAnimationFrame(step);
-        },
-        [setStagePosition, stageHeight, stageWidth, stopInertia],
-    );
-
-    useEffect(() => () => stopInertia(), [stopInertia]);
-
-    useEffect(() => {
-        workspaceSizeRef.current = workspaceSize;
-    }, [workspaceSize]);
-
-    useEffect(() => {
-        zoomBoundsRef.current = zoomBounds;
-    }, [zoomBounds]);
-
-    useEffect(() => {
-        fitScaleRef.current = fitScale;
-    }, [fitScale]);
-
-    useEffect(() => {
-        zoomRef.current = options.zoom;
-    }, [options.zoom]);
-
-    useLayoutEffect(() => {
-        const element = editorCanvasRef.current;
-        if (!element) {
-            return;
-        }
-
-        const parseSpacingValue = (value: string | null | undefined) => {
-            if (!value) {
-                return 0;
             }
-            const parsed = Number.parseFloat(value);
-            return Number.isFinite(parsed) ? parsed : 0;
-        };
-
-        let frame: number | null = null;
-
-        const measure = () => {
-            frame = null;
-
-            const rect = element.getBoundingClientRect();
-            const style = typeof window !== 'undefined' ? window.getComputedStyle(element) : null;
-            const paddingX = style
-                ? parseSpacingValue(style.paddingLeft) + parseSpacingValue(style.paddingRight)
-                : 0;
-            const paddingY = style
-                ? parseSpacingValue(style.paddingTop) + parseSpacingValue(style.paddingBottom)
-                : 0;
-            const borderX = style
-                ? parseSpacingValue(style.borderLeftWidth) + parseSpacingValue(style.borderRightWidth)
-                : 0;
-            const borderY = style
-                ? parseSpacingValue(style.borderTopWidth) + parseSpacingValue(style.borderBottomWidth)
-                : 0;
-            const marginLeft = style ? parseSpacingValue(style.marginLeft) : 0;
-            const marginRight = style ? parseSpacingValue(style.marginRight) : 0;
-            const marginTop = style ? parseSpacingValue(style.marginTop) : 0;
-            const marginBottom = style ? parseSpacingValue(style.marginBottom) : 0;
-
-            const measuredWidth = Math.max(0, rect.width - paddingX);
-            const measuredHeight = Math.max(0, rect.height - paddingY);
-
-            let availableWidth = measuredWidth;
-            let availableHeight = measuredHeight;
-
-            if (typeof window !== 'undefined') {
-                const viewportWidth = window.innerWidth;
-                const viewportHeight = window.innerHeight;
-
-                const offsetLeft = Math.max(0, rect.left - marginLeft);
-                const offsetRight = Math.max(0, viewportWidth - rect.right - marginRight);
-                const offsetTop = Math.max(0, rect.top - marginTop);
-                const offsetBottom = Math.max(0, viewportHeight - rect.bottom - marginBottom);
-
-                const totalHorizontalChrome = paddingX + borderX;
-                const totalVerticalChrome = paddingY + borderY;
-
-                availableWidth = Math.max(0, viewportWidth - offsetLeft - offsetRight - totalHorizontalChrome);
-                availableHeight = Math.max(0, viewportHeight - offsetTop - offsetBottom - totalVerticalChrome);
-
-                const minHeight = Math.max(0, Math.round(viewportHeight - offsetTop - offsetBottom));
-                element.style.minHeight = `${minHeight}px`;
-            }
-
-            const nextSize = {
-                width: Math.max(0, Math.round(availableWidth || measuredWidth)),
-                height: Math.max(0, Math.round(availableHeight || measuredHeight)),
-            };
-
-            setWorkspaceSize((current) =>
-                current.width === nextSize.width && current.height === nextSize.height ? current : nextSize,
-            );
-        };
-
-        const scheduleMeasure = () => {
-            if (frame !== null) {
-                cancelAnimationFrame(frame);
-            }
-            frame = requestAnimationFrame(measure);
-        };
-
-        measure();
-
-        let observer: ResizeObserver | null = null;
-        const hasWindow = typeof window !== 'undefined';
-
-        if (typeof ResizeObserver !== 'undefined') {
-            observer = new ResizeObserver(() => scheduleMeasure());
-            observer.observe(element);
+        } else if (transformerRef.current) {
+            transformerRef.current.nodes([]);
+            transformerRef.current.getLayer()?.batchDraw();
         }
+    }, [selectedId]);
 
-        if (hasWindow) {
-            window.addEventListener('resize', scheduleMeasure);
-            window.addEventListener('scroll', scheduleMeasure, true);
-        }
-
-        return () => {
-            if (hasWindow) {
-                window.removeEventListener('resize', scheduleMeasure);
-                window.removeEventListener('scroll', scheduleMeasure, true);
-            }
-
-            if (observer) {
-                observer.disconnect();
-            }
-
-            if (frame !== null) {
-                cancelAnimationFrame(frame);
-            }
-
-            element.style.removeProperty('min-height');
-        };
-    }, [editorCanvasRef]);
-
-    const restoreStageCursor = useCallback(() => {
-        const stage = stageRef.current;
-        const container = typeof stage?.container === 'function' ? stage.container() : null;
-        if (!container) {
-            return;
-        }
-
-        if (previousCursorRef.current) {
-            const { inline, hadInline } = previousCursorRef.current;
-            if (hadInline) {
-                container.style.cursor = inline;
-            } else {
-                container.style.removeProperty('cursor');
-            }
-        } else {
-            container.style.removeProperty('cursor');
-        }
-
-        previousCursorRef.current = null;
-    }, []);
-
+    // Center canvas in workspace on initial load
     useEffect(() => {
-        const stage = stageRef.current;
-        const container = typeof stage?.container === 'function' ? stage.container() : null;
-        if (!container) {
-            return;
+        if (workspaceRef.current) {
+            const workspace = workspaceRef.current;
+            const workspaceWidth = workspace.clientWidth;
+            const workspaceHeight = workspace.clientHeight;
+
+            // Calculate scale to fit canvas entirely in workspace (with padding)
+            const padding = 100; // 50px padding on each side
+            const scaleX = (workspaceWidth - padding) / canvasWidth;
+            const scaleY = (workspaceHeight - padding) / canvasHeight;
+            const fitScale = Math.min(scaleX, scaleY, 1); // Don't scale up beyond 100%
+
+            // Calculate center position
+            const x = (workspaceWidth - canvasWidth * fitScale) / 2;
+            const y = (workspaceHeight - canvasHeight * fitScale) / 2;
+
+            setScale(fitScale);
+            setStagePosition({ x, y });
         }
+    }, [canvasWidth, canvasHeight]);
 
-        if (isPanMode || isPanning) {
-            if (!previousCursorRef.current) {
-                const inline = container.style.cursor;
-                previousCursorRef.current = {
-                    inline,
-                    hadInline: inline.length > 0,
-                };
-            }
-            container.style.cursor = isPanning ? 'grabbing' : 'grab';
-            return;
-        }
-
-        restoreStageCursor();
-    }, [isPanMode, isPanning, restoreStageCursor]);
-
+    // Keyboard event handlers for spacebar panning
     useEffect(() => {
-        const viewportWidth = workspaceSize.width;
-        const viewportHeight = workspaceSize.height;
-        if (viewportWidth <= 0 || viewportHeight <= 0) {
-            return;
-        }
-
-        const fitScaleRaw = computeFitScale(stageWidth, stageHeight, viewportWidth, viewportHeight);
-        const nextFit = clampZoom(Math.max(fitScaleRaw, MIN_ZOOM_FALLBACK), MIN_ZOOM_FALLBACK, MAX_ZOOM);
-        const previousFit = fitScaleRef.current;
-        fitScaleRef.current = nextFit;
-        setFitScale((current) => (Math.abs(current - nextFit) < 0.0001 ? current : nextFit));
-
-        const minScale = Math.max(MIN_ZOOM_FALLBACK, nextFit * Math.pow(ZOOM_EXP_BASE, ZOOM_PERCENT_MIN / 100));
-        const maxScale = Math.max(minScale, nextFit * Math.pow(ZOOM_EXP_BASE, ZOOM_PERCENT_MAX / 100));
-
-        setZoomBounds((current) =>
-            current.min === minScale && current.max === maxScale ? current : { min: minScale, max: maxScale },
-        );
-
-        const currentZoom = zoomRef.current;
-        const shouldSnapToFit =
-            !Number.isFinite(currentZoom) || Math.abs(currentZoom - previousFit) < 0.0001;
-        const clampedZoom = shouldSnapToFit
-            ? nextFit
-            : clampZoom(currentZoom, minScale, maxScale);
-        if (clampedZoom !== currentZoom || shouldSnapToFit) {
-            zoomRef.current = clampedZoom;
-            setOptions((current) => (current.zoom === clampedZoom ? current : { ...current, zoom: clampedZoom }));
-        }
-
-        const scaledWidth = stageWidth * clampedZoom;
-        const scaledHeight = stageHeight * clampedZoom;
-        const preferredPosition = clampStagePosition(
-            {
-                x: Math.max(0, (viewportWidth - scaledWidth) / 2),
-                y: Math.max(0, (viewportHeight - scaledHeight) / 2),
-            },
-            clampedZoom,
-            { width: stageWidth, height: stageHeight },
-            { width: viewportWidth, height: viewportHeight },
-        );
-        const clampedPosition = clampStagePosition(
-            stagePositionRef.current,
-            clampedZoom,
-            { width: stageWidth, height: stageHeight },
-            { width: viewportWidth, height: viewportHeight },
-        );
-        const nextPosition = shouldSnapToFit ? preferredPosition : clampedPosition;
-
-        if (nextPosition.x !== stagePositionRef.current.x || nextPosition.y !== stagePositionRef.current.y) {
-            setStagePosition(nextPosition);
-        }
-    }, [setOptions, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
-
-    useEffect(() => {
-        if (layers.length === 0) {
-            return;
-        }
-
-        if (!activeLayerId || !layers.some((layer) => layer.id === activeLayerId)) {
-            setActiveLayerId(layers[layers.length - 1].id);
-        }
-    }, [layers, activeLayerId]);
-
-    useEffect(() => {
-        const stage = stageRef.current;
-        const container = typeof stage?.container === 'function' ? stage.container() : null;
-        if (!container) {
-            return;
-        }
-
-        const previousTouchAction = container.style.touchAction;
-        container.style.touchAction = 'none';
-
-        return () => {
-            container.style.touchAction = previousTouchAction;
-        };
-    }, []);
-
-    useEffect(() => {
-        stagePositionRef.current = stagePosition;
-        const stage = stageRef.current;
-        if (stage) {
-            stage.position(stagePosition);
-            stage.batchDraw();
-        }
-    }, [stagePosition]);
-
-    useEffect(() => {
-        const stage = stageRef.current;
-        if (stage) {
-            stage.scale({ x: options.zoom, y: options.zoom });
-            stage.batchDraw();
-        }
-    }, [options.zoom]);
-
-    useEffect(() => {
-        if (typeof window === 'undefined') {
-            return undefined;
-        }
-
-        const handlePointerRelease = () => {
-            if (drawingStateRef.current) {
-                drawingStateRef.current = null;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.code === 'Space' && !spaceKeyRef.current) {
+                e.preventDefault();
+                spaceKeyRef.current = true;
+                setSpacePressed(true);
             }
         };
 
-        window.addEventListener('mouseup', handlePointerRelease);
-        window.addEventListener('touchend', handlePointerRelease);
-        window.addEventListener('touchcancel', handlePointerRelease);
-
-        return () => {
-            window.removeEventListener('mouseup', handlePointerRelease);
-            window.removeEventListener('touchend', handlePointerRelease);
-            window.removeEventListener('touchcancel', handlePointerRelease);
-        };
-    }, []);
-
-    useEffect(() => {
-        const isSpaceEvent = (event: KeyboardEvent) => {
-            if (event.code === 'Space') {
-                return true;
-            }
-            if (event.key === ' ' || event.key === 'Spacebar') {
-                return true;
-            }
-            return false;
-        };
-
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (!isSpaceEvent(event)) {
-                return;
-            }
-
-            if (!spacePressedRef.current) {
-                spacePressedRef.current = true;
-            }
-
-            if (stageHoverRef.current) {
-                event.preventDefault();
-                setIsPanMode(true);
-            }
-        };
-
-        const handleKeyUp = (event: KeyboardEvent) => {
-            if (!isSpaceEvent(event)) {
-                return;
-            }
-
-            spacePressedRef.current = false;
-            setIsPanMode(false);
-
-            if (panStateRef.current) {
-                panStateRef.current = null;
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                spaceKeyRef.current = false;
+                setSpacePressed(false);
                 setIsPanning(false);
             }
-
-            restoreStageCursor();
         };
 
         window.addEventListener('keydown', handleKeyDown);
@@ -1248,1291 +212,866 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [restoreStageCursor]);
-
-    useEffect(() => {
-        if (layers.length === 0) {
-            return;
-        }
-
-        const layerIds = new Set(layers.map((layer) => layer.id));
-        const fallbackLayer = layers[layers.length - 1];
-        if (!fallbackLayer) {
-            return;
-        }
-
-        const requiresUpdate = elements.some(
-            (element) => element.type !== 'guide' && (!element.layerId || !layerIds.has(element.layerId)),
-        );
-
-        if (!requiresUpdate) {
-            return;
-        }
-
-        setDesign((current) => {
-            const nextLayers = current.layers.length > 0 ? current.layers : layers;
-            const fallback = nextLayers[nextLayers.length - 1];
-            if (!fallback) {
-                return current;
-            }
-
-            const validIds = new Set(nextLayers.map((layer) => layer.id));
-            const updatedElements = current.elements.map((element) => {
-                if (element.type === 'guide') {
-                    return element.layerId === null ? element : { ...element, layerId: null };
-                }
-                if (element.layerId && validIds.has(element.layerId)) {
-                    return element;
-                }
-                return { ...element, layerId: fallback.id };
-            });
-
-            return {
-                ...current,
-                layers: nextLayers,
-                elements: orderElementsByLayer(updatedElements, nextLayers),
-            };
-        });
-    }, [layers, elements, setDesign]);
-
-    const dragBoundFactory = useMemo(() => createDragBound(options, guides), [options, guides]);
-
-    const templates = useMemo(() => createDefaultTemplates(options), [options.width, options.height, options.backgroundColor]);
-    const frames = useMemo(() => createDefaultFrames(options), [options.width, options.height]);
-
-    const layerMap = useMemo(() => {
-        const map = new Map<string, EditorLayer>();
-        layers.forEach((layer) => {
-            map.set(layer.id, layer);
-        });
-        return map;
-    }, [layers]);
-
-    const { postMessage } = useBridge();
-
-    const updateElements = useCallback(
-        (updater: (elements: EditorElement[]) => EditorElement[]) => {
-            setDesign((current) => {
-                const nextLayers = current.layers.length > 0 ? current.layers : [createLayerDefinition('Layer 1')];
-                const updatedElements = updater(current.elements);
-                return {
-                    ...current,
-                    layers: nextLayers,
-                    elements: orderElementsByLayer(updatedElements, nextLayers),
-                };
-            });
-        },
-        [setDesign],
-    );
-
-    const updateLayers = useCallback(
-        (updater: (layers: EditorLayer[]) => EditorLayer[]) => {
-            setDesign((current) => {
-                const baseLayers = current.layers.length > 0 ? current.layers : [createLayerDefinition('Layer 1')];
-                const nextLayers = updater(baseLayers);
-                return {
-                    ...current,
-                    layers: nextLayers,
-                    elements: orderElementsByLayer(current.elements, nextLayers),
-                };
-            });
-        },
-        [setDesign],
-    );
-
-    const addElement = useCallback(
-        (element: EditorElement) => {
-            let assigned: EditorElement | null = null;
-            let targetLayerId: string | null = null;
-
-            setDesign((current) => {
-                let nextLayers = current.layers;
-                if (nextLayers.length === 0) {
-                    nextLayers = [createLayerDefinition('Layer 1')];
-                }
-
-                if (element.type !== 'guide') {
-                    const activeExists = activeLayerId && nextLayers.some((layer) => layer.id === activeLayerId);
-                    targetLayerId = activeExists ? activeLayerId! : nextLayers[nextLayers.length - 1].id;
-                }
-
-                const layer = targetLayerId ? nextLayers.find((candidate) => candidate.id === targetLayerId) ?? null : null;
-                assigned =
-                    element.type === 'guide'
-                        ? { ...element, layerId: null }
-                        : {
-                            ...element,
-                            layerId: targetLayerId,
-                            visible: layer ? element.visible && layer.visible : element.visible,
-                            locked: layer ? element.locked || layer.locked : element.locked,
-                        };
-
-                const updatedElements = orderElementsByLayer([...current.elements, assigned!], nextLayers);
-                return { ...current, layers: nextLayers, elements: updatedElements };
-            });
-
-            if (assigned) {
-                setSelectedIds([assigned.id]);
-            }
-            if (targetLayerId && targetLayerId !== activeLayerId) {
-                setActiveLayerId(targetLayerId);
-            }
-        },
-        [activeLayerId, setDesign, setSelectedIds],
-    );
-
-    const updateElement = useCallback(
-        (id: string, attributes: Partial<EditorElement>) => {
-            updateElements((current) =>
-                current.map((element) => (element.id === id ? ({ ...element, ...attributes } as EditorElement) : element)),
-            );
-        },
-        [updateElements],
-    );
-
-    const removeSelected = useCallback(() => {
-        if (selectedIds.length === 0) return;
-        updateElements((current) => current.filter((element) => !selectedIds.includes(element.id)));
-        setSelectedIds([]);
-    }, [selectedIds, updateElements]);
-
-    const handleAddDraw = useCallback(() => {
-        setActiveTool('draw');
     }, []);
 
-    const handleAddText = useCallback(() => {
-        addElement(createText(options));
-    }, [addElement, options]);
-
-    const handleAddFrame = useCallback(
-        (frame: FrameElement) => {
-            const clone = cloneElement(frame) as FrameElement;
-            clone.x = frame.x;
-            clone.y = frame.y;
-            addElement(clone);
-        },
-        [addElement],
-    );
-
-    const handleApplyTemplate = useCallback(
-        (template: TemplateDefinition) => {
-            const result = template.apply();
-            resetDesign(cloneDocument(result.design));
-            setSelectedIds([]);
-            if (result.options) {
-                setOptions((current) => ({ ...current, ...result.options }));
-            }
-        },
-        [resetDesign],
-    );
-
-    const handleAddImage = useCallback(
-        (src: string, overrides?: Partial<ImageElement>) => {
-            if (!src) return;
-            const trimmed = src.trim();
-            if (!trimmed) return;
-            addElement(createImage(options, trimmed, overrides));
-        },
-        [addElement, options],
-    );
-
-    const handleRequestImage = useCallback(() => {
-        if (window.ReactNativeWebView) {
-            postMessage('requestImage', { options });
-            return;
-        }
-        fileInputRef.current?.click();
-    }, [options, postMessage]);
-
-    const handleUploadFile = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-            const result = typeof reader.result === 'string' ? reader.result : null;
-            if (result) {
-                handleAddImage(result);
-            }
+    // Save to history
+    const saveToHistory = () => {
+        const state = {
+            lines: [...lines],
+            shapes: [...shapes],
+            texts: [...texts],
+            stickers: [...stickers],
+            layers: [...layers],
         };
-        reader.readAsDataURL(file);
-        event.target.value = '';
-    }, [handleAddImage]);
+        const newHistory = history.slice(0, historyStep + 1);
+        newHistory.push(state);
+        setHistory(newHistory);
+        setHistoryStep(newHistory.length - 1);
+    };
 
-    const handleCopy = useCallback(() => {
-        if (selectedIds.length === 0) return;
-        const selected = elements.filter((element) => selectedIds.includes(element.id)).map((element) => cloneElement(element));
-        setClipboard(selected);
-    }, [elements, selectedIds]);
-
-    const handlePaste = useCallback(() => {
-        if (!clipboard || clipboard.length === 0) return;
-        const clones = clipboard.map((element) => cloneElement(element));
-        updateElements((current) => [...current, ...clones]);
-        setSelectedIds(clones.map((element) => element.id));
-    }, [clipboard, updateElements]);
-
-    const handleDuplicate = useCallback(() => {
-        if (selectedIds.length === 0) return;
-        const clones = elements
-            .filter((element) => selectedIds.includes(element.id))
-            .map((element) => cloneElement(element));
-        updateElements((current) => [...current, ...clones]);
-        setSelectedIds(clones.map((element) => element.id));
-    }, [elements, selectedIds, updateElements]);
-
-    const handleClear = useCallback(() => {
-        updateElements(() => []);
-        setSelectedIds([]);
-    }, [updateElements]);
-
-    const handleAddLayer = useCallback(() => {
-        const name = getNextLayerName(layers);
-        const newLayer = createLayerDefinition(name);
-        updateLayers((current) => [...current, newLayer]);
-        setActiveLayerId(newLayer.id);
-    }, [layers, updateLayers]);
-
-    const handleRemoveLayer = useCallback(
-        (layerId: string) => {
-            if (layers.length <= 1) {
-                return;
-            }
-
-            const removedIds = new Set(
-                elements.filter((element) => element.layerId === layerId).map((element) => element.id),
-            );
-            setDesign((current) => {
-                if (current.layers.length <= 1) {
-                    return current;
-                }
-                const filteredLayers = current.layers.filter((layer) => layer.id !== layerId);
-                const nextLayers = filteredLayers.length > 0 ? filteredLayers : [createLayerDefinition('Layer 1')];
-                const filteredElements = current.elements.filter((element) => element.layerId !== layerId);
-                return {
-                    ...current,
-                    layers: nextLayers,
-                    elements: orderElementsByLayer(filteredElements, nextLayers),
-                };
-            });
-            if (removedIds.size > 0) {
-                setSelectedIds((current) => current.filter((id) => !removedIds.has(id)));
-            }
-            if (activeLayerId === layerId) {
-                const remaining = layers.filter((layer) => layer.id !== layerId);
-                setActiveLayerId(remaining.length > 0 ? remaining[remaining.length - 1].id : null);
-            }
-        },
-        [activeLayerId, elements, layers, setDesign, setSelectedIds],
-    );
-
-    const handleSelectLayer = useCallback((layerId: string) => {
-        setActiveLayerId(layerId);
-    }, []);
-
-    const handleLayerMove = useCallback(
-        (layerId: string, direction: 'up' | 'down' | 'top' | 'bottom') => {
-            setDesign((current) => {
-                const index = current.layers.findIndex((layer) => layer.id === layerId);
-                if (index === -1) {
-                    return current;
-                }
-                const nextLayers = [...current.layers];
-                let nextIndex = index;
-                switch (direction) {
-                    case 'up':
-                        if (index < nextLayers.length - 1) {
-                            [nextLayers[index], nextLayers[index + 1]] = [nextLayers[index + 1], nextLayers[index]];
-                            nextIndex = index + 1;
-                        }
-                        break;
-                    case 'down':
-                        if (index > 0) {
-                            [nextLayers[index], nextLayers[index - 1]] = [nextLayers[index - 1], nextLayers[index]];
-                            nextIndex = index - 1;
-                        }
-                        break;
-                    case 'top':
-                        if (index < nextLayers.length - 1) {
-                            const [layer] = nextLayers.splice(index, 1);
-                            nextLayers.push(layer);
-                            nextIndex = nextLayers.length - 1;
-                        }
-                        break;
-                    case 'bottom':
-                        if (index > 0) {
-                            const [layer] = nextLayers.splice(index, 1);
-                            nextLayers.unshift(layer);
-                            nextIndex = 0;
-                        }
-                        break;
-                    default:
-                        break;
-                }
-                if (nextIndex === index) {
-                    return current;
-                }
-                const ordered = orderElementsByLayer(current.elements, nextLayers);
-                return { ...current, layers: nextLayers, elements: ordered };
-            });
-        },
-        [setDesign],
-    );
-
-    const handleToggleVisibility = useCallback(
-        (layerId: string) => {
-            const layer = layers.find((item) => item.id === layerId);
-            if (!layer) return;
-            const nextVisible = !layer.visible;
-            setDesign((current) => {
-                const index = current.layers.findIndex((item) => item.id === layerId);
-                if (index === -1) {
-                    return current;
-                }
-                const nextLayers = [...current.layers];
-                nextLayers[index] = { ...nextLayers[index], visible: nextVisible };
-                const nextElements = current.elements.map((element) =>
-                    element.layerId === layerId ? { ...element, visible: nextVisible } : element,
-                );
-                return {
-                    ...current,
-                    layers: nextLayers,
-                    elements: orderElementsByLayer(nextElements, nextLayers),
-                };
-            });
-            if (!nextVisible) {
-                const idsToRemove = new Set(
-                    elements.filter((element) => element.layerId === layerId).map((element) => element.id),
-                );
-                if (idsToRemove.size > 0) {
-                    setSelectedIds((current) => current.filter((id) => !idsToRemove.has(id)));
-                }
-            }
-        },
-        [elements, layers, setDesign, setSelectedIds],
-    );
-
-    const handleToggleLock = useCallback(
-        (layerId: string) => {
-            const layer = layers.find((item) => item.id === layerId);
-            if (!layer) return;
-            const nextLocked = !layer.locked;
-            setDesign((current) => {
-                const index = current.layers.findIndex((item) => item.id === layerId);
-                if (index === -1) {
-                    return current;
-                }
-                const nextLayers = [...current.layers];
-                nextLayers[index] = { ...nextLayers[index], locked: nextLocked };
-                const nextElements = current.elements.map((element) =>
-                    element.layerId === layerId ? { ...element, locked: nextLocked } : element,
-                );
-                return {
-                    ...current,
-                    layers: nextLayers,
-                    elements: orderElementsByLayer(nextElements, nextLayers),
-                };
-            });
-            if (nextLocked) {
-                const idsToRemove = new Set(
-                    elements.filter((element) => element.layerId === layerId).map((element) => element.id),
-                );
-                if (idsToRemove.size > 0) {
-                    setSelectedIds((current) => current.filter((id) => !idsToRemove.has(id)));
-                }
-            }
-        },
-        [elements, layers, setDesign, setSelectedIds],
-    );
-
-    const handleSelectElement = useCallback(
-        (id: string) => {
-            const element = elements.find((item) => item.id === id) ?? null;
-            if (element?.layerId) {
-                setActiveLayerId(element.layerId);
-            }
-            setSelectedIds([id]);
-            setActiveTool('select');
-        },
-        [elements, setActiveTool, setActiveLayerId, setSelectedIds],
-    );
-
-    const handleStageMouseEnter = useCallback(() => {
-        stageHoverRef.current = true;
-        if (spacePressedRef.current) {
-            setIsPanMode(true);
+    // Undo/Redo
+    const handleUndo = () => {
+        if (historyStep > 0) {
+            const prevState = history[historyStep - 1];
+            setLines(prevState.lines);
+            setShapes(prevState.shapes);
+            setTexts(prevState.texts);
+            setStickers(prevState.stickers);
+            setLayers(prevState.layers);
+            setHistoryStep(historyStep - 1);
         }
-    }, [setIsPanMode]);
+    };
 
-    const handleStageMouseLeave = useCallback(() => {
-        stageHoverRef.current = false;
-        if (panStateRef.current) {
-            panStateRef.current = null;
-            setIsPanning(false);
+    const handleRedo = () => {
+        if (historyStep < history.length - 1) {
+            const nextState = history[historyStep + 1];
+            setLines(nextState.lines);
+            setShapes(nextState.shapes);
+            setTexts(nextState.texts);
+            setStickers(nextState.stickers);
+            setLayers(nextState.layers);
+            setHistoryStep(historyStep + 1);
         }
-        setIsPanMode(false);
-        restoreStageCursor();
-    }, [restoreStageCursor, setIsPanMode, setIsPanning]);
+    };
 
-    const handleStagePointerDown = useCallback(
-        (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
-            const stage = event.target.getStage();
-            if (!stage) return;
+    // Clear canvas
+    const handleClear = () => {
+        if (window.confirm('Clear everything? This cannot be undone!')) {
+            setLines([]);
+            setShapes([]);
+            setTexts([]);
+            setStickers([]);
+            setSelectedId(null);
+            saveToHistory();
+        }
+    };
 
-            if (isPanMode) {
-                event.evt.preventDefault();
-                stopInertia();
-                const pointerPosition = stage.getPointerPosition();
-                if (!pointerPosition) return;
-                const startPosition = stagePositionRef.current;
-                panStateRef.current = {
-                    startPointer: { x: pointerPosition.x, y: pointerPosition.y },
-                    startPosition: { x: startPosition.x, y: startPosition.y },
-                };
-                panVelocityRef.current = { vx: 0, vy: 0 };
-                lastPanTimestampRef.current = performance.now();
-                setIsPanning(true);
-                return;
+    // Download
+    const handleDownload = () => {
+        if (stageRef.current) {
+            const transformer = transformerRef.current;
+            if (transformer) {
+                transformer.nodes([]);
             }
 
-            const pointer = getStagePointer(stage);
-            if (!pointer) return;
+            const uri = stageRef.current.toDataURL({
+                pixelRatio: 2,
+            });
 
-            if (activeTool === 'draw') {
-                const element: PencilElement = {
-                    ...createBaseElement('pencil', {
-                        name: 'Free draw',
-                        x: pointer.x,
-                        y: pointer.y,
-                        rotation: 0,
-                        opacity: 1,
-                        metadata: null,
-                    }),
-                    type: 'pencil',
-                    points: [0, 0],
-                    stroke: drawSettings.color,
-                    strokeWidth: drawSettings.width,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                };
-                drawingStateRef.current = {
-                    id: element.id,
-                    origin: { x: pointer.x, y: pointer.y },
-                };
-                addElement(element);
-                setToolSettingsOpen(false);
-                return;
+            const link = document.createElement('a');
+            link.download = `my-drawing-${Date.now()}.png`;
+            link.href = uri;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    };
+
+    // Zoom controls
+    const handleZoomIn = () => setScale(Math.min(scale * 1.2, 5));
+    const handleZoomOut = () => setScale(Math.max(scale / 1.2, 0.1));
+    const handleZoomReset = () => setScale(1);
+
+    // Canvas settings
+    const applyCanvasSize = (width: number, height: number) => {
+        setCanvasWidth(width);
+        setCanvasHeight(height);
+        setShowCanvasSettings(false);
+
+        // Recenter canvas after resize
+        if (workspaceRef.current) {
+            const workspace = workspaceRef.current;
+            const workspaceWidth = workspace.clientWidth;
+            const workspaceHeight = workspace.clientHeight;
+
+            const padding = 100;
+            const scaleX = (workspaceWidth - padding) / width;
+            const scaleY = (workspaceHeight - padding) / height;
+            const fitScale = Math.min(scaleX, scaleY, 1);
+
+            const x = (workspaceWidth - width * fitScale) / 2;
+            const y = (workspaceHeight - height * fitScale) / 2;
+
+            setScale(fitScale);
+            setStagePosition({ x, y });
+        }
+    };
+
+    // Mouse/touch handlers with panning support
+    const handleMouseDown = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+        const stage = e.target.getStage();
+        if (!stage) return;
+
+        const clickedOnEmpty = e.target === stage;
+
+        // Handle panning mode (spacebar on web, two fingers on mobile)
+        const isTouchEvent = 'touches' in e.evt;
+        const touchCount = isTouchEvent ? (e.evt as TouchEvent).touches.length : 0;
+
+        if (spaceKeyRef.current || touchCount === 2) {
+            setIsPanning(true);
+            const pos = stage.getPointerPosition();
+            if (pos) {
+                setPanStart({ x: pos.x - stagePosition.x, y: pos.y - stagePosition.y });
             }
 
-            selectionOriginRef.current = null;
-            updateSelectionRect(null);
-
-            if (event.target === stage) {
-                setSelectedIds([]);
-                if (activeTool === 'select') {
-                    selectionOriginRef.current = pointer;
-                    updateSelectionRect({ x: pointer.x, y: pointer.y, width: 0, height: 0 });
-                } else {
-                    setActiveTool('select');
-                }
-            }
-        },
-        [activeTool, addElement, drawSettings, isPanMode, setActiveTool, setSelectedIds, stopInertia, updateSelectionRect, setToolSettingsOpen],
-    );
-
-    const handleStagePointerMove = useCallback(
-        (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
-            const stage = event.target.getStage();
-            if (!stage) return;
-
-            if (panStateRef.current) {
-                const pointerPosition = stage.getPointerPosition();
-                if (!pointerPosition) return;
-                const { startPointer, startPosition } = panStateRef.current;
-                const deltaX = pointerPosition.x - startPointer.x;
-                const deltaY = pointerPosition.y - startPointer.y;
-                const targetPosition = {
-                    x: startPosition.x + deltaX,
-                    y: startPosition.y + deltaY,
-                };
-                const clamped = clampStagePosition(
-                    targetPosition,
-                    zoomRef.current,
-                    { width: stageWidth, height: stageHeight },
-                    workspaceSizeRef.current,
+            // Two-finger pinch/pan for mobile
+            if (touchCount === 2) {
+                const touch1 = (e.evt as TouchEvent).touches[0];
+                const touch2 = (e.evt as TouchEvent).touches[1];
+                const dist = Math.sqrt(
+                    Math.pow(touch2.clientX - touch1.clientX, 2) +
+                    Math.pow(touch2.clientY - touch1.clientY, 2)
                 );
-                const previous = stagePositionRef.current;
-                const now = performance.now();
-                const last = lastPanTimestampRef.current;
-                if (last !== null && now > last) {
-                    const dt = now - last;
-                    panVelocityRef.current = {
-                        vx: (clamped.x - previous.x) / dt,
-                        vy: (clamped.y - previous.y) / dt,
-                    };
-                }
-                lastPanTimestampRef.current = now;
-                setStagePosition(clamped);
-                return;
-            }
-
-            if (selectionOriginRef.current && activeTool === 'select') {
-                const pointer = getStagePointer(stage);
-                if (!pointer) return;
-                updateSelectionRect(normalizeSelectionRect(selectionOriginRef.current, pointer));
-                return;
-            }
-
-            const drawingState = drawingStateRef.current;
-            if (!drawingState) return;
-            const pointer = getStagePointer(stage);
-            if (!pointer) return;
-
-            updateElements((current) =>
-                current.map((element) => {
-                    if (element.id !== drawingState.id) {
-                        return element;
-                    }
-                    const dx = pointer.x - drawingState.origin.x;
-                    const dy = pointer.y - drawingState.origin.y;
-                    const pencil = element as PencilElement;
-                    return { ...pencil, points: [...pencil.points, dx, dy] };
-                }),
-            );
-        },
-        [activeTool, setStagePosition, stageHeight, stageWidth, updateElements, updateSelectionRect],
-    );
-
-    const handleStagePointerUp = useCallback(
-        (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
-            if (panStateRef.current) {
-                panStateRef.current = null;
-                setIsPanning(false);
-                const velocity = panVelocityRef.current;
-                panVelocityRef.current = { vx: 0, vy: 0 };
-                lastPanTimestampRef.current = null;
-                startPanInertia(velocity);
-                return;
-            }
-
-            const stage = event.target.getStage();
-
-            if (selectionOriginRef.current && activeTool === 'select' && stage) {
-                const pointer = getStagePointer(stage);
-                if (pointer) {
-                    const rect = normalizeSelectionRect(selectionOriginRef.current, pointer);
-                    if (rect.width >= MIN_SELECTION_SIZE && rect.height >= MIN_SELECTION_SIZE) {
-                        const selected = contentElements.filter((element) => {
-                            if (!element.visible || element.locked) {
-                                return false;
-                            }
-                            if (activeLayerId && element.layerId !== activeLayerId) {
-                                return false;
-                            }
-                            if (element.layerId) {
-                                const layer = layerMap.get(element.layerId);
-                                if (layer?.locked) {
-                                    return false;
-                                }
-                            }
-                            return isElementInsideSelection(element, rect);
-                        });
-                        setSelectedIds(selected.map((element) => element.id));
-                    }
-                }
-            }
-
-            selectionOriginRef.current = null;
-            updateSelectionRect(null);
-
-            if (!drawingStateRef.current) return;
-            drawingStateRef.current = null;
-        },
-        [activeLayerId, activeTool, contentElements, layerMap, setIsPanning, setSelectedIds, startPanInertia, updateSelectionRect],
-    );
-
-    const handleSave = useCallback(() => {
-        postMessage('save', { json: stringifyDesign(design) });
-        try {
-            window.localStorage.setItem(STORAGE_KEY, stringifyDesign(design));
-        } catch (error) {
-            console.warn('Unable to save design locally', error);
-        }
-    }, [design, postMessage]);
-
-    const handleExport = useCallback(
-        (format: 'png' | 'jpeg' | 'json' | 'svg') => {
-            if (format === 'json') {
-                postMessage('export', { format: 'json', json: stringifyDesign(design) });
-                return;
-            }
-            const stage = stageRef.current;
-            if (!stage) return;
-            if (format === 'svg') {
-                const svg = stage.toSVG();
-                postMessage('export', { format: 'svg', svg });
-                return;
-            }
-            const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
-            const dataUrl = stage.toDataURL({ mimeType, quality: format === 'jpeg' ? 0.92 : undefined });
-            postMessage('export', { format, dataUrl });
-        },
-        [design, postMessage],
-    );
-
-    const handleLoadFromBrowser = useCallback(() => {
-        try {
-            const stored = window.localStorage.getItem(STORAGE_KEY);
-            if (!stored) return;
-            const parsed = parseDesign(stored);
-            if (parsed) {
-                resetDesign(parsed);
-                setSelectedIds([]);
-            }
-        } catch (error) {
-            console.warn('Unable to load design from local storage', error);
-        }
-    }, [resetDesign]);
-
-    const handleCanvasWidthChange = useCallback(
-        (value: number) => {
-            if (!Number.isFinite(value)) {
-                return;
-            }
-            setOptions((current) => {
-                const nextWidth = Math.max(100, value);
-                if (nextWidth === current.width) {
-                    return current;
-                }
-                return { ...current, width: nextWidth };
-            });
-        },
-        [setOptions],
-    );
-
-    const handleCanvasHeightChange = useCallback(
-        (value: number) => {
-            if (!Number.isFinite(value)) {
-                return;
-            }
-            setOptions((current) => {
-                const nextHeight = Math.max(100, value);
-                if (nextHeight === current.height) {
-                    return current;
-                }
-                return { ...current, height: nextHeight };
-            });
-        },
-        [setOptions],
-    );
-
-    const handleCanvasBackgroundChange = useCallback(
-        (value: string) => {
-            setOptions((current) =>
-                current.backgroundColor === value ? current : { ...current, backgroundColor: value },
-            );
-        },
-        [setOptions],
-    );
-
-    const applyZoom = useCallback(
-        (value: number | ((current: number) => number), anchor: { clientX: number; clientY: number } | null = null) => {
-            stopInertia();
-            const stage = stageRef.current;
-            const container = typeof stage?.container === 'function' ? stage.container() : null;
-            const containerBounds = container?.getBoundingClientRect() ?? null;
-
-            const currentZoom = zoomRef.current;
-            const resolved = typeof value === 'function' ? value(currentZoom) : value;
-            const clamped = clampZoom(resolved, zoomBoundsRef.current.min, zoomBoundsRef.current.max);
-
-            if (clamped === currentZoom) {
-                return;
-            }
-
-            zoomRef.current = clamped;
-            setOptions((current) => (current.zoom === clamped ? current : { ...current, zoom: clamped }));
-
-            if (stage) {
-                stage.scale({ x: clamped, y: clamped });
-            }
-
-            const currentPosition = stagePositionRef.current;
-            let nextPosition = currentPosition;
-
-            if (anchor && containerBounds && currentZoom > 0) {
-                const offsetX = anchor.clientX - containerBounds.left;
-                const offsetY = anchor.clientY - containerBounds.top;
-                const anchorStageX = (offsetX - currentPosition.x) / currentZoom;
-                const anchorStageY = (offsetY - currentPosition.y) / currentZoom;
-                nextPosition = {
-                    x: offsetX - anchorStageX * clamped,
-                    y: offsetY - anchorStageY * clamped,
+                lastDistRef.current = dist;
+                lastCenterRef.current = {
+                    x: (touch1.clientX + touch2.clientX) / 2,
+                    y: (touch1.clientY + touch2.clientY) / 2,
                 };
             }
+            return;
+        }
 
-            nextPosition = clampStagePosition(
-                nextPosition,
-                clamped,
-                { width: stageWidth, height: stageHeight },
-                workspaceSizeRef.current,
-            );
-
-            if (stage) {
-                stage.position(nextPosition);
-                stage.batchDraw();
-            }
-
-            if (nextPosition.x !== currentPosition.x || nextPosition.y !== currentPosition.y) {
-                setStagePosition(nextPosition);
-            }
-        },
-        [setOptions, setStagePosition, stageHeight, stageWidth, stopInertia],
-    );
-
-    const handleZoomOut = useCallback(() => {
-        applyZoom((current) => current / KEYBOARD_ZOOM_FACTOR);
-    }, [applyZoom]);
-
-    const handleZoomIn = useCallback(() => {
-        applyZoom((current) => current * KEYBOARD_ZOOM_FACTOR);
-    }, [applyZoom]);
-
-    const handleSliderChange = useCallback(
-        (values: number[]) => {
-            const [next] = values;
-            if (typeof next !== 'number' || Number.isNaN(next)) {
+        // Handle selection mode
+        if (tool === 'select') {
+            if (clickedOnEmpty) {
+                setSelectedId(null);
                 return;
             }
-            applyZoom(percentToScale(next, fitScaleRef.current));
-        },
-        [applyZoom],
-    );
+            const id = e.target.id();
+            if (id) {
+                setSelectedId(id);
+            }
+            return;
+        }
 
+        // Handle drawing modes
+        const pos = stage.getPointerPosition();
+        if (!pos) return;
+
+        isDrawingRef.current = true;
+        setIsDrawing(true);
+        setSelectedId(null);
+
+        if (tool === 'pencil' || tool === 'eraser') {
+            const newLine: DrawingLine = {
+                id: `line-${Date.now()}`,
+                tool: tool,
+                points: [pos.x, pos.y],
+                color: tool === 'eraser' ? canvasColor : color,
+                size: tool === 'eraser' ? brushSize * 3 : brushSize,
+                layerId: selectedLayerId,
+            };
+            setLines((prevLines) => [...prevLines, newLine]);
+        } else if (tool === 'circle') {
+            const newShape: Shape = {
+                id: `circle-${Date.now()}`,
+                type: 'circle',
+                x: pos.x,
+                y: pos.y,
+                radius: brushSize * 3,
+                color: color,
+                rotation: 0,
+                layerId: selectedLayerId,
+            };
+            setShapes((prevShapes) => [...prevShapes, newShape]);
+            setIsDrawing(false);
+            isDrawingRef.current = false;
+            setTimeout(saveToHistory, 0);
+        } else if (tool === 'rect') {
+            const newShape: Shape = {
+                id: `rect-${Date.now()}`,
+                type: 'rect',
+                x: pos.x,
+                y: pos.y,
+                width: brushSize * 6,
+                height: brushSize * 4,
+                color: color,
+                rotation: 0,
+                layerId: selectedLayerId,
+            };
+            setShapes((prevShapes) => [...prevShapes, newShape]);
+            setIsDrawing(false);
+            isDrawingRef.current = false;
+            setTimeout(saveToHistory, 0);
+        } else if (tool === 'triangle') {
+            const newShape: Shape = {
+                id: `triangle-${Date.now()}`,
+                type: 'triangle',
+                x: pos.x,
+                y: pos.y,
+                radius: brushSize * 3,
+                color: color,
+                rotation: 0,
+                layerId: selectedLayerId,
+            };
+            setShapes((prevShapes) => [...prevShapes, newShape]);
+            setIsDrawing(false);
+            isDrawingRef.current = false;
+            setTimeout(saveToHistory, 0);
+        } else if (tool === 'star') {
+            const newShape: Shape = {
+                id: `star-${Date.now()}`,
+                type: 'star',
+                x: pos.x,
+                y: pos.y,
+                radius: brushSize * 3,
+                color: color,
+                rotation: 0,
+                layerId: selectedLayerId,
+            };
+            setShapes((prevShapes) => [...prevShapes, newShape]);
+            setIsDrawing(false);
+            isDrawingRef.current = false;
+            setTimeout(saveToHistory, 0);
+        } else if (tool === 'text') {
+            const text = window.prompt('What do you want to write?', 'Hello!');
+            if (text) {
+                const newText: TextItem = {
+                    id: `text-${Date.now()}`,
+                    text: text,
+                    x: pos.x,
+                    y: pos.y,
+                    color: color,
+                    fontSize: brushSize * 3,
+                    rotation: 0,
+                    layerId: selectedLayerId,
+                };
+                setTexts((prevTexts) => [...prevTexts, newText]);
+                setTimeout(saveToHistory, 0);
+            }
+            setIsDrawing(false);
+            isDrawingRef.current = false;
+        }
+    };
+
+    const handleMouseMove = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+        const stage = e.target.getStage();
+        if (!stage) return;
+
+        // Handle panning
+        if (isPanning) {
+            const pos = stage.getPointerPosition();
+            if (!pos) return;
+
+            // Check for two-finger pinch/zoom on mobile
+            const isTouchEvent = 'touches' in e.evt;
+            const touchCount = isTouchEvent ? (e.evt as TouchEvent).touches.length : 0;
+
+            if (touchCount === 2) {
+                const touch1 = (e.evt as TouchEvent).touches[0];
+                const touch2 = (e.evt as TouchEvent).touches[1];
+                const dist = Math.sqrt(
+                    Math.pow(touch2.clientX - touch1.clientX, 2) +
+                    Math.pow(touch2.clientY - touch1.clientY, 2)
+                );
+
+                if (lastDistRef.current > 0) {
+                    const scaleBy = dist / lastDistRef.current;
+                    const newScale = Math.max(0.1, Math.min(5, scale * scaleBy));
+                    setScale(newScale);
+                }
+                lastDistRef.current = dist;
+
+                const center = {
+                    x: (touch1.clientX + touch2.clientX) / 2,
+                    y: (touch1.clientY + touch2.clientY) / 2,
+                };
+                if (lastCenterRef.current) {
+                    const dx = center.x - lastCenterRef.current.x;
+                    const dy = center.y - lastCenterRef.current.y;
+                    setStagePosition({
+                        x: stagePosition.x + dx,
+                        y: stagePosition.y + dy,
+                    });
+                }
+                lastCenterRef.current = center;
+            } else {
+                // Single-point panning (spacebar + mouse)
+                setStagePosition({
+                    x: pos.x - panStart.x,
+                    y: pos.y - panStart.y,
+                });
+            }
+            return;
+        }
+
+        // Handle drawing
+        if (!isDrawingRef.current) return;
+        if (tool !== 'pencil' && tool !== 'eraser') return;
+
+        const pos = stage.getPointerPosition();
+        if (!pos) return;
+
+        setLines((prevLines) => {
+            const lastLine = prevLines[prevLines.length - 1];
+            if (!lastLine) return prevLines;
+
+            const updatedLine = {
+                ...lastLine,
+                points: [...lastLine.points, pos.x, pos.y],
+            };
+
+            return [...prevLines.slice(0, -1), updatedLine];
+        });
+    };
+
+    const handleMouseUp = () => {
+        if (isDrawingRef.current && (tool === 'pencil' || tool === 'eraser')) {
+            setTimeout(saveToHistory, 0);
+        }
+        setIsDrawing(false);
+        isDrawingRef.current = false;
+        setIsPanning(false);
+        lastDistRef.current = 0;
+        lastCenterRef.current = null;
+    };
+
+    // Add sticker
+    const handleAddSticker = (emoji: string) => {
+        const newSticker: StickerItem = {
+            id: `sticker-${Date.now()}`,
+            emoji: emoji,
+            x: canvasWidth / 2,
+            y: canvasHeight / 2,
+            size: brushSize * 5,
+            rotation: 0,
+            layerId: selectedLayerId,
+        };
+        setStickers([...stickers, newSticker]);
+        setTimeout(saveToHistory, 0);
+    };
+
+    // Layer management
+    const addLayer = () => {
+        const newLayer: LayerType = {
+            id: `layer-${Date.now()}`,
+            name: `Layer ${layers.length + 1}`,
+            visible: true,
+            locked: false,
+        };
+        setLayers([...layers, newLayer]);
+        setSelectedLayerId(newLayer.id);
+    };
+
+    const deleteLayer = (layerId: string) => {
+        if (layers.length === 1) {
+            alert('Cannot delete the last layer!');
+            return;
+        }
+        setLayers(layers.filter(l => l.id !== layerId));
+        setLines(lines.filter(l => l.layerId !== layerId));
+        setShapes(shapes.filter(s => s.layerId !== layerId));
+        setTexts(texts.filter(t => t.layerId !== layerId));
+        setStickers(stickers.filter(s => s.layerId !== layerId));
+        if (selectedLayerId === layerId) {
+            setSelectedLayerId(layers[0].id);
+        }
+    };
+
+    const toggleLayerVisibility = (layerId: string) => {
+        setLayers(layers.map(l =>
+            l.id === layerId ? { ...l, visible: !l.visible } : l
+        ));
+    };
+
+    const toggleLayerLock = (layerId: string) => {
+        setLayers(layers.map(l =>
+            l.id === layerId ? { ...l, locked: !l.locked } : l
+        ));
+    };
+
+    // Select entire layer (all elements in the layer)
+    const selectLayer = (layerId: string) => {
+        setSelectedLayerId(layerId);
+        setTool('select');
+
+        // Get all element IDs in this layer
+        const layerElements = [
+            ...shapes.filter(s => s.layerId === layerId).map(s => s.id),
+            ...texts.filter(t => t.layerId === layerId).map(t => t.id),
+            ...stickers.filter(s => s.layerId === layerId).map(s => s.id),
+        ];
+
+        // Select all elements in the layer for group transform
+        if (layerElements.length > 0 && transformerRef.current && stageRef.current) {
+            const nodes = layerElements.map(id => stageRef.current.findOne(`#${id}`)).filter(Boolean);
+            transformerRef.current.nodes(nodes);
+            transformerRef.current.getLayer()?.batchDraw();
+        }
+    };
+
+    // Delete selected element
+    const deleteSelected = () => {
+        if (selectedId) {
+            setLines(lines.filter(l => l.id !== selectedId));
+            setShapes(shapes.filter(s => s.id !== selectedId));
+            setTexts(texts.filter(t => t.id !== selectedId));
+            setStickers(stickers.filter(s => s.id !== selectedId));
+            setSelectedId(null);
+            setTimeout(saveToHistory, 0);
+        }
+    };
+
+    // Keyboard shortcuts
     useEffect(() => {
-        postMessage('ready', { options });
-        const stored = window.localStorage.getItem(STORAGE_KEY);
-        if (!initialDesign && stored) {
-            const parsed = parseDesign(stored);
-            if (parsed) {
-                resetDesign(parsed);
-            }
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    useEffect(() => {
-        const handle = window.setTimeout(() => {
-            postMessage('change', { json: stringifyDesign(design) });
-        }, 250);
-        return () => window.clearTimeout(handle);
-    }, [design, postMessage]);
-
-    useEffect(() => {
-        postMessage('options', { options });
-    }, [options, postMessage]);
-
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.target && (event.target as HTMLElement).tagName === 'INPUT') return;
-            if (event.target && (event.target as HTMLElement).tagName === 'TEXTAREA') return;
-
-            if ((event.ctrlKey || event.metaKey) && (event.key === '=' || event.key === '+' || event.key === 'Add')) {
-                event.preventDefault();
-                handleZoomIn();
-                return;
-            }
-
-            if ((event.ctrlKey || event.metaKey) && (event.key === '-' || event.key === '_' || event.key === 'Subtract')) {
-                event.preventDefault();
-                handleZoomOut();
-                return;
-            }
-
-            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
-                event.preventDefault();
-                if (event.shiftKey) {
-                    redo();
-                } else {
-                    undo();
-                }
-                return;
-            }
-
-            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') {
-                event.preventDefault();
-                redo();
-                return;
-            }
-
-            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c') {
-                event.preventDefault();
-                handleCopy();
-                return;
-            }
-
-            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v') {
-                event.preventDefault();
-                handlePaste();
-                return;
-            }
-
-            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd') {
-                event.preventDefault();
-                handleDuplicate();
-                return;
-            }
-
-            if (event.key === 'Delete' || event.key === 'Backspace') {
-                if (selectedIds.length > 0) {
-                    event.preventDefault();
-                    removeSelected();
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (selectedId && e.target === document.body) {
+                    e.preventDefault();
+                    deleteSelected();
                 }
             }
-
-            if (event.key === 'Escape') {
-                setSelectedIds([]);
-                setActiveTool('select');
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'z') {
+                    e.preventDefault();
+                    handleUndo();
+                } else if (e.key === 'y') {
+                    e.preventDefault();
+                    handleRedo();
+                }
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [handleCopy, handleDuplicate, handlePaste, handleZoomIn, handleZoomOut, redo, removeSelected, selectedIds.length, undo]);
+    }, [selectedId, historyStep, history]);
 
-    useEffect(() => {
-        const stage = stageRef.current;
-        if (!stage || typeof stage.container !== 'function') {
-            return;
-        }
-        const container = stage.container();
-        if (!container) {
-            return;
-        }
-
-        const handleWheel = (event: WheelEvent) => {
-            event.preventDefault();
-            const deltaY = event.deltaY;
-            if (deltaY === 0) {
-                return;
-            }
-            const zoomFactor = Math.exp(-deltaY * WHEEL_ZOOM_SENSITIVITY);
-            const target = clampZoom(
-                zoomRef.current * zoomFactor,
-                zoomBoundsRef.current.min,
-                zoomBoundsRef.current.max,
-            );
-            applyZoom(target, { clientX: event.clientX, clientY: event.clientY });
-        };
-
-        let pinchState: { distance: number; zoom: number } | null = null;
-        let lastTapTime = 0;
-
-        const getTouchDistance = (touchA: Touch, touchB: Touch) => {
-            const dx = touchA.clientX - touchB.clientX;
-            const dy = touchA.clientY - touchB.clientY;
-            return Math.hypot(dx, dy);
-        };
-
-        const getTouchCenter = (touchA: Touch, touchB: Touch) => ({
-            clientX: (touchA.clientX + touchB.clientX) / 2,
-            clientY: (touchA.clientY + touchB.clientY) / 2,
-        });
-
-        const handleTouchStart = (event: TouchEvent) => {
-            if (event.touches.length === 2) {
-                event.preventDefault();
-                const [touchA, touchB] = [event.touches[0], event.touches[1]];
-                pinchState = {
-                    distance: getTouchDistance(touchA, touchB),
-                    zoom: zoomRef.current,
-                };
-            }
-        };
-
-        const handleTouchMove = (event: TouchEvent) => {
-            if (event.touches.length === 2 && pinchState) {
-                event.preventDefault();
-                const [touchA, touchB] = [event.touches[0], event.touches[1]];
-                const distance = getTouchDistance(touchA, touchB);
-                if (pinchState.distance === 0) {
-                    return;
-                }
-                const ratio = distance / pinchState.distance;
-                const target = clampZoom(
-                    pinchState.zoom * ratio,
-                    zoomBoundsRef.current.min,
-                    zoomBoundsRef.current.max,
-                );
-                const center = getTouchCenter(touchA, touchB);
-                applyZoom(target, center);
-            }
-        };
-
-        const handleTouchEnd = (event: TouchEvent) => {
-            if (event.touches.length < 2) {
-                pinchState = null;
-            }
-
-            if (event.touches.length > 0) {
-                return;
-            }
-
-            if (event.changedTouches.length === 1) {
-                const now = performance.now();
-                const touch = event.changedTouches[0];
-                if (now - lastTapTime < 300) {
-                    event.preventDefault();
-                    const minZoom = zoomBoundsRef.current.min;
-                    const maxZoom = zoomBoundsRef.current.max;
-                    const target =
-                        zoomRef.current < DOUBLE_TAP_ZOOM
-                            ? Math.min(DOUBLE_TAP_ZOOM, maxZoom)
-                            : minZoom;
-                    applyZoom(target, { clientX: touch.clientX, clientY: touch.clientY });
-                }
-                lastTapTime = now;
-            }
-        };
-
-        const handleTouchCancel = () => {
-            pinchState = null;
-        };
-
-        const handleDoubleClick = (event: MouseEvent) => {
-            event.preventDefault();
-            const minZoom = zoomBoundsRef.current.min;
-            const maxZoom = zoomBoundsRef.current.max;
-            const target =
-                zoomRef.current < DOUBLE_TAP_ZOOM ? Math.min(DOUBLE_TAP_ZOOM, maxZoom) : minZoom;
-            applyZoom(target, { clientX: event.clientX, clientY: event.clientY });
-        };
-
-        container.addEventListener('wheel', handleWheel, { passive: false });
-        container.addEventListener('touchstart', handleTouchStart, { passive: false });
-        container.addEventListener('touchmove', handleTouchMove, { passive: false });
-        container.addEventListener('touchend', handleTouchEnd);
-        container.addEventListener('touchcancel', handleTouchCancel);
-        container.addEventListener('dblclick', handleDoubleClick);
-
-        return () => {
-            container.removeEventListener('wheel', handleWheel);
-            container.removeEventListener('touchstart', handleTouchStart);
-            container.removeEventListener('touchmove', handleTouchMove);
-            container.removeEventListener('touchend', handleTouchEnd);
-            container.removeEventListener('touchcancel', handleTouchCancel);
-            container.removeEventListener('dblclick', handleDoubleClick);
-        };
-    }, [applyZoom]);
-
-    useEffect(() => {
-        const listener = (event: MessageEvent) => {
-            const message = parseBridgeMessage(event.data);
-            if (!message) return;
-
-            switch (message.type) {
-                case 'setDesign':
-                case 'loadDesign': {
-                    const designValue = message.payload?.json ?? message.payload ?? null;
-                    const parsed = parseDesign(designValue);
-                    if (parsed) {
-                        resetDesign(parsed);
-                        setSelectedIds([]);
-                    }
-                    break;
-                }
-                case 'setOptions': {
-                    const incoming = message.payload?.options ?? message.payload ?? {};
-                    setOptions((current) => ({ ...current, ...incoming }));
-                    break;
-                }
-                case 'addImage': {
-                    const payload = message.payload ?? {};
-                    const source =
-                        typeof payload === 'string'
-                            ? payload
-                            : typeof payload?.src === 'string'
-                                ? payload.src
-                                : typeof payload?.url === 'string'
-                                    ? payload.url
-                                    : null;
-                    if (source) {
-                        const overrides: Partial<ImageElement> =
-                            typeof payload === 'object' && payload !== null
-                                ? {
-                                    width: typeof payload.width === 'number' ? payload.width : undefined,
-                                    height: typeof payload.height === 'number' ? payload.height : undefined,
-                                    x: typeof payload.x === 'number' ? payload.x : undefined,
-                                    y: typeof payload.y === 'number' ? payload.y : undefined,
-                                    rotation: typeof payload.rotation === 'number' ? payload.rotation : undefined,
-                                    opacity: typeof payload.opacity === 'number' ? payload.opacity : undefined,
-                                    name: typeof payload.name === 'string' ? payload.name : undefined,
-                                    draggable: typeof payload.draggable === 'boolean' ? payload.draggable : undefined,
-                                }
-                                : {};
-                        handleAddImage(source, overrides);
-                    }
-                    break;
-                }
-                case 'undo':
-                    undo();
-                    break;
-                case 'redo':
-                    redo();
-                    break;
-                case 'clear':
-                    handleClear();
-                    break;
-                case 'requestExport': {
-                    const format = (message.payload?.format as 'png' | 'jpeg' | 'json' | 'svg') ?? 'png';
-                    handleExport(format);
-                    break;
-                }
-                case 'requestJSON':
-                case 'requestCanvasJSON': {
-                    postMessage('change', { json: stringifyDesign(design) });
-                    break;
-                }
-                default:
-                    break;
-            }
-        };
-
-        window.addEventListener('message', listener);
-        const globalDocument = typeof document !== 'undefined' ? document : null;
-        if (globalDocument && typeof globalDocument.addEventListener === 'function') {
-            globalDocument.addEventListener('message', listener as any);
-        }
-        return () => {
-            window.removeEventListener('message', listener);
-            if (globalDocument && typeof globalDocument.removeEventListener === 'function') {
-                globalDocument.removeEventListener('message', listener as any);
-            }
-        };
-    }, [design, handleAddImage, handleClear, handleExport, postMessage, redo, resetDesign, undo]);
-
-    const rulerStep = Math.max(1, 32 * options.zoom);
-    const gridBackground = useMemo(() => {
-        if (!options.showGrid) {
-            return {
-                backgroundColor: options.backgroundColor,
-            } as const;
-        }
-        const baseGrid = Math.max(1, options.gridSize);
+    // Get visible elements
+    const getVisibleElements = () => {
+        const visibleLayerIds = layers.filter(l => l.visible).map(l => l.id);
         return {
-            backgroundColor: options.backgroundColor,
-            backgroundImage:
-                'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)',
-            backgroundSize: `${baseGrid}px ${baseGrid}px`,
-        } as const;
-    }, [options.backgroundColor, options.gridSize, options.showGrid]);
-    const stageCursor = isPanning ? 'grabbing' : isPanMode ? 'grab' : undefined;
-    const rulerPadding = options.showRulers ? 24 : 0;
-    const stageWrapperStyle = useMemo((): CSSProperties => {
-        const viewportWidth = workspaceSize.width > 0 ? workspaceSize.width : stageWidth;
-        const viewportHeight = workspaceSize.height > 0 ? workspaceSize.height : stageHeight;
-        const width = options.showRulers ? viewportWidth + rulerPadding : viewportWidth;
-        const height = options.showRulers ? viewportHeight + rulerPadding : viewportHeight;
-        return {
-            width,
-            height,
-        } as CSSProperties;
-    }, [options.showRulers, rulerPadding, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
-    const stageCanvasStyle = useMemo(() => {
-        const viewportWidth = workspaceSize.width > 0 ? workspaceSize.width : stageWidth;
-        const viewportHeight = workspaceSize.height > 0 ? workspaceSize.height : stageHeight;
-        const baseStyle: CSSProperties = {
-            width: viewportWidth,
-            height: viewportHeight,
-            backgroundColor: WORKSPACE_COLOR,
-            overflow: 'hidden',
+            lines: lines.filter(l => visibleLayerIds.includes(l.layerId)),
+            shapes: shapes.filter(s => visibleLayerIds.includes(s.layerId)),
+            texts: texts.filter(t => visibleLayerIds.includes(t.layerId)),
+            stickers: stickers.filter(s => visibleLayerIds.includes(s.layerId)),
         };
-        if (stageCursor) {
-            baseStyle.cursor = stageCursor;
-        }
-        return baseStyle;
-    }, [stageCursor, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
-    const stageBackgroundStyle = useMemo(() => {
-        return {
-            position: 'absolute' as const,
-            top: 0,
-            left: 0,
-            width: stageWidth,
-            height: stageHeight,
-            transformOrigin: 'top left',
-            transform: `translate(${stagePosition.x}px, ${stagePosition.y}px) scale(${options.zoom})`,
-            pointerEvents: 'none' as const,
-            borderRadius: 8,
-            ...gridBackground,
-        };
-    }, [gridBackground, options.zoom, stageHeight, stagePosition.x, stagePosition.y, stageWidth]);
+    };
 
-    const displayWidth = Math.round(options.width)
-    const displayHeight = Math.round(options.height)
-    const hasSelection = selectedIds.length > 0
-    const hasClipboard = Boolean(clipboard && clipboard.length > 0)
+    const visibleElements = getVisibleElements();
 
     return (
-        <YStack>
-            <Theme name="emerald">
-                <SidebarContainer left={0}>
-                    {leftOpen ? (
-                        <SidebarPanel width={sidebarWidth} padding="0">
-                            <SidebarScroll>
-                                <SidebarContent>
-                                    <YStack className="editor-header">
-                                        <HistoryActions
-                                            isCompact
-                                            canUndo={canUndo}
-                                            canRedo={canRedo}
-                                            hasSelection={hasSelection}
-                                            hasClipboard={hasClipboard}
-                                            onUndo={undo}
-                                            onRedo={redo}
-                                            onCopy={handleCopy}
-                                            onPaste={handlePaste}
-                                            onDuplicate={handleDuplicate}
-                                            onRemoveSelected={removeSelected}
-                                            onClear={handleClear}
-                                            iconSize={TOOLBAR_ICON_SIZE}
+        <div className="editor-shell">
+            {/* Header */}
+            <div className="editor-header">
+                <h1>🎨 My Art Studio</h1>
+                <div className="toolbar-group">
+                    <button onClick={handleUndo} disabled={historyStep <= 0} title="Undo (Ctrl+Z)">
+                        ↶ Undo
+                    </button>
+                    <button onClick={handleRedo} disabled={historyStep >= history.length - 1} title="Redo (Ctrl+Y)">
+                        ↷ Redo
+                    </button>
+                    <button onClick={handleClear} title="Clear All" style={{ background: 'var(--danger-color)' }}>
+                        🗑️ Clear
+                    </button>
+                    <button onClick={handleDownload} title="Save Drawing" style={{ background: 'var(--success-color)' }}>
+                        💾 Save
+                    </button>
+                </div>
+                <div className="toolbar-group">
+                    <button onClick={() => setShowCanvasSettings(!showCanvasSettings)} title="Canvas Settings">
+                        📐 Canvas
+                    </button>
+                    <button onClick={handleZoomOut} title="Zoom Out">🔍−</button>
+                    <span style={{ padding: '0 8px', fontWeight: 'bold', color: '#FFFFFF' }}>{Math.round(scale * 100)}%</span>
+                    <button onClick={handleZoomIn} title="Zoom In">🔍+</button>
+                    <button onClick={handleZoomReset} title="Reset Zoom">⊡</button>
+                </div>
+            </div>
+
+            {/* Canvas Settings Modal */}
+            {showCanvasSettings && (
+                <div className="modal-overlay" onClick={() => setShowCanvasSettings(false)}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                        <h2>📐 Canvas Settings</h2>
+                        <div className="canvas-settings-form">
+                            <div className="form-group">
+                                <label>Width (px):</label>
+                                <input
+                                    type="number"
+                                    value={canvasWidth}
+                                    onChange={(e) => setCanvasWidth(Number(e.target.value))}
+                                    min="256"
+                                    max="4096"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Height (px):</label>
+                                <input
+                                    type="number"
+                                    value={canvasHeight}
+                                    onChange={(e) => setCanvasHeight(Number(e.target.value))}
+                                    min="256"
+                                    max="4096"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Quick Presets:</label>
+                                <div className="preset-buttons">
+                                    <button onClick={() => applyCanvasSize(1024, 1024)}>Square (1024×1024)</button>
+                                    <button onClick={() => applyCanvasSize(1920, 1080)}>Landscape (1920×1080)</button>
+                                    <button onClick={() => applyCanvasSize(1080, 1920)}>Portrait (1080×1920)</button>
+                                    <button onClick={() => applyCanvasSize(512, 512)}>Small (512×512)</button>
+                                </div>
+                            </div>
+                            <div className="form-actions">
+                                <button onClick={() => applyCanvasSize(canvasWidth, canvasHeight)} style={{ background: 'var(--success-color)' }}>
+                                    ✓ Apply
+                                </button>
+                                <button onClick={() => setShowCanvasSettings(false)} style={{ background: 'var(--danger-color)' }}>
+                                    ✕ Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="editor-shell-layout">
+                <div className="editor-layout">
+                    {/* Left Navbar */}
+                    <div className="editor-navbar">
+                        <button className={tool === 'select' ? 'active' : ''} onClick={() => setTool('select')} title="Select">
+                            🖱️
+                        </button>
+                        <button className={tool === 'pencil' ? 'active' : ''} onClick={() => setTool('pencil')} title="Pencil">
+                            ✏️
+                        </button>
+                        <button className={tool === 'eraser' ? 'active' : ''} onClick={() => setTool('eraser')} title="Eraser">
+                            🧹
+                        </button>
+                        <button className={tool === 'circle' ? 'active' : ''} onClick={() => setTool('circle')} title="Circle">
+                            ⭕
+                        </button>
+                        <button className={tool === 'rect' ? 'active' : ''} onClick={() => setTool('rect')} title="Rectangle">
+                            ⬜
+                        </button>
+                        <button className={tool === 'triangle' ? 'active' : ''} onClick={() => setTool('triangle')} title="Triangle">
+                            🔺
+                        </button>
+                        <button className={tool === 'star' ? 'active' : ''} onClick={() => setTool('star')} title="Star">
+                            ⭐
+                        </button>
+                        <button className={tool === 'text' ? 'active' : ''} onClick={() => setTool('text')} title="Text">
+                            📝
+                        </button>
+                    </div>
+
+                    {/* Tool Settings Sidebar */}
+                    {toolSettingsOpen && (
+                        <div className="tool-settings-sidebar">
+                            <div className="tool-settings-header">
+                                <h3>Tool Settings</h3>
+                                <button onClick={() => setToolSettingsOpen(false)}>✕</button>
+                            </div>
+
+                            {/* Colors */}
+                            <div className="settings-section">
+                                <h4>Colors</h4>
+                                <div className="color-picker-grid">
+                                    {COLORS.map((c) => (
+                                        <button
+                                            key={c.value}
+                                            className={`color-swatch ${color === c.value ? 'active' : ''}`}
+                                            style={{ backgroundColor: c.value }}
+                                            onClick={() => setColor(c.value)}
+                                            title={c.name}
                                         />
-                                        <ExportActions
-                                            isCompact
-                                            onSave={handleSave}
-                                            onLoad={handleLoadFromBrowser}
-                                            onExport={handleExport}
-                                            iconSize={TOOLBAR_ICON_SIZE}
-                                        />
-                                    </YStack>
-                                </SidebarContent>
-                            </SidebarScroll>
-                        </SidebarPanel>
-                    ) : null}
-                    {isSmall ? (
-                        <SidebarToggle
-                            onPress={() => setLeftOpen((prev) => !prev)}
-                            width={collapsedWidth}
-                            backgroundColor="$backgroundHover"
-                        >
-                            <SidebarToggleLabel color="$color10">{leftOpen ? '◀' : '▶'}</SidebarToggleLabel>
-                        </SidebarToggle>
-                    ) : null}
-                </SidebarContainer>
-            </Theme>
-            <YStack className="editor-shell">
-                <XStack className="editor-header" zIndex={1} overflow={'visible'}>
-                    <XStack className="logo">
-                        <Image
-                            src="https://raw.githubusercontent.com/Everduin94/react-native-vector-icons/master/assets/images/TinyArtist.png"
-                            alt="TinyArtist logo"
-                            width="40"
-                            height="40"
-                        />
-                        <Text>TinyArtist Editor</Text>
-                    </XStack>
-                    {!isSmall && (
-                        <XStack>
-                            <HistoryActions
-                                isCompact={false}
-                                canUndo={canUndo}
-                                canRedo={canRedo}
-                                hasSelection={hasSelection}
-                                hasClipboard={hasClipboard}
-                                onUndo={undo}
-                                onRedo={redo}
-                                onCopy={handleCopy}
-                                onPaste={handlePaste}
-                                onDuplicate={handleDuplicate}
-                                onRemoveSelected={removeSelected}
-                                onClear={handleClear}
-                                iconSize={TOOLBAR_ICON_SIZE}
-                            />
-                            <ExportActions
-                                isCompact={false}
-                                onSave={handleSave}
-                                onLoad={handleLoadFromBrowser}
-                                onExport={handleExport}
-                                iconSize={TOOLBAR_ICON_SIZE}
-                            />
-                        </XStack>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Brush Size */}
+                            <div className="settings-section">
+                                <h4>Size: {brushSize}px</h4>
+                                <input
+                                    type="range"
+                                    min="2"
+                                    max="50"
+                                    value={brushSize}
+                                    onChange={(e) => setBrushSize(Number(e.target.value))}
+                                    className="brush-slider"
+                                />
+                                <div className="brush-preview">
+                                    <div style={{
+                                        width: brushSize,
+                                        height: brushSize,
+                                        borderRadius: '50%',
+                                        backgroundColor: tool === 'eraser' ? '#CCCCCC' : color,
+                                        margin: '0 auto',
+                                        border: '2px solid #999',
+                                    }} />
+                                </div>
+                            </div>
+
+                            {/* Stickers */}
+                            <div className="settings-section">
+                                <h4>Stickers</h4>
+                                <div className="stickers-grid">
+                                    {STICKERS.map((emoji, index) => (
+                                        <button
+                                            key={index}
+                                            className="sticker-button"
+                                            onClick={() => handleAddSticker(emoji)}
+                                        >
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Canvas Background */}
+                            <div className="settings-section">
+                                <h4>Canvas Color</h4>
+                                <input
+                                    type="color"
+                                    value={canvasColor}
+                                    onChange={(e) => setCanvasColor(e.target.value)}
+                                    style={{ width: '100%', height: '40px' }}
+                                />
+                            </div>
+                        </div>
                     )}
 
+                    {/* Toggle button when closed */}
+                    {!toolSettingsOpen && (
+                        <button className="tool-settings-toggle" onClick={() => setToolSettingsOpen(true)}>
+                            ▶
+                        </button>
+                    )}
 
-                </XStack>
-                <XStack width={mainLayoutWidth} className="editor-shell-layout" zIndex={0} >
-                    <PrimaryToolbar
-                        activeTool={activeTool}
-                        onSelectTool={(tool) => setActiveTool(tool)}
-                        onAddDraw={handleAddDraw}
-                        onAddText={handleAddText}
-                        onRequestImage={handleRequestImage}
-                        iconSize={TOOLBAR_ICON_SIZE}
-                    />
+                    {/* Canvas Workspace */}
+                    <div className="editor-canvas-workspace" ref={workspaceRef}>
+                        <div className="stage-wrapper" style={{
+                            cursor: spacePressed || isPanning ? (isPanning ? 'grabbing' : 'grab') :
+                                   tool === 'pencil' ? 'crosshair' :
+                                   tool === 'eraser' ? 'crosshair' :
+                                   tool === 'select' ? 'default' :
+                                   tool === 'text' ? 'text' :
+                                   'crosshair'
+                        }}>
+                            <Stage
+                                ref={stageRef}
+                                width={canvasWidth}
+                                height={canvasHeight}
+                                scaleX={scale}
+                                scaleY={scale}
+                                x={stagePosition.x}
+                                y={stagePosition.y}
+                                onMouseDown={handleMouseDown}
+                                onMouseMove={handleMouseMove}
+                                onMouseUp={handleMouseUp}
+                                onTouchStart={handleMouseDown}
+                                onTouchMove={handleMouseMove}
+                                onTouchEnd={handleMouseUp}
+                                style={{ background: canvasColor }}
+                            >
+                                <Layer>
+                                    {/* Lines */}
+                                    {visibleElements.lines.map((line) => (
+                                        <Line
+                                            key={line.id}
+                                            id={line.id}
+                                            points={line.points}
+                                            stroke={line.color}
+                                            strokeWidth={line.size}
+                                            tension={0.5}
+                                            lineCap="round"
+                                            lineJoin="round"
+                                            globalCompositeOperation={line.tool === 'eraser' ? 'destination-out' : 'source-over'}
+                                        />
+                                    ))}
 
-                    <EditorStageViewport
-                        stageRef={stageRef}
-                        editorCanvasRef={editorCanvasRef}
-                        stageWrapperStyle={stageWrapperStyle}
-                        stageCanvasStyle={stageCanvasStyle}
-                        stageBackgroundStyle={stageBackgroundStyle}
-                        stageWidth={stageWidth}
-                        stageHeight={stageHeight}
-                        stagePosition={stagePosition}
-                        options={options}
-                        guides={guides}
-                        contentElements={contentElements}
-                        selectedIds={selectedIds}
-                        activeTool={activeTool}
-                        layerMap={layerMap}
-                        dragBoundFactory={dragBoundFactory}
-                        onSelectElement={handleSelectElement}
-                        onUpdateElement={updateElement}
-                        onStageMouseEnter={handleStageMouseEnter}
-                        onStageMouseLeave={handleStageMouseLeave}
-                        onStagePointerDown={handleStagePointerDown}
-                        onStagePointerMove={handleStagePointerMove}
-                        onStagePointerUp={handleStagePointerUp}
-                        selectionRect={selectionRect}
-                        toolSettingsOpen={toolSettingsOpen}
-                        onToolSettingsOpenChange={(open) => setToolSettingsOpen(open)}
-                        drawSettings={drawSettings}
-                        onDrawSettingsChange={handleDrawSettingsChange}
-                        layers={layers}
-                        activeLayerId={activeLayerId}
-                        onSelectLayer={handleSelectLayer}
-                        onToggleVisibility={handleToggleVisibility}
-                        onToggleLock={handleToggleLock}
-                        onRemoveLayer={handleRemoveLayer}
-                        onMoveLayer={handleLayerMove}
-                        onAddLayer={handleAddLayer}
-                        displayWidth={displayWidth}
-                        displayHeight={displayHeight}
-                        canvasSizeLocked={options.canvasSizeLocked}
-                        fixedCanvas={options.fixedCanvas}
-                        onCanvasWidthChange={handleCanvasWidthChange}
-                        onCanvasHeightChange={handleCanvasHeightChange}
-                        onCanvasBackgroundChange={handleCanvasBackgroundChange}
-                        onZoomIn={handleZoomIn}
-                        onZoomOut={handleZoomOut}
-                        sliderValue={sliderValue}
-                        sliderBounds={sliderBounds}
-                        sliderStep={sliderStep}
-                        onSliderChange={handleSliderChange}
-                        zoomPercentage={zoomPercentage}
-                        isBrowser={isBrowser}
-                        rulerStep={rulerStep}
-                        iconSize={TOOLBAR_ICON_SIZE}
-                    />
-                </XStack>
+                                    {/* Shapes */}
+                                    {visibleElements.shapes.map((shape) => {
+                                        if (shape.type === 'circle') {
+                                            return (
+                                                <Circle
+                                                    key={shape.id}
+                                                    id={shape.id}
+                                                    x={shape.x}
+                                                    y={shape.y}
+                                                    radius={shape.radius || 50}
+                                                    fill={shape.color}
+                                                    rotation={shape.rotation}
+                                                    draggable={tool === 'select'}
+                                                    onClick={() => tool === 'select' && setSelectedId(shape.id)}
+                                                />
+                                            );
+                                        } else if (shape.type === 'rect') {
+                                            return (
+                                                <Rect
+                                                    key={shape.id}
+                                                    id={shape.id}
+                                                    x={shape.x}
+                                                    y={shape.y}
+                                                    width={shape.width || 100}
+                                                    height={shape.height || 80}
+                                                    fill={shape.color}
+                                                    rotation={shape.rotation}
+                                                    offsetX={(shape.width || 100) / 2}
+                                                    offsetY={(shape.height || 80) / 2}
+                                                    draggable={tool === 'select'}
+                                                    onClick={() => tool === 'select' && setSelectedId(shape.id)}
+                                                />
+                                            );
+                                        } else if (shape.type === 'triangle') {
+                                            return (
+                                                <RegularPolygon
+                                                    key={shape.id}
+                                                    id={shape.id}
+                                                    x={shape.x}
+                                                    y={shape.y}
+                                                    sides={3}
+                                                    radius={shape.radius || 50}
+                                                    fill={shape.color}
+                                                    rotation={shape.rotation}
+                                                    draggable={tool === 'select'}
+                                                    onClick={() => tool === 'select' && setSelectedId(shape.id)}
+                                                />
+                                            );
+                                        } else if (shape.type === 'star') {
+                                            return (
+                                                <RegularPolygon
+                                                    key={shape.id}
+                                                    id={shape.id}
+                                                    x={shape.x}
+                                                    y={shape.y}
+                                                    sides={5}
+                                                    radius={shape.radius || 50}
+                                                    fill={shape.color}
+                                                    rotation={shape.rotation}
+                                                    draggable={tool === 'select'}
+                                                    onClick={() => tool === 'select' && setSelectedId(shape.id)}
+                                                />
+                                            );
+                                        }
+                                        return null;
+                                    })}
 
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={handleUploadFile}
-                />
-            </YStack>
-        </YStack>
+                                    {/* Texts */}
+                                    {visibleElements.texts.map((textItem) => (
+                                        <KonvaText
+                                            key={textItem.id}
+                                            id={textItem.id}
+                                            x={textItem.x}
+                                            y={textItem.y}
+                                            text={textItem.text}
+                                            fontSize={textItem.fontSize}
+                                            fontFamily="Comic Sans MS, cursive"
+                                            fill={textItem.color}
+                                            rotation={textItem.rotation}
+                                            draggable={tool === 'select'}
+                                            onClick={() => tool === 'select' && setSelectedId(textItem.id)}
+                                        />
+                                    ))}
+
+                                    {/* Stickers */}
+                                    {visibleElements.stickers.map((sticker) => (
+                                        <KonvaText
+                                            key={sticker.id}
+                                            id={sticker.id}
+                                            x={sticker.x}
+                                            y={sticker.y}
+                                            text={sticker.emoji}
+                                            fontSize={sticker.size}
+                                            rotation={sticker.rotation}
+                                            draggable={tool === 'select'}
+                                            onClick={() => tool === 'select' && setSelectedId(sticker.id)}
+                                        />
+                                    ))}
+
+                                    {/* Transformer for selection */}
+                                    <Transformer
+                                        ref={transformerRef}
+                                        boundBoxFunc={(oldBox, newBox) => {
+                                            if (newBox.width < 5 || newBox.height < 5) {
+                                                return oldBox;
+                                            }
+                                            return newBox;
+                                        }}
+                                    />
+                                </Layer>
+                            </Stage>
+                        </div>
+                    </div>
+
+                    {/* Right Sidebar - Layers */}
+                    <div className="editor-sidebar">
+                        <h2>📚 Layers</h2>
+                        <button onClick={addLayer} className="add-layer-button">
+                            ➕ Add Layer
+                        </button>
+
+                        <div className="layers-panel">
+                            <ul>
+                                {layers.map((layer) => (
+                                    <li key={layer.id} className={`layer-row ${selectedLayerId === layer.id ? 'selected' : ''} ${!layer.visible ? 'muted' : ''}`}>
+                                        <button
+                                            className="layer-main"
+                                            onClick={() => selectLayer(layer.id)}
+                                            title="Click to select all elements in this layer"
+                                        >
+                                            <span>{layer.name}</span>
+                                        </button>
+                                        <div className="layer-actions">
+                                            <button
+                                                onClick={() => toggleLayerVisibility(layer.id)}
+                                                title={layer.visible ? 'Hide' : 'Show'}
+                                            >
+                                                {layer.visible ? '👁️' : '🚫'}
+                                            </button>
+                                            <button
+                                                onClick={() => toggleLayerLock(layer.id)}
+                                                title={layer.locked ? 'Unlock' : 'Lock'}
+                                            >
+                                                {layer.locked ? '🔒' : '🔓'}
+                                            </button>
+                                            <button
+                                                onClick={() => deleteLayer(layer.id)}
+                                                disabled={layers.length === 1}
+                                                title="Delete Layer"
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+
+                        {selectedId && (
+                            <div className="selection-info">
+                                <h3>Selected Element</h3>
+                                <button onClick={deleteSelected} style={{ background: 'var(--danger-color)', width: '100%' }}>
+                                    🗑️ Delete Selected
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }
-
