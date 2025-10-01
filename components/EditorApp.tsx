@@ -99,6 +99,255 @@ const ZOOM_PERCENT_MAX = 100;
 const ZOOM_EXP_BASE = 2;
 const MIN_SELECTION_SIZE = 2;
 
+const MERGEABLE_LAYER_TYPES = new Set<EditorElement['type']>([
+    'rect',
+    'frame',
+    'circle',
+    'ellipse',
+    'triangle',
+    'line',
+    'path',
+    'pencil',
+    'image',
+]);
+
+type RasterizedLayerMetadata = {
+    rasterizedLayer: {
+        layerId: string;
+        elements: EditorElement[];
+    };
+};
+
+function isRasterizedImageElement(element: EditorElement): element is ImageElement & {
+    metadata: RasterizedLayerMetadata;
+} {
+    if (element.type !== 'image') {
+        return false;
+    }
+    const metadata = element.metadata as RasterizedLayerMetadata | null;
+    if (!metadata || typeof metadata !== 'object') {
+        return false;
+    }
+    const payload = metadata.rasterizedLayer;
+    return Boolean(payload && Array.isArray(payload.elements) && typeof payload.layerId === 'string');
+}
+
+function snapshotElementForRaster(element: EditorElement): EditorElement {
+    const clone = JSON.parse(JSON.stringify(element)) as EditorElement;
+    if (clone.metadata && typeof clone.metadata === 'object' && 'rasterizedLayer' in clone.metadata) {
+        delete (clone.metadata as Record<string, unknown>).rasterizedLayer;
+    }
+    return clone;
+}
+
+function calculateCombinedBounds(elements: EditorElement[]): ElementBounds | null {
+    let bounds: ElementBounds | null = null;
+    elements.forEach((element) => {
+        const elementBounds = getElementBounds(element, { x: element.x, y: element.y });
+        if (!elementBounds) {
+            return;
+        }
+        if (!bounds) {
+            bounds = { ...elementBounds };
+            return;
+        }
+        bounds = {
+            left: Math.min(bounds.left, elementBounds.left),
+            right: Math.max(bounds.right, elementBounds.right),
+            top: Math.min(bounds.top, elementBounds.top),
+            bottom: Math.max(bounds.bottom, elementBounds.bottom),
+            centerX: 0,
+            centerY: 0,
+        };
+    });
+
+    if (!bounds) {
+        return null;
+    }
+
+    const width = bounds.right - bounds.left;
+    const height = bounds.bottom - bounds.top;
+
+    return {
+        ...bounds,
+        centerX: bounds.left + width / 2,
+        centerY: bounds.top + height / 2,
+    } satisfies ElementBounds;
+}
+
+function toUtf8Bytes(input: string): number[] {
+    if (typeof TextEncoder !== 'undefined') {
+        return Array.from(new TextEncoder().encode(input));
+    }
+
+    const bytes: number[] = [];
+    for (let index = 0; index < input.length; index += 1) {
+        let codePoint = input.charCodeAt(index);
+        if (codePoint >= 0xd800 && codePoint <= 0xdbff && index + 1 < input.length) {
+            const next = input.charCodeAt(index + 1);
+            if (next >= 0xdc00 && next <= 0xdfff) {
+                codePoint = ((codePoint - 0xd800) << 10) + (next - 0xdc00) + 0x10000;
+                index += 1;
+            }
+        }
+
+        if (codePoint <= 0x7f) {
+            bytes.push(codePoint);
+        } else if (codePoint <= 0x7ff) {
+            bytes.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 0x3f));
+        } else if (codePoint <= 0xffff) {
+            bytes.push(0xe0 | (codePoint >> 12), 0x80 | ((codePoint >> 6) & 0x3f), 0x80 | (codePoint & 0x3f));
+        } else {
+            bytes.push(
+                0xf0 | (codePoint >> 18),
+                0x80 | ((codePoint >> 12) & 0x3f),
+                0x80 | ((codePoint >> 6) & 0x3f),
+                0x80 | (codePoint & 0x3f),
+            );
+        }
+    }
+    return bytes;
+}
+
+const BASE64_TABLE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+function encodeBytesToBase64(bytes: number[]): string {
+    let output = '';
+    for (let index = 0; index < bytes.length; index += 3) {
+        const byte1 = bytes[index];
+        const byte2 = bytes[index + 1];
+        const byte3 = bytes[index + 2];
+
+        const enc1 = byte1 >> 2;
+        const enc2 = ((byte1 & 0x3) << 4) | ((byte2 ?? 0) >> 4);
+        const enc3 = typeof byte2 === 'number' ? (((byte2 & 0xf) << 2) | ((byte3 ?? 0) >> 6)) : 64;
+        const enc4 = typeof byte3 === 'number' ? byte3 & 0x3f : 64;
+
+        output += BASE64_TABLE.charAt(enc1);
+        output += BASE64_TABLE.charAt(enc2);
+        output += enc3 === 64 ? '=' : BASE64_TABLE.charAt(enc3);
+        output += enc4 === 64 ? '=' : BASE64_TABLE.charAt(enc4);
+    }
+    return output;
+}
+
+function encodeSvg(svg: string): string {
+    const bytes = toUtf8Bytes(svg);
+    return encodeBytesToBase64(bytes);
+}
+
+function escapeSvgAttr(value: string | number): string {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function createPointsAttribute(
+    points: number[],
+    originX: number,
+    originY: number,
+    offsetX: number,
+    offsetY: number,
+): string {
+    const pairs: string[] = [];
+    for (let index = 0; index < points.length; index += 2) {
+        const x = points[index] + originX - offsetX;
+        const y = points[index + 1] + originY - offsetY;
+        pairs.push(`${x},${y}`);
+    }
+    return pairs.join(' ');
+}
+
+function elementToSvg(element: EditorElement, offsetX: number, offsetY: number): string | null {
+    const opacity = element.opacity ?? 1;
+    const elementBounds = getElementBounds(element, { x: element.x, y: element.y });
+    const rotationCenter = elementBounds
+        ? `${elementBounds.centerX - offsetX} ${elementBounds.centerY - offsetY}`
+        : '0 0';
+    const rotation = element.rotation ? ` rotate(${element.rotation} ${rotationCenter})` : '';
+    const rotationAttr = rotation ? ` transform="${rotation.trim()}"` : '';
+
+    switch (element.type) {
+        case 'rect':
+        case 'frame': {
+            const x = element.x - offsetX;
+            const y = element.y - offsetY;
+            const width = element.width;
+            const height = element.height;
+            const radius = element.cornerRadius ?? 0;
+            const fill = element.type === 'frame' ? 'transparent' : element.fill;
+            return `<rect x="${escapeSvgAttr(x)}" y="${escapeSvgAttr(y)}" width="${escapeSvgAttr(width)}" height="${escapeSvgAttr(height)}" rx="${escapeSvgAttr(radius)}" ry="${escapeSvgAttr(radius)}" fill="${escapeSvgAttr(fill)}" stroke="${escapeSvgAttr(element.stroke)}" stroke-width="${escapeSvgAttr(element.strokeWidth)}" opacity="${escapeSvgAttr(opacity)}"${rotationAttr} />`;
+        }
+        case 'circle': {
+            const cx = element.x - offsetX;
+            const cy = element.y - offsetY;
+            return `<circle cx="${escapeSvgAttr(cx)}" cy="${escapeSvgAttr(cy)}" r="${escapeSvgAttr(element.radius)}" fill="${escapeSvgAttr(element.fill)}" stroke="${escapeSvgAttr(element.stroke)}" stroke-width="${escapeSvgAttr(element.strokeWidth)}" opacity="${escapeSvgAttr(opacity)}" />`;
+        }
+        case 'ellipse': {
+            const cx = element.x - offsetX;
+            const cy = element.y - offsetY;
+            return `<ellipse cx="${escapeSvgAttr(cx)}" cy="${escapeSvgAttr(cy)}" rx="${escapeSvgAttr(element.radiusX)}" ry="${escapeSvgAttr(element.radiusY)}" fill="${escapeSvgAttr(element.fill)}" stroke="${escapeSvgAttr(element.stroke)}" stroke-width="${escapeSvgAttr(element.strokeWidth)}" opacity="${escapeSvgAttr(opacity)}"${rotationAttr} />`;
+        }
+        case 'triangle': {
+            const centerX = element.x + element.width / 2 - offsetX;
+            const centerY = element.y + element.height / 2 - offsetY;
+            const topPoint = `${centerX},${centerY - element.height / 2}`;
+            const leftPoint = `${centerX - element.width / 2},${centerY + element.height / 2}`;
+            const rightPoint = `${centerX + element.width / 2},${centerY + element.height / 2}`;
+            const points = `${topPoint} ${leftPoint} ${rightPoint}`;
+            return `<polygon points="${points}" fill="${escapeSvgAttr(element.fill)}" stroke="${escapeSvgAttr(element.stroke)}" stroke-width="${escapeSvgAttr(element.strokeWidth)}" opacity="${escapeSvgAttr(opacity)}"${rotationAttr} />`;
+        }
+        case 'line': {
+            const points = createPointsAttribute(element.points, element.x, element.y, offsetX, offsetY);
+            const dash = element.dash && element.dash.length > 0 ? ` stroke-dasharray="${escapeSvgAttr(element.dash.join(' '))}"` : '';
+            return `<polyline points="${points}" fill="none" stroke="${escapeSvgAttr(element.stroke)}" stroke-width="${escapeSvgAttr(element.strokeWidth)}" opacity="${escapeSvgAttr(opacity)}" stroke-linecap="round" stroke-linejoin="round"${dash}${rotationAttr} />`;
+        }
+        case 'path': {
+            const points = createPointsAttribute(element.points, element.x, element.y, offsetX, offsetY);
+            const fill = element.closed && element.fill ? escapeSvgAttr(element.fill) : 'none';
+            return `<polyline points="${points}" fill="${fill}" stroke="${escapeSvgAttr(element.stroke)}" stroke-width="${escapeSvgAttr(element.strokeWidth)}" opacity="${escapeSvgAttr(opacity)}" stroke-linecap="round" stroke-linejoin="round"${rotationAttr} />`;
+        }
+        case 'pencil': {
+            const points = createPointsAttribute(element.points, element.x, element.y, offsetX, offsetY);
+            return `<polyline points="${points}" fill="none" stroke="${escapeSvgAttr(element.stroke)}" stroke-width="${escapeSvgAttr(element.strokeWidth)}" opacity="${escapeSvgAttr(opacity)}" stroke-linecap="round" stroke-linejoin="round"${rotationAttr} />`;
+        }
+        case 'image': {
+            const x = element.x - offsetX;
+            const y = element.y - offsetY;
+            const href = escapeSvgAttr(element.src);
+            return `<image href="${href}" xlink:href="${href}" x="${escapeSvgAttr(x)}" y="${escapeSvgAttr(y)}" width="${escapeSvgAttr(element.width)}" height="${escapeSvgAttr(element.height)}" opacity="${escapeSvgAttr(opacity)}"${rotationAttr} preserveAspectRatio="none" />`;
+        }
+        default:
+            return null;
+    }
+}
+
+function createLayerSvgDataUrl(elements: EditorElement[], bounds: ElementBounds): { dataUrl: string; width: number; height: number } | null {
+    const width = Math.max(1, bounds.right - bounds.left);
+    const height = Math.max(1, bounds.bottom - bounds.top);
+    const shapes = elements
+        .map((element) => elementToSvg(element, bounds.left, bounds.top))
+        .filter((entry): entry is string => Boolean(entry));
+
+    if (shapes.length === 0) {
+        return null;
+    }
+
+    const svg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${escapeSvgAttr(
+        width,
+    )}" height="${escapeSvgAttr(height)}" viewBox="0 0 ${escapeSvgAttr(width)} ${escapeSvgAttr(height)}" preserveAspectRatio="xMidYMid meet">${shapes.join(
+        '',
+    )}</svg>`;
+    const encoded = encodeSvg(svg);
+    return {
+        dataUrl: `data:image/svg+xml;base64,${encoded}`,
+        width,
+        height,
+    };
+}
+
 const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
     {
         id: 'mountains',
@@ -1359,10 +1608,104 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         [setDesign],
     );
 
+    const mergeLayerElements = useCallback(
+        (
+            elementsToMerge: EditorElement[],
+            layerId: string | null,
+            layerDefinitions: EditorLayer[],
+        ): { elements: EditorElement[]; rasterId: string | null } => {
+            if (!layerId) {
+                return { elements: elementsToMerge, rasterId: null };
+            }
+
+            const layerElements = elementsToMerge.filter(
+                (element) => element.layerId === layerId && element.type !== 'guide',
+            );
+            if (layerElements.length <= 1) {
+                return { elements: elementsToMerge, rasterId: null };
+            }
+
+            const mergeableSnapshots: EditorElement[] = [];
+            const preserved: EditorElement[] = [];
+
+            layerElements.forEach((element) => {
+                if (isRasterizedImageElement(element)) {
+                    const stored = element.metadata.rasterizedLayer.elements ?? [];
+                    stored.forEach((snapshot) => {
+                        mergeableSnapshots.push(snapshotElementForRaster(snapshot));
+                    });
+                    return;
+                }
+
+                if (MERGEABLE_LAYER_TYPES.has(element.type)) {
+                    mergeableSnapshots.push(snapshotElementForRaster(element));
+                    return;
+                }
+
+                preserved.push(element);
+            });
+
+            if (mergeableSnapshots.length <= 1) {
+                return { elements: elementsToMerge, rasterId: null };
+            }
+
+            const bounds = calculateCombinedBounds(mergeableSnapshots);
+            if (!bounds) {
+                return { elements: elementsToMerge, rasterId: null };
+            }
+
+            const svgResult = createLayerSvgDataUrl(mergeableSnapshots, bounds);
+            if (!svgResult) {
+                return { elements: elementsToMerge, rasterId: null };
+            }
+
+            const width = Math.max(1, svgResult.width);
+            const height = Math.max(1, svgResult.height);
+            const layer = layerDefinitions.find((candidate) => candidate.id === layerId) ?? null;
+            const base = createBaseElement('image', {
+                name: layer ? `${layer.name} raster` : 'Rasterized layer',
+                x: bounds.left,
+                y: bounds.top,
+                rotation: 0,
+                opacity: 1,
+                metadata: null,
+            }) as ImageElement;
+            const metadata = {
+                ...(base.metadata ?? {}),
+                rasterizedLayer: {
+                    layerId,
+                    elements: mergeableSnapshots.map((snapshot) => snapshotElementForRaster(snapshot)),
+                },
+            } satisfies RasterizedLayerMetadata;
+            const rasterImage: ImageElement = {
+                ...base,
+                type: 'image',
+                layerId,
+                visible: layer ? layer.visible : base.visible,
+                locked: layer ? layer.locked : base.locked,
+                draggable: layer ? !layer.locked : base.draggable,
+                src: svgResult.dataUrl,
+                width,
+                height,
+                cornerRadius: 0,
+                keepRatio: false,
+                metadata,
+            };
+
+            const others = elementsToMerge.filter(
+                (element) => element.layerId !== layerId || element.type === 'guide',
+            );
+            const resultElements = [...others, ...preserved, rasterImage];
+            return { elements: resultElements, rasterId: rasterImage.id };
+        },
+        [],
+    );
+
     const addElement = useCallback(
         (element: EditorElement) => {
             let assigned: EditorElement | null = null;
             let targetLayerId: string | null = null;
+            let nextSelectedId: string | null = null;
 
             setDesign((current) => {
                 let nextLayers = current.layers;
@@ -1386,18 +1729,22 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                             locked: layer ? element.locked || layer.locked : element.locked,
                         };
 
-                const updatedElements = orderElementsByLayer([...current.elements, assigned!], nextLayers);
-                return { ...current, layers: nextLayers, elements: updatedElements };
+                const merged = mergeLayerElements([...current.elements, assigned!], targetLayerId, nextLayers);
+                if (merged.rasterId) {
+                    nextSelectedId = merged.rasterId;
+                }
+                const orderedElements = orderElementsByLayer(merged.elements, nextLayers);
+                return { ...current, layers: nextLayers, elements: orderedElements };
             });
 
             if (assigned) {
-                setSelectedIds([assigned.id]);
+                setSelectedIds([nextSelectedId ?? assigned.id]);
             }
             if (targetLayerId && targetLayerId !== activeLayerId) {
                 setActiveLayerId(targetLayerId);
             }
         },
-        [activeLayerId, setDesign, setSelectedIds],
+        [activeLayerId, mergeLayerElements, setDesign, setSelectedIds],
     );
 
     const updateElement = useCallback(
