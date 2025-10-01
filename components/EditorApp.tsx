@@ -765,6 +765,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const initialDocument = useMemo(() => initialDesign ?? createEmptyDesign(), [initialDesign]);
     const { value: design, set: setDesign, reset: resetDesign, undo, redo, canUndo, canRedo } =
         useHistory<EditorDocument>(initialDocument);
+    const pendingMergeLayerRef = useRef<string | null>(null);
 
     const elements = design.elements;
     const layers = design.layers;
@@ -1359,8 +1360,126 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         [setDesign],
     );
 
+    const mergeLayerElements = useCallback(
+        (layerId: string) => {
+            const stage = stageRef.current as unknown as {
+                toDataURL?: (config?: Record<string, unknown>) => string;
+                scale?: () => { x: number; y: number };
+                batchDraw?: () => void;
+            } | null;
+            if (!stage || typeof stage.toDataURL !== 'function') {
+                return;
+            }
+
+            requestAnimationFrame(() => {
+                const stageNode = stageRef.current as unknown as {
+                    toDataURL?: (config?: Record<string, unknown>) => string;
+                    scale?: () => { x: number; y: number };
+                    batchDraw?: () => void;
+                } | null;
+                if (!stageNode || typeof stageNode.toDataURL !== 'function') {
+                    return;
+                }
+
+                if (typeof stageNode.batchDraw === 'function') {
+                    stageNode.batchDraw();
+                }
+
+                let mergedImage: ImageElement | null = null;
+                setDesign((current) => {
+                    const baseLayers =
+                        current.layers.length > 0 ? current.layers : [createLayerDefinition('Layer 1')];
+                    const layerElements = current.elements.filter(
+                        (entry) => entry.layerId === layerId && entry.type !== 'guide',
+                    );
+                    if (layerElements.length <= 1) {
+                        return current;
+                    }
+
+                    const boundsList = layerElements
+                        .map((entry) => getElementBounds(entry, { x: entry.x, y: entry.y }))
+                        .filter((entry): entry is ElementBounds => entry !== null);
+                    if (boundsList.length === 0) {
+                        return current;
+                    }
+
+                    const minX = Math.min(...boundsList.map((bounds) => bounds.left));
+                    const minY = Math.min(...boundsList.map((bounds) => bounds.top));
+                    const maxX = Math.max(...boundsList.map((bounds) => bounds.right));
+                    const maxY = Math.max(...boundsList.map((bounds) => bounds.bottom));
+
+                    const cropX = Math.floor(minX);
+                    const cropY = Math.floor(minY);
+                    const cropWidth = Math.max(1, Math.ceil(maxX - minX));
+                    const cropHeight = Math.max(1, Math.ceil(maxY - minY));
+
+                    const scale = typeof stageNode.scale === 'function' ? stageNode.scale() : { x: 1, y: 1 };
+                    const scaleX = Number.isFinite(scale?.x) && scale?.x ? Math.abs(scale.x) : 1;
+                    const scaleY = Number.isFinite(scale?.y) && scale?.y ? Math.abs(scale.y) : 1;
+                    const dominantScale = Math.max(scaleX, scaleY);
+                    const safeScale = dominantScale > 0 ? dominantScale : 1;
+                    const pixelRatio = Math.max(0.01, 1 / safeScale);
+
+                    const dataUrl = stageNode.toDataURL?.({
+                        x: cropX,
+                        y: cropY,
+                        width: cropWidth,
+                        height: cropHeight,
+                        mimeType: 'image/png',
+                        pixelRatio,
+                        quality: 1,
+                    });
+                    if (!dataUrl) {
+                        return current;
+                    }
+
+                    const layerDefinition = baseLayers.find((entry) => entry.id === layerId) ?? null;
+                    const sourceElementIds = layerElements.map((entry) => entry.id);
+                    const rasterizedImage = createImage(options, dataUrl, {
+                        name: layerDefinition ? `${layerDefinition.name} rasterized` : 'Rasterized layer',
+                        x: cropX,
+                        y: cropY,
+                        width: cropWidth,
+                        height: cropHeight,
+                        keepRatio: false,
+                        metadata: {
+                            rasterized: true,
+                            sourceElementIds,
+                        },
+                    });
+
+                    rasterizedImage.layerId = layerId;
+                    rasterizedImage.visible = layerDefinition ? layerDefinition.visible : layerElements.some((entry) => entry.visible);
+                    rasterizedImage.locked = layerDefinition ? layerDefinition.locked : layerElements.every((entry) => entry.locked);
+                    rasterizedImage.draggable = !rasterizedImage.locked;
+                    const enrichedMetadata: Record<string, unknown> = {
+                        ...(rasterizedImage.metadata ?? {}),
+                        rasterized: true,
+                        sourceElementIds,
+                    };
+                    rasterizedImage.metadata = enrichedMetadata;
+
+                    const remaining = current.elements.filter(
+                        (entry) => entry.layerId !== layerId || entry.type === 'guide',
+                    );
+                    const updatedElements = orderElementsByLayer([...remaining, rasterizedImage], baseLayers);
+
+                    mergedImage = rasterizedImage;
+                    return { ...current, layers: baseLayers, elements: updatedElements };
+                });
+
+                if (mergedImage) {
+                    setSelectedIds([mergedImage.id]);
+                }
+            });
+        },
+        [options, setDesign, setSelectedIds, stageRef],
+    );
+
     const addElement = useCallback(
-        (element: EditorElement) => {
+        (element: EditorElement, behaviour: { deferMerge?: boolean } = {}) => {
+            const { deferMerge = false } = behaviour;
+            pendingMergeLayerRef.current = null;
             let assigned: EditorElement | null = null;
             let targetLayerId: string | null = null;
 
@@ -1396,8 +1515,18 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             if (targetLayerId && targetLayerId !== activeLayerId) {
                 setActiveLayerId(targetLayerId);
             }
+
+            if (targetLayerId) {
+                if (deferMerge) {
+                    pendingMergeLayerRef.current = targetLayerId;
+                } else {
+                    mergeLayerElements(targetLayerId);
+                }
+            }
+
+            return { element: assigned, layerId: targetLayerId };
         },
-        [activeLayerId, setDesign, setSelectedIds],
+        [activeLayerId, mergeLayerElements, setDesign, setSelectedIds],
     );
 
     const updateElement = useCallback(
@@ -1737,7 +1866,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     id: element.id,
                     origin: { x: pointer.x, y: pointer.y },
                 };
-                addElement(element);
+                addElement(element, { deferMerge: true });
                 setToolSettingsOpen(false);
                 return;
             }
@@ -1863,10 +1992,28 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             selectionOriginRef.current = null;
             updateSelectionRect(null);
 
-            if (!drawingStateRef.current) return;
+            if (!drawingStateRef.current) {
+                pendingMergeLayerRef.current = null;
+                return;
+            }
             drawingStateRef.current = null;
+            const pendingLayerId = pendingMergeLayerRef.current;
+            pendingMergeLayerRef.current = null;
+            if (pendingLayerId) {
+                mergeLayerElements(pendingLayerId);
+            }
         },
-        [activeLayerId, activeTool, contentElements, layerMap, setIsPanning, setSelectedIds, startPanInertia, updateSelectionRect],
+        [
+            activeLayerId,
+            activeTool,
+            contentElements,
+            layerMap,
+            mergeLayerElements,
+            setIsPanning,
+            setSelectedIds,
+            startPanInertia,
+            updateSelectionRect,
+        ],
     );
 
     const handleSave = useCallback(() => {
