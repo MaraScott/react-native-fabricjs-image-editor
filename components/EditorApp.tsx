@@ -63,7 +63,7 @@ import {
     SidebarToggle,
     SidebarToggleLabel,
     SidebarContent,
-} from '../../../../theme/ui/styles'
+} from '../theme/ui/styles'
 
 type Tool = 'select' | 'draw';
 
