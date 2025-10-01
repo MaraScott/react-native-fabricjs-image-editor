@@ -14,7 +14,6 @@ import { MaterialCommunityIcons } from './icons/MaterialCommunityIcons';
 // import { CiZoomIn } from "react-icons/ci";
 import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
 import LayersPanel from './LayersPanel';
-import PropertiesPanel from './PropertiesPanel';
 import {
     CircleNode,
     EllipseNode,
@@ -782,11 +781,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
     const [activeTool, setActiveTool] = useState<Tool>('draw');
-    const selectedElement = useMemo(
-        () => contentElements.find((element) => selectedIds.includes(element.id)) ?? null,
-        [contentElements, selectedIds],
-    );
-    const selectionPopoverOpen = activeTool === 'select' && selectedElement !== null;
+    const selectionPopoverOpen = activeTool === 'draw';
     const drawingStateRef = useRef<DrawingState | null>(null);
     const selectionOriginRef = useRef<Vector2d | null>(null);
     const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
@@ -2712,8 +2707,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             </Layer>
                                         ) : null}
                                     </Stage>
-                                    {selectedElement ? <Stack position="absolute" top={5} left={5} zIndex={2}>
-                                        <Popover placement="bottom-start" open={selectionPopoverOpen}>
+                                    <Stack position="absolute" top={5} left={5} zIndex={2}>
+                                        <Popover placement="bottom-start">
                                             <Popover.Trigger position={`absolute`} top={0} left={0}>
                                                 <Button type="button" aria-label="tool" title="tool">
                                                     <MaterialCommunityIcons key="tool" name="tool" size={TOOLBAR_ICON_SIZE * 1.5} />
@@ -2722,20 +2717,14 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                             <Popover.Content top={0} left={0}>
                                                 <Popover.Arrow />
                                                 <YStack className="tool-stats editor-sidebar">
-                                                    {selectedElement ? (
-                                                        <YStack tag="aside">
-                                                            <Heading tag="h2">Selection</Heading>
-                                                            <PropertiesPanel
-                                                                element={selectedElement}
-                                                                onChange={(attributes) => updateElement(selectedElement.id, attributes)}
-                                                                onRemove={removeSelected}
-                                                            />
-                                                        </YStack>
-                                                    ) : null}
+                                                    <YStack tag="aside">
+                                                        <Heading tag="h2">Selection</Heading>
+                                                        {/* Draw tool settings */}
+                                                    </YStack>
                                                 </YStack>
                                             </Popover.Content>
                                         </Popover>
-                                    </Stack> : null}
+                                    </Stack>
                                     <Stack position="absolute" top={5} right={5} zIndex={2}>
                                         <Popover placement="bottom-end">
                                             <Popover.Trigger position={`absolute`} top={0} right={0}>
