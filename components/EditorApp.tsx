@@ -781,7 +781,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
     const [activeTool, setActiveTool] = useState<Tool>('draw');
-    const selectionPopoverOpen = activeTool === 'draw';
+    const [toolSettingsOpen, setToolSettingsOpen] = useState(false);
     const drawingStateRef = useRef<DrawingState | null>(null);
     const selectionOriginRef = useRef<Vector2d | null>(null);
     const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
@@ -862,6 +862,14 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             updateSelectionRect(null);
         }
     }, [activeTool, updateSelectionRect]);
+
+    useEffect(() => {
+        if (activeTool === 'draw') {
+            setToolSettingsOpen(true);
+        } else {
+            setToolSettingsOpen(false);
+        }
+    }, [activeTool]);
 
     const startPanInertia = useCallback(
         (velocity: { vx: number; vy: number }) => {
@@ -1730,6 +1738,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     origin: { x: pointer.x, y: pointer.y },
                 };
                 addElement(element);
+                setToolSettingsOpen(false);
                 return;
             }
 
@@ -1746,7 +1755,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 }
             }
         },
-        [activeTool, addElement, drawSettings, isPanMode, setActiveTool, setSelectedIds, stopInertia, updateSelectionRect],
+        [activeTool, addElement, drawSettings, isPanMode, setActiveTool, setSelectedIds, stopInertia, updateSelectionRect, setToolSettingsOpen],
     );
 
     const handleStagePointerMove = useCallback(
@@ -2708,7 +2717,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                         ) : null}
                                     </Stage>
                                     <Stack position="absolute" top={5} left={5} zIndex={2}>
-                                        <Popover placement="bottom-start">
+                                        <Popover placement="bottom-start" open={toolSettingsOpen} onOpenChange={setToolSettingsOpen}>
                                             <Popover.Trigger position={`absolute`} top={0} left={0}>
                                                 <Button type="button" aria-label="tool" title="tool">
                                                     <MaterialCommunityIcons key="tool" name="tool" size={TOOLBAR_ICON_SIZE * 1.5} />
@@ -2718,8 +2727,63 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                                                 <Popover.Arrow />
                                                 <YStack className="tool-stats editor-sidebar">
                                                     <YStack tag="aside">
-                                                        <Heading tag="h2">Selection</Heading>
-                                                        {/* Draw tool settings */}
+                                                        <Heading tag="h2">{activeTool === 'draw' ? 'Draw settings' : 'Selection'}</Heading>
+                                                        {activeTool === 'draw' ? (
+                                                            <YStack gap="$3" paddingTop="$3">
+                                                                <XStack alignItems="center" gap="$3">
+                                                                    <Label htmlFor="draw-color" flex={1}>
+                                                                        Stroke color
+                                                                    </Label>
+                                                                    <Input
+                                                                        id="draw-color"
+                                                                        type="color"
+                                                                        aria-label="Stroke color"
+                                                                        width={44}
+                                                                        height={44}
+                                                                        padding={0}
+                                                                        value={drawSettings.color}
+                                                                        onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                                                                            setDrawSettings((current) => ({
+                                                                                ...current,
+                                                                                color: event.target.value,
+                                                                            }))
+                                                                        }
+                                                                    />
+                                                                </XStack>
+                                                                <YStack gap="$2">
+                                                                    <XStack alignItems="center" justifyContent="space-between">
+                                                                        <Label htmlFor="draw-width">Stroke width</Label>
+                                                                        <Text fontSize={12} fontWeight="600">
+                                                                            {Math.round(drawSettings.width)} px
+                                                                        </Text>
+                                                                    </XStack>
+                                                                    <Slider
+                                                                        id="draw-width"
+                                                                        value={[drawSettings.width]}
+                                                                        min={1}
+                                                                        max={64}
+                                                                        step={1}
+                                                                        onValueChange={(value) => {
+                                                                            const width = value[0] ?? drawSettings.width;
+                                                                            setDrawSettings((current) => ({
+                                                                                ...current,
+                                                                                width,
+                                                                            }));
+                                                                        }}
+                                                                        aria-label="Stroke width"
+                                                                    >
+                                                                        <Slider.Track>
+                                                                            <Slider.TrackActive />
+                                                                        </Slider.Track>
+                                                                        <Slider.Thumb index={0} circular size="$2" />
+                                                                    </Slider>
+                                                                </YStack>
+                                                            </YStack>
+                                                        ) : (
+                                                            <Paragraph paddingTop="$3" fontSize={12} color="rgba(226, 232, 240, 0.65)">
+                                                                Select an element on the canvas to view its properties.
+                                                            </Paragraph>
+                                                        )}
                                                     </YStack>
                                                 </YStack>
                                             </Popover.Content>
