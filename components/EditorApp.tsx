@@ -244,6 +244,358 @@ function normalizeSelectionRect(start: Vector2d, end: Vector2d): SelectionRect {
     };
 }
 
+type RasterizedLayerMetadata = {
+    kind: 'rasterized-layer';
+    layerId: string;
+    sourceElements: EditorElement[];
+    bounds: { left: number; top: number; width: number; height: number };
+};
+
+type RasterBounds = {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+    width: number;
+    height: number;
+};
+
+const RASTERIZABLE_TYPES: Set<EditorElement['type']> = new Set([
+    'rect',
+    'frame',
+    'circle',
+    'ellipse',
+    'triangle',
+    'line',
+    'path',
+    'pencil',
+    'image',
+]);
+
+function isRasterizedLayer(element: EditorElement): element is ImageElement & { metadata: RasterizedLayerMetadata } {
+    if (element.type !== 'image') {
+        return false;
+    }
+    const metadata = element.metadata as RasterizedLayerMetadata | null;
+    return Boolean(metadata && metadata.kind === 'rasterized-layer' && metadata.layerId);
+}
+
+function cloneElementForRaster(element: EditorElement): EditorElement {
+    const clone = JSON.parse(JSON.stringify(element)) as EditorElement;
+    if (clone.type === 'image' && clone.metadata) {
+        const meta = clone.metadata as { kind?: string };
+        if (meta.kind === 'rasterized-layer') {
+            clone.metadata = null;
+        }
+    }
+    return clone;
+}
+
+function calculateCombinedBounds(elements: EditorElement[]): RasterBounds | null {
+    let aggregate: RasterBounds | null = null;
+    elements.forEach((element) => {
+        if (!element.visible) return;
+        const bounds = getElementBounds(element, { x: element.x, y: element.y });
+        if (!bounds) return;
+        if (!aggregate) {
+            aggregate = {
+                left: bounds.left,
+                right: bounds.right,
+                top: bounds.top,
+                bottom: bounds.bottom,
+                width: bounds.right - bounds.left,
+                height: bounds.bottom - bounds.top,
+            } satisfies RasterBounds;
+            return;
+        }
+        aggregate.left = Math.min(aggregate.left, bounds.left);
+        aggregate.right = Math.max(aggregate.right, bounds.right);
+        aggregate.top = Math.min(aggregate.top, bounds.top);
+        aggregate.bottom = Math.max(aggregate.bottom, bounds.bottom);
+        aggregate.width = aggregate.right - aggregate.left;
+        aggregate.height = aggregate.bottom - aggregate.top;
+    });
+    if (!aggregate) {
+        return null;
+    }
+    const width = Math.max(1, aggregate.width);
+    const height = Math.max(1, aggregate.height);
+    return { ...aggregate, width, height } satisfies RasterBounds;
+}
+
+function encodeSvgData(svg: string): string {
+    const normalized = svg.replace(/\s+/g, ' ').trim();
+    if (typeof btoa === 'function') {
+        const utf8 = encodeURIComponent(normalized).replace(/%([0-9A-F]{2})/g, (_, hex) =>
+            String.fromCharCode(parseInt(hex, 16)),
+        );
+        return btoa(utf8);
+    }
+    const bufferCtor = typeof globalThis !== 'undefined' ? (globalThis as any).Buffer : undefined;
+    if (bufferCtor) {
+        return bufferCtor.from(normalized, 'utf-8').toString('base64');
+    }
+    throw new Error('Unable to encode SVG data for rasterized layer');
+}
+
+function escapeSvgAttr(value: string): string {
+    return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function serializeLinePoints(points: number[], offsetX: number, offsetY: number): string {
+    const pairs: string[] = [];
+    for (let index = 0; index < points.length; index += 2) {
+        const x = points[index] ?? 0;
+        const y = points[index + 1] ?? 0;
+        pairs.push(`${offsetX + x},${offsetY + y}`);
+    }
+    return pairs.join(' ');
+}
+
+function serializeElementToSvg(element: EditorElement, offsetX: number, offsetY: number): string | null {
+    if (!element.visible) {
+        return null;
+    }
+    const bounds = getElementBounds(element, { x: element.x, y: element.y });
+    if (!bounds) {
+        return null;
+    }
+    const originX = bounds.centerX - offsetX;
+    const originY = bounds.centerY - offsetY;
+    const rotation = element.rotation ?? 0;
+    const groupStart = rotation
+        ? `<g transform="rotate(${rotation} ${originX} ${originY})" opacity="${element.opacity}">`
+        : `<g opacity="${element.opacity}">`;
+    const groupEnd = '</g>';
+
+    switch (element.type) {
+        case 'rect':
+        case 'frame': {
+            const rect = element;
+            const x = rect.x - offsetX;
+            const y = rect.y - offsetY;
+            const corner = rect.cornerRadius ?? 0;
+            return (
+                groupStart +
+                `<rect x="${x}" y="${y}" width="${rect.width}" height="${rect.height}" rx="${corner}" ry="${corner}" fill="${rect.fill}" stroke="${rect.stroke}" stroke-width="${rect.strokeWidth}" />` +
+                groupEnd
+            );
+        }
+        case 'circle': {
+            const circle = element;
+            const cx = circle.x - offsetX;
+            const cy = circle.y - offsetY;
+            return (
+                groupStart +
+                `<circle cx="${cx}" cy="${cy}" r="${circle.radius}" fill="${circle.fill}" stroke="${circle.stroke}" stroke-width="${circle.strokeWidth}" />` +
+                groupEnd
+            );
+        }
+        case 'ellipse': {
+            const ellipse = element;
+            const cx = ellipse.x - offsetX;
+            const cy = ellipse.y - offsetY;
+            return (
+                groupStart +
+                `<ellipse cx="${cx}" cy="${cy}" rx="${ellipse.radiusX}" ry="${ellipse.radiusY}" fill="${ellipse.fill}" stroke="${ellipse.stroke}" stroke-width="${ellipse.strokeWidth}" />` +
+                groupEnd
+            );
+        }
+        case 'triangle': {
+            const triangle = element;
+            const x = triangle.x - offsetX;
+            const y = triangle.y - offsetY;
+            const points = [
+                `${x + triangle.width / 2},${y}`,
+                `${x + triangle.width},${y + triangle.height}`,
+                `${x},${y + triangle.height}`,
+            ].join(' ');
+            return (
+                groupStart +
+                `<polygon points="${points}" fill="${triangle.fill}" stroke="${triangle.stroke}" stroke-width="${triangle.strokeWidth}" />` +
+                groupEnd
+            );
+        }
+        case 'line': {
+            const line = element;
+            const x = line.x - offsetX;
+            const y = line.y - offsetY;
+            const points = serializeLinePoints(line.points, x, y);
+            const dash = line.dash && line.dash.length > 0 ? ` stroke-dasharray="${line.dash.join(' ')}"` : '';
+            const fill = line.closed ? line.fill ?? line.stroke : 'none';
+            return (
+                groupStart +
+                `<polyline points="${points}" fill="${fill}" stroke="${line.stroke}" stroke-width="${line.strokeWidth}" stroke-linecap="round" stroke-linejoin="round"${dash} />` +
+                groupEnd
+            );
+        }
+        case 'path': {
+            const path = element;
+            const x = path.x - offsetX;
+            const y = path.y - offsetY;
+            const points = serializeLinePoints(path.points, x, y);
+            const fill = path.closed ? path.fill ?? path.stroke : 'none';
+            return (
+                groupStart +
+                `<polyline points="${points}" fill="${fill}" stroke="${path.stroke}" stroke-width="${path.strokeWidth}" stroke-linecap="round" stroke-linejoin="round" />` +
+                groupEnd
+            );
+        }
+        case 'pencil': {
+            const pencil = element;
+            const x = pencil.x - offsetX;
+            const y = pencil.y - offsetY;
+            const points = serializeLinePoints(pencil.points, x, y);
+            return (
+                groupStart +
+                `<polyline points="${points}" fill="none" stroke="${pencil.stroke}" stroke-width="${pencil.strokeWidth}" stroke-linecap="${pencil.lineCap}" stroke-linejoin="${pencil.lineJoin}" />` +
+                groupEnd
+            );
+        }
+        case 'image': {
+            const image = element;
+            const x = image.x - offsetX;
+            const y = image.y - offsetY;
+            const href = escapeSvgAttr(image.src);
+            return (
+                groupStart +
+                `<image href="${href}" x="${x}" y="${y}" width="${image.width}" height="${image.height}" preserveAspectRatio="none" />` +
+                groupEnd
+            );
+        }
+        default:
+            return null;
+    }
+}
+
+function createSvgForElements(elements: EditorElement[], bounds: RasterBounds): string {
+    const content = elements
+        .map((element) => serializeElementToSvg(element, bounds.left, bounds.top))
+        .filter((value): value is string => Boolean(value))
+        .join('');
+    return `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="${bounds.width}" height="${bounds.height}" viewBox="0 0 ${bounds.width} ${bounds.height}">${content}</svg>`;
+}
+
+// React Native friendly shims to emulate Fabric.js grouping and rasterization behaviour.
+class FabricImageAdapter {
+    private readonly src: string;
+
+    constructor(svgDataUrl: string) {
+        this.src = svgDataUrl;
+    }
+
+    toDataURL() {
+        return this.src;
+    }
+
+    getSrc() {
+        return this.src;
+    }
+
+    toCanvasElement() {
+        return this.src;
+    }
+}
+
+class FabricGroupAdapter {
+    private readonly elements: EditorElement[];
+    private readonly bounds: RasterBounds;
+
+    constructor(elements: EditorElement[], bounds: RasterBounds) {
+        this.elements = elements;
+        this.bounds = bounds;
+    }
+
+    cloneAsImage() {
+        const svg = createSvgForElements(this.elements, this.bounds);
+        const encoded = encodeSvgData(svg);
+        return new FabricImageAdapter(`data:image/svg+xml;base64,${encoded}`);
+    }
+}
+
+function mergeLayerIntoRaster(
+    elements: EditorElement[],
+    layerId: string,
+): { elements: EditorElement[]; rasterElementId: string | null } {
+    const layerCandidates = elements.filter(
+        (element) => element.layerId === layerId && RASTERIZABLE_TYPES.has(element.type),
+    );
+
+    if (layerCandidates.length <= 1) {
+        return { elements, rasterElementId: layerCandidates[0]?.id ?? null };
+    }
+
+    const sourceElements: EditorElement[] = layerCandidates.flatMap((element) => {
+        if (isRasterizedLayer(element)) {
+            return (element.metadata.sourceElements ?? []).map((item) => {
+                const clone = cloneElementForRaster(item);
+                clone.layerId = layerId;
+                return clone;
+            });
+        }
+        const clone = cloneElementForRaster(element);
+        clone.layerId = layerId;
+        return [clone];
+    });
+
+    const bounds = calculateCombinedBounds(sourceElements);
+    if (!bounds) {
+        return { elements, rasterElementId: null };
+    }
+
+    const group = new FabricGroupAdapter(sourceElements, bounds);
+    const fabricImage = group.cloneAsImage();
+    const src =
+        (typeof fabricImage.toDataURL === 'function' && fabricImage.toDataURL()) ||
+        (typeof (fabricImage as any).getSrc === 'function' && (fabricImage as any).getSrc()) ||
+        '';
+
+    const rasterMetadata: RasterizedLayerMetadata = {
+        kind: 'rasterized-layer',
+        layerId,
+        sourceElements: sourceElements.map((item) => cloneElementForRaster(item)),
+        bounds: { left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height },
+    };
+
+    const base = createBaseElement('image', {
+        name: 'Rasterized layer',
+        x: bounds.left,
+        y: bounds.top,
+        rotation: 0,
+        opacity: 1,
+        metadata: rasterMetadata as unknown as Record<string, unknown>,
+    });
+
+    const referenceElement = layerCandidates[0];
+    const isLocked = layerCandidates.some((candidate) => candidate.locked);
+    const isVisible = layerCandidates.every((candidate) => candidate.visible);
+
+    const imageElement: ImageElement = {
+        ...(base as ImageElement),
+        type: 'image',
+        layerId,
+        src,
+        width: bounds.width,
+        height: bounds.height,
+        cornerRadius: 0,
+        keepRatio: true,
+        locked: isLocked,
+        visible: isVisible,
+        draggable: !isLocked && referenceElement.draggable,
+    } satisfies ImageElement;
+
+    const filteredElements = elements.filter((element) => {
+        if (element.layerId !== layerId) return true;
+        if (!RASTERIZABLE_TYPES.has(element.type)) return true;
+        return false;
+    });
+
+    return {
+        elements: [...filteredElements, imageElement],
+        rasterElementId: imageElement.id,
+    };
+}
+
 function isElementInsideSelection(element: EditorElement, rect: SelectionRect): boolean {
     const bounds = getElementBounds(element, { x: element.x, y: element.y });
     if (!bounds) {
@@ -1380,13 +1732,25 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     element.type === 'guide'
                         ? { ...element, layerId: null }
                         : {
-                            ...element,
-                            layerId: targetLayerId,
-                            visible: layer ? element.visible && layer.visible : element.visible,
-                            locked: layer ? element.locked || layer.locked : element.locked,
-                        };
+                              ...element,
+                              layerId: targetLayerId,
+                              visible: layer ? element.visible && layer.visible : element.visible,
+                              locked: layer ? element.locked || layer.locked : element.locked,
+                          };
 
-                const updatedElements = orderElementsByLayer([...current.elements, assigned!], nextLayers);
+                let workingElements = [...current.elements, assigned!];
+                if (targetLayerId) {
+                    const mergeResult = mergeLayerIntoRaster(workingElements, targetLayerId);
+                    workingElements = mergeResult.elements;
+                    if (mergeResult.rasterElementId) {
+                        const replacement = workingElements.find((candidate) => candidate.id === mergeResult.rasterElementId);
+                        if (replacement) {
+                            assigned = replacement;
+                        }
+                    }
+                }
+
+                const updatedElements = orderElementsByLayer(workingElements, nextLayers);
                 return { ...current, layers: nextLayers, elements: updatedElements };
             });
 
