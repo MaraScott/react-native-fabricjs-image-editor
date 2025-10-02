@@ -69,9 +69,7 @@ export function PencilNode({
           const scaleY = node.scaleY();
           node.scaleX(1);
           node.scaleY(1);
-          const nextPoints = node
-            .points()
-            .map((value, index) => (index % 2 === 0 ? value * scaleX : value * scaleY));
+          const nextPoints = (node.points() as number[]).map((value: number, index: number) => (index % 2 === 0 ? value * scaleX : value * scaleY));
           onChange({
             x: node.x(),
             y: node.y(),

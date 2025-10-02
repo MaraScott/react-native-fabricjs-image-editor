@@ -44,7 +44,13 @@ interface LayerSelectionInfo {
     layerId: string;
     elementIds: string[];
     locked: boolean;
-    bounds: { x: number; y: number; width: number; height: number };
+    bounds: { x: number; y: number; width: number; height: number; rotation: number };
+}
+
+export interface CropState {
+    elementId: string;
+    originalImage: ImageElement;
+    cropArea: { x: number; y: number; width: number; height: number };
 }
 
 export interface EditorStageViewportProps {
@@ -67,10 +73,15 @@ export interface EditorStageViewportProps {
     layerMap: Map<string, EditorLayer>;
     dragBoundFactory: DragBoundFactory;
     layerSelection: LayerSelectionInfo | null;
+    cropState: CropState | null;
     onMoveLayerSelection: (delta: Vector2d) => void;
     onLayerSelectionTransformStart: () => void;
-    onLayerSelectionTransform: (bounds: { x: number; y: number; width: number; height: number }) => void;
+    onLayerSelectionTransform: (bounds: { x: number; y: number; width: number; height: number; rotation: number }) => void;
     onLayerSelectionTransformEnd: () => void;
+    onCropStart: (elementId: string) => void;
+    onCropUpdate: (cropArea: { x: number; y: number; width: number; height: number }) => void;
+    onCropApply: () => void;
+    onCropCancel: () => void;
     onSelectElement: (id: string, mode?: 'layer' | 'single' | 'toggle') => void;
     onUpdateElement: (id: string, attributes: Partial<EditorElement>) => void;
     onStageMouseEnter: (event: KonvaEventObject<MouseEvent>) => void;
@@ -127,10 +138,15 @@ export default function EditorStageViewport({
     layerMap,
     dragBoundFactory,
     layerSelection,
+    cropState,
     onMoveLayerSelection,
     onLayerSelectionTransformStart,
     onLayerSelectionTransform,
     onLayerSelectionTransformEnd,
+    onCropStart,
+    onCropUpdate,
+    onCropApply,
+    onCropCancel,
     onSelectElement,
     onUpdateElement,
     onStageMouseEnter,
@@ -177,10 +193,13 @@ export default function EditorStageViewport({
     const layerSelectionDragOrigin = useRef<Vector2d | null>(null);
     const layerSelectionActive = !!layerSelection;
     const layerSelectionInteractive = !!(layerSelection && !layerSelection.locked);
+    const cropRectRef = useRef<any>(null);
+    const cropTransformerRef = useRef<any>(null);
 
     const commitLayerSelectionBounds = (node: any) => {
         const width = Math.max(1, node.width() * node.scaleX());
         const height = Math.max(1, node.height() * node.scaleY());
+        const rotation = node.rotation();
         const clamped = clampBoundingBoxToStage(
             { x: node.x(), y: node.y(), width, height },
             stageSize,
@@ -190,10 +209,11 @@ export default function EditorStageViewport({
         node.width(clamped.width);
         node.height(clamped.height);
         node.position({ x: clamped.x, y: clamped.y });
+        node.rotation(rotation);
         node.scaleX(1);
         node.scaleY(1);
         node.getLayer()?.batchDraw();
-        return clamped;
+        return { ...clamped, rotation };
     };
 
     useEffect(() => {
@@ -209,7 +229,22 @@ export default function EditorStageViewport({
         }
         transformer.nodes([rect]);
         transformer.getLayer()?.batchDraw();
-    }, [layerSelectionInteractive, layerSelection?.bounds.x, layerSelection?.bounds.y, layerSelection?.bounds.width, layerSelection?.bounds.height]);
+    }, [layerSelectionInteractive, layerSelection?.bounds.x, layerSelection?.bounds.y, layerSelection?.bounds.width, layerSelection?.bounds.height, layerSelection?.bounds.rotation]);
+
+    useEffect(() => {
+        const transformer = cropTransformerRef.current;
+        const rect = cropRectRef.current;
+        if (!transformer) {
+            return;
+        }
+        if (!cropState || !rect) {
+            transformer.nodes([]);
+            transformer.getLayer()?.batchDraw();
+            return;
+        }
+        transformer.nodes([rect]);
+        transformer.getLayer()?.batchDraw();
+    }, [cropState]);
 
     const handleLayerSelectionDragStart = (event: KonvaEventObject<DragEvent>) => {
         if (!layerSelectionInteractive) return;
@@ -254,6 +289,16 @@ export default function EditorStageViewport({
         event: KonvaEventObject<MouseEvent | TouchEvent>,
         options?: { forceSingle?: boolean },
     ) => {
+        // If in crop mode and clicking an image, start cropping
+        if (activeTool === 'crop') {
+            const element = contentElements.find((el) => el.id === id);
+            if (element && element.type === 'image') {
+                onCropStart(id);
+                event.cancelBubble = true;
+                return;
+            }
+        }
+
         if (options?.forceSingle) {
             onSelectElement(id, 'single');
             event.cancelBubble = true;
@@ -318,7 +363,7 @@ export default function EditorStageViewport({
                                             key={guide.id}
                                             shape={guide}
                                             isSelected={selectedIds.includes(guide.id)}
-                                            selectionEnabled={activeTool === 'select'}
+                                            selectionEnabled={activeTool === 'select' || activeTool === 'crop'}
                                             onSelect={(event) => handleElementSelect(guide.id, event, { forceSingle: true })}
                                             onChange={(attributes) => onUpdateElement(guide.id, attributes)}
                                             zIndex={guideIndex}
@@ -334,7 +379,7 @@ export default function EditorStageViewport({
                                         layerSelectionActive && (layerSelection?.elementIds.includes(element.id) ?? false);
                                     const multiSelectionActive = (layerSelection?.elementIds.length ?? 0) > 1;
                                     const selectionEnabled =
-                                        activeTool === 'select' &&
+                                        (activeTool === 'select' || activeTool === 'crop') &&
                                         !isLayerLocked &&
                                         (!multiSelectionActive || !isPartOfLayerSelection);
                                     const dragBound = dragBoundFactory(element);
@@ -493,6 +538,7 @@ export default function EditorStageViewport({
                                         y={layerSelection?.bounds.y ?? 0}
                                         width={layerSelection?.bounds.width ?? 0}
                                         height={layerSelection?.bounds.height ?? 0}
+                                        rotation={layerSelection?.bounds.rotation ?? 0}
                                         stroke="#38bdf8"
                                         dash={[6, 4]}
                                         strokeWidth={1}
@@ -541,7 +587,7 @@ export default function EditorStageViewport({
                                     {layerSelectionInteractive ? (
                                         <TransformerShape
                                             ref={layerSelectionTransformerRef}
-                                            rotateEnabled={false}
+                                            rotateEnabled={true}
                                             enabledAnchors={['top-left', 'top-center', 'top-right', 'middle-left', 'middle-right', 'bottom-left', 'bottom-center', 'bottom-right']}
                                             boundBoxFunc={(oldBox, newBox) => {
                                                 const minSize = 8;
@@ -571,6 +617,62 @@ export default function EditorStageViewport({
                                     />
                                 </Layer>
                             ) : null}
+                            {cropState && cropState.originalImage ? (
+                                <Layer>
+                                    <RectShape
+                                        ref={cropRectRef}
+                                        x={cropState.originalImage.x + cropState.cropArea.x}
+                                        y={cropState.originalImage.y + cropState.cropArea.y}
+                                        width={cropState.cropArea.width}
+                                        height={cropState.cropArea.height}
+                                        stroke="#ff9800"
+                                        strokeWidth={2}
+                                        dash={[8, 4]}
+                                        fill="rgba(255, 152, 0, 0.1)"
+                                        draggable={true}
+                                        onTransformEnd={() => {
+                                            const node = cropRectRef.current;
+                                            if (!node) return;
+                                            const scaleX = node.scaleX();
+                                            const scaleY = node.scaleY();
+                                            node.scaleX(1);
+                                            node.scaleY(1);
+                                            const width = Math.max(10, node.width() * scaleX);
+                                            const height = Math.max(10, node.height() * scaleY);
+                                            const x = node.x() - cropState.originalImage.x;
+                                            const y = node.y() - cropState.originalImage.y;
+                                            node.width(width);
+                                            node.height(height);
+                                            onCropUpdate({ x, y, width, height });
+                                        }}
+                                        onDragEnd={() => {
+                                            const node = cropRectRef.current;
+                                            if (!node) return;
+                                            const x = node.x() - cropState.originalImage.x;
+                                            const y = node.y() - cropState.originalImage.y;
+                                            onCropUpdate({
+                                                x,
+                                                y,
+                                                width: node.width(),
+                                                height: node.height(),
+                                            });
+                                        }}
+                                    />
+                                    <TransformerShape
+                                        ref={cropTransformerRef}
+                                        rotateEnabled={false}
+                                        enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
+                                        boundBoxFunc={(oldBox, newBox) => {
+                                            const minSize = 10;
+                                            return {
+                                                ...newBox,
+                                                width: Math.max(minSize, newBox.width),
+                                                height: Math.max(minSize, newBox.height),
+                                            };
+                                        }}
+                                    />
+                                </Layer>
+                            ) : null}
                         </Stage>
                         <Stack position="absolute" top={5} left={5} zIndex={2}>
                             <Popover placement="bottom-start" open={toolSettingsOpen} onOpenChange={onToolSettingsOpenChange}>
@@ -588,9 +690,35 @@ export default function EditorStageViewport({
                                                     ? 'Draw settings'
                                                     : activeTool === 'pan'
                                                         ? 'Pan mode'
-                                                        : 'Selection'}
+                                                        : activeTool === 'crop'
+                                                            ? 'Crop mode'
+                                                            : 'Selection'}
                                             </Heading>
-                                            {activeTool === 'draw' ? (
+                                            {activeTool === 'crop' ? (
+                                                <YStack gap="$3" paddingTop="$3">
+                                                    <Paragraph fontSize={12} color="rgba(226, 232, 240, 0.65)">
+                                                        Click on an image to start cropping. Adjust the crop area and click Apply to crop the image.
+                                                    </Paragraph>
+                                                    {cropState ? (
+                                                        <XStack gap="$2">
+                                                            <Button
+                                                                type="button"
+                                                                onPress={onCropApply}
+                                                                flex={1}
+                                                            >
+                                                                Apply Crop
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                onPress={onCropCancel}
+                                                                flex={1}
+                                                            >
+                                                                Cancel
+                                                            </Button>
+                                                        </XStack>
+                                                    ) : null}
+                                                </YStack>
+                                            ) : activeTool === 'draw' ? (
                                                 <YStack gap="$3" paddingTop="$3">
                                                     <XStack alignItems="center" gap="$3">
                                                         <Label htmlFor="draw-color" flex={1}>

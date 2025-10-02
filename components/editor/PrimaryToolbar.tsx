@@ -18,7 +18,11 @@ export default function PrimaryToolbar({
     onRequestImage,
     iconSize,
 }: PrimaryToolbarProps) {
-    const activeToolLabel = activeTool === 'draw' ? 'Draw' : activeTool === 'pan' ? 'Pan' : 'Select';
+    const activeToolLabel =
+        activeTool === 'draw' ? 'Draw' :
+        activeTool === 'pan' ? 'Pan' :
+        activeTool === 'crop' ? 'Crop' :
+        'Select';
 
     return (
         <YStack className="editor-toolbar">
@@ -49,6 +53,15 @@ export default function PrimaryToolbar({
                     title="Draw"
                 >
                     <MaterialCommunityIcons key="pencil-outline" name="pencil-outline" size={iconSize} />
+                </Button>
+                <Button
+                    type="button"
+                    className={activeTool === 'crop' ? 'active' : ''}
+                    onPress={() => onSelectTool('crop')}
+                    aria-label="Crop"
+                    title="Crop"
+                >
+                    <MaterialCommunityIcons key="crop" name="crop" size={iconSize} />
                 </Button>
             </YStack>
             <Text className="active-tool-status" aria-live="polite">

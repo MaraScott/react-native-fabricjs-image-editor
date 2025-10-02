@@ -292,6 +292,7 @@ function clampElementPositionToStage(
 interface LayerElementSnapshot {
     offsetX: number;
     offsetY: number;
+    rotation?: number;
     width?: number;
     height?: number;
     radius?: number;
@@ -311,6 +312,7 @@ interface LayerElementSnapshot {
 function createLayerElementSnapshot(element: EditorElement, bounds: { x: number; y: number }): LayerElementSnapshot | null {
     const offsetX = element.x - bounds.x;
     const offsetY = element.y - bounds.y;
+    const rotation = element.rotation;
 
     switch (element.type) {
         case 'rect':
@@ -319,6 +321,7 @@ function createLayerElementSnapshot(element: EditorElement, bounds: { x: number;
             return {
                 offsetX,
                 offsetY,
+                rotation,
                 width: element.width,
                 height: element.height,
                 cornerRadius: 'cornerRadius' in element ? element.cornerRadius : undefined,
@@ -328,6 +331,7 @@ function createLayerElementSnapshot(element: EditorElement, bounds: { x: number;
             return {
                 offsetX,
                 offsetY,
+                rotation,
                 width: element.width,
                 height: element.height,
                 cornerRadius: element.cornerRadius,
@@ -336,6 +340,7 @@ function createLayerElementSnapshot(element: EditorElement, bounds: { x: number;
             return {
                 offsetX,
                 offsetY,
+                rotation,
                 radius: element.radius,
                 strokeWidth: element.strokeWidth,
             };
@@ -343,6 +348,7 @@ function createLayerElementSnapshot(element: EditorElement, bounds: { x: number;
             return {
                 offsetX,
                 offsetY,
+                rotation,
                 radiusX: element.radiusX,
                 radiusY: element.radiusY,
                 strokeWidth: element.strokeWidth,
@@ -351,6 +357,7 @@ function createLayerElementSnapshot(element: EditorElement, bounds: { x: number;
             return {
                 offsetX,
                 offsetY,
+                rotation,
                 width: element.width,
                 fontSize: element.fontSize,
                 padding: element.padding,
@@ -362,6 +369,7 @@ function createLayerElementSnapshot(element: EditorElement, bounds: { x: number;
             return {
                 offsetX,
                 offsetY,
+                rotation,
                 points: [...element.points],
                 strokeWidth: element.strokeWidth,
                 pointerLength: element.pointerLength,
@@ -372,6 +380,7 @@ function createLayerElementSnapshot(element: EditorElement, bounds: { x: number;
             return {
                 offsetX,
                 offsetY,
+                rotation,
                 points: [...element.points],
                 strokeWidth: element.strokeWidth,
             };
@@ -379,6 +388,7 @@ function createLayerElementSnapshot(element: EditorElement, bounds: { x: number;
             return {
                 offsetX,
                 offsetY,
+                rotation,
             };
     }
 }
@@ -917,6 +927,11 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const selectionOriginRef = useRef<Vector2d | null>(null);
     const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
     const [clipboard, setClipboard] = useState<EditorElement[] | null>(null);
+    const [cropState, setCropState] = useState<{
+        elementId: string;
+        originalImage: ImageElement;
+        cropArea: { x: number; y: number; width: number; height: number };
+    } | null>(null);
     const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
     const handleDrawSettingsChange = useCallback((updates: Partial<typeof DEFAULT_DRAW>) => {
         setDrawSettings((current) => ({ ...current, ...updates }));
@@ -1512,12 +1527,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 y: minY,
                 width: Math.max(1, maxX - minX),
                 height: Math.max(1, maxY - minY),
+                rotation: 0,
             },
         } as const;
     }, [layerMap, selectedElements]);
 
     const layerSelectionTransformRef = useRef<{
-        bounds: { x: number; y: number; width: number; height: number };
+        bounds: { x: number; y: number; width: number; height: number; rotation: number };
         elements: Map<string, LayerElementSnapshot>;
     } | null>(null);
 
@@ -1604,7 +1620,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     }, [contentElements, layerSelection]);
 
     const handleLayerSelectionTransform = useCallback(
-        (nextBounds: { x: number; y: number; width: number; height: number }) => {
+        (nextBounds: { x: number; y: number; width: number; height: number; rotation: number }) => {
             let state = layerSelectionTransformRef.current;
             if (!state) {
                 handleLayerSelectionTransformStart();
@@ -1625,6 +1641,9 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             const scaleY = Number.isFinite(scaleYRaw) ? Math.max(0.01, scaleYRaw) : 1;
             const averageScale = (scaleX + scaleY) / 2;
 
+            // Calculate rotation delta
+            const rotationDelta = nextBounds.rotation - (original.rotation ?? 0);
+
             updateElements((current) =>
                 current.map((element) => {
                     const snapshot = snapshots.get(element.id);
@@ -1633,8 +1652,23 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     }
 
                     const nextElement = { ...element } as EditorElement;
-                    nextElement.x = nextBounds.x + snapshot.offsetX * scaleX;
-                    nextElement.y = nextBounds.y + snapshot.offsetY * scaleY;
+
+                    // Default position calculation
+                    let elementScaleX = scaleX;
+                    let elementScaleY = scaleY;
+
+                    // For images with keepRatio, calculate the actual scale used
+                    if (element.type === 'image') {
+                        const image = element as ImageElement;
+                        if (image.keepRatio) {
+                            const ratioScale = Math.min(scaleX, scaleY);
+                            elementScaleX = ratioScale;
+                            elementScaleY = ratioScale;
+                        }
+                    }
+
+                    nextElement.x = nextBounds.x + snapshot.offsetX * elementScaleX;
+                    nextElement.y = nextBounds.y + snapshot.offsetY * elementScaleY;
 
                     switch (element.type) {
                         case 'rect':
@@ -1773,6 +1807,11 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                             break;
                     }
 
+                    // Apply rotation delta if rotation has changed
+                    if (rotationDelta !== 0 && snapshot.rotation !== undefined) {
+                        nextElement.rotation = snapshot.rotation + rotationDelta;
+                    }
+
                     return nextElement;
                 }),
             );
@@ -1864,9 +1903,137 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             if (tool !== 'draw') {
                 setToolSettingsOpen(false);
             }
+            if (tool !== 'crop') {
+                setCropState(null);
+            }
         },
         [setSelectedIds, setToolSettingsOpen],
     );
+
+    const handleCropStart = useCallback(
+        (elementId: string) => {
+            const element = contentElements.find((el) => el.id === elementId);
+            if (!element || element.type !== 'image') return;
+
+            const imageElement = element as ImageElement;
+            setCropState({
+                elementId,
+                originalImage: { ...imageElement },
+                cropArea: {
+                    x: 0,
+                    y: 0,
+                    width: imageElement.width,
+                    height: imageElement.height,
+                },
+            });
+        },
+        [contentElements],
+    );
+
+    const handleCropUpdate = useCallback((cropArea: { x: number; y: number; width: number; height: number }) => {
+        setCropState((current) => {
+            if (!current) return null;
+            return {
+                ...current,
+                cropArea,
+            };
+        });
+    }, []);
+
+    const handleCropApply = useCallback(() => {
+        if (!cropState) return;
+
+        const { elementId, cropArea, originalImage } = cropState;
+        const element = contentElements.find((el) => el.id === elementId);
+        if (!element || element.type !== 'image') return;
+
+        const imageElement = element as ImageElement;
+
+        // Create a canvas to crop the image
+        const img = document.createElement('img');
+        img.crossOrigin = 'anonymous';
+
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return;
+
+                // Calculate the scale factor between displayed size and actual image size
+                const scaleX = img.naturalWidth / originalImage.width;
+                const scaleY = img.naturalHeight / originalImage.height;
+
+                // Calculate crop area in image coordinates
+                const cropX = Math.max(0, cropArea.x * scaleX);
+                const cropY = Math.max(0, cropArea.y * scaleY);
+                const cropWidth = Math.min(img.naturalWidth - cropX, cropArea.width * scaleX);
+                const cropHeight = Math.min(img.naturalHeight - cropY, cropArea.height * scaleY);
+
+                // Set canvas size to cropped dimensions
+                canvas.width = cropWidth;
+                canvas.height = cropHeight;
+
+                // Draw the cropped portion
+                ctx.drawImage(
+                    img,
+                    cropX,
+                    cropY,
+                    cropWidth,
+                    cropHeight,
+                    0,
+                    0,
+                    cropWidth,
+                    cropHeight
+                );
+
+                // Convert to data URL
+                const croppedDataUrl = canvas.toDataURL('image/png');
+
+                // Update the element with the cropped image
+                updateElement(elementId, {
+                    src: croppedDataUrl,
+                    x: imageElement.x + cropArea.x,
+                    y: imageElement.y + cropArea.y,
+                    width: cropArea.width,
+                    height: cropArea.height,
+                });
+
+                setCropState(null);
+                setActiveTool('select');
+            } catch (error) {
+                console.error('Error cropping image:', error);
+                // Fallback: just resize the image
+                updateElement(elementId, {
+                    x: imageElement.x + cropArea.x,
+                    y: imageElement.y + cropArea.y,
+                    width: cropArea.width,
+                    height: cropArea.height,
+                });
+                setCropState(null);
+                setActiveTool('select');
+            }
+        };
+
+        img.onerror = () => {
+            console.error('Error loading image for crop');
+            // Fallback: just resize the image
+            updateElement(elementId, {
+                x: imageElement.x + cropArea.x,
+                y: imageElement.y + cropArea.y,
+                width: cropArea.width,
+                height: cropArea.height,
+            });
+            setCropState(null);
+            setActiveTool('select');
+        };
+
+        img.src = imageElement.src;
+    }, [cropState, contentElements, updateElement]);
+
+    const handleCropCancel = useCallback(() => {
+        setCropState(null);
+        setActiveTool('select');
+    }, []);
 
     const handleAddText = useCallback(() => {
         addElement(createText(options));
@@ -2989,10 +3156,15 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                         layerMap={layerMap}
                         dragBoundFactory={dragBoundFactory}
                         layerSelection={layerSelection}
+                        cropState={cropState}
                         onMoveLayerSelection={handleMoveLayerSelection}
                         onLayerSelectionTransformStart={handleLayerSelectionTransformStart}
                         onLayerSelectionTransform={handleLayerSelectionTransform}
                         onLayerSelectionTransformEnd={handleLayerSelectionTransformEnd}
+                        onCropStart={handleCropStart}
+                        onCropUpdate={handleCropUpdate}
+                        onCropApply={handleCropApply}
+                        onCropCancel={handleCropCancel}
                         onSelectElement={handleSelectElement}
                         onUpdateElement={updateElement}
                         onStageMouseEnter={handleStageMouseEnter}
