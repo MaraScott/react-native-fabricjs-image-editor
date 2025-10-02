@@ -18,6 +18,6 @@
       "its-fine": ["./shims/itsFine"]
     }
   },
-  "include": [".", "utils", "hooks", "components", "global.d.ts", "index.tsx"],
+  "include": ["components", "global.d.ts", "index.tsx"],
   "exclude": ["node_modules", "dist"]
 }

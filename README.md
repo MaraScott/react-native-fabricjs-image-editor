@@ -1,85 +1,63 @@
-# Konva Image Editor
+# Filerobot Image Editor
 
-A modern image editor powered by [React Konva](https://konvajs.org/docs/react/index.html). The entire UI is written in TypeScript + JSX and can be embedded inside a React Native application through a `WebView`. The editor allows adding and editing rectangles, circles, text blocks and remote images with undo/redo history, exporting to PNG/JPEG/JSON and two–way messaging with native hosts.
+A modern web-based image editor inspired by the [Filerobot Image Editor](https://github.com/scaleflex/filerobot-image-editor)
+project. The editor is written in TypeScript + React and ships as a self-contained HTML bundle that can be embedded inside a
+React Native WebView or any web application.
 
-![Editor preview](screenshots/editor.jpg)
+The UI mirrors the original Filerobot experience with cropping, rotation, flip tools, colour adjustments and rich text overlays.
+Images can be loaded from local files or remote URLs and exported directly as PNG data URLs.
+
+![Filerobot editor preview](screenshots/editor.jpg)
 
 ## Highlights
 
-- **Konva rendering** – Shapes are rendered with `react-konva`, providing fast Canvas operations and transformer handles.
-- **TypeScript-first** – All editor modules are authored as `.tsx` files with strict typing.
-- **React Native bridge** – The HTML bundle posts `ready`, `change`, `save`, `export` and `requestImage` events to the host app and accepts imperative commands (`loadDesign`, `addImage`, `requestExport`, `undo`, `redo`, etc.).
-- **Customisable canvas** – Change dimensions, background colour and grid visibility at runtime.
-- **No Fabric.js** – The legacy Fabric implementation has been removed in favour of Konva + React.
+- **React powered interface** – The editor is authored in React with functional components and hooks, providing a familiar
+  developer experience.
+- **Feature-rich toolkit** – Crop with aspect ratios, rotate and flip, tweak brightness/contrast/saturation and overlay
+  multiple text layers with colour and typography controls.
+- **In-browser rendering** – All transformations are rendered via the Canvas API, ensuring consistent output quality when
+  exporting images.
+- **Plug-and-play embedding** – The generated `index.html` works inside a WebView. It posts a ready flag and exposes the
+  editor globals under `window.FilerobotImageEditor` for consumers that expect the official API shape.
+- **Theme aware** – Toggle between dark and light themes to match your host application.
 
-## Development
+## Getting started
 
 ```bash
 npm install
 npm run build
 ```
 
-The build command now emits hashed JS/CSS assets recorded in `dist/asset-manifest.json`, which `index.html` reads to inject the latest bundle. During local development you can use `npm run watch` for incremental builds.
+The build step emits hashed assets in `dist/` and updates `index.html` to reference the latest bundle. During development you
+can run `npm run watch` (see `scripts/watch.js`) for incremental builds with live reload.
 
-### Project structure
+Open `index.html` in a browser to interact with the editor. Upload an image or pick one of the bundled Unsplash presets, edit
+it and click **Save** to preview the exported PNG along with the design metadata.
 
-```
-├── index.html              # Minimal host page for the editor
-├── components/
-│  ├── EditorApp.tsx   # Main application shell + toolbar/bridge
-│  ├── KonvaNodes.tsx  # Rect/Circle/Text/Image renderers with transformers
-│  └── PropertiesPanel.tsx
-├── hooks/useHistory.ts # Simple undo/redo state helper
-├── types/              # Editor model + React/konva shims
-├── utils/design.ts     # JSON serialisation helpers
-├── index.tsx           # Entrypoint rendered by webpack
-├── tsconfig.json
-└── webpack.config.js
-```
+## Embedding inside React Native
 
-## Embedding in React Native
-
-The bundle is designed to run inside a `react-native-webview`. Copy the `index.html`, `dist`, `src` build output and supporting assets (`fonts`, `vendor`) into your app and load the HTML file locally:
+The editor is designed to live inside a `react-native-webview`. Copy the generated `index.html`, the `dist` directory and the
+`vendor` folder into your React Native project and load the HTML from the WebView:
 
 ```tsx
 import React, { useRef } from 'react';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
 type EditorMessage =
-  | { type: 'ready'; payload: { options: any } }
-  | { type: 'change'; payload: { json: string } }
-  | { type: 'save'; payload: { json: string } }
-  | { type: 'export'; payload: { format: string; dataUrl?: string; json?: string } }
-  | { type: 'requestImage'; payload: { options: any } };
+  | { type: 'ready' }
+  | { type: 'save'; payload: { dataUrl: string; designState: unknown } };
 
-export default function Editor() {
+export default function ImageEditor() {
   const webviewRef = useRef<WebView>(null);
 
-  const postMessage = (message: unknown) => {
-    webviewRef.current?.postMessage(JSON.stringify(message));
-  };
-
   const handleMessage = (event: WebViewMessageEvent) => {
-    const data = JSON.parse(event.nativeEvent.data) as EditorMessage;
-    switch (data.type) {
+    const message = JSON.parse(event.nativeEvent.data) as EditorMessage;
+    switch (message.type) {
       case 'ready':
-        console.log('Editor ready', data.payload.options);
-        break;
-      case 'change':
-        console.log('Design changed', data.payload.json);
+        console.log('Editor ready');
         break;
       case 'save':
-        console.log('Saved', data.payload.json);
-        break;
-      case 'export':
-        console.log('Exported', data.payload.format);
-        break;
-      case 'requestImage':
-        // Launch your native image picker and respond with an image URL/base64 payload
-        postMessage({
-          type: 'addImage',
-          payload: { src: 'https://example.com/photo.png' },
-        });
+        console.log('Saved image', message.payload);
         break;
       default:
         break;
@@ -90,7 +68,7 @@ export default function Editor() {
     <WebView
       ref={webviewRef}
       originWhitelist={["*"]}
-      source={require('./assets/editor/index.html')}
+      source={require('./assets/filerobot/index.html')}
       onMessage={handleMessage}
       javaScriptEnabled
     />
@@ -98,28 +76,27 @@ export default function Editor() {
 }
 ```
 
-### Supported bridge messages
+The editor attaches itself to `window.FilerobotImageEditor` so hosts using the public API of the original project can hook into
+it if required.
 
-Messages sent **from** native to the editor:
+## Saving and export payload
 
-| Type | Payload | Effect |
-| ---- | ------- | ------ |
-| `setDesign` / `loadDesign` | `{ json: string \| EditorDesign }` | Loads a serialized canvas state |
-| `setOptions` | `{ options: Partial<EditorOptions> }` | Updates canvas dimensions, background, grid |
-| `addImage` | `{ src: string, width?, height?, x?, y?, rotation?, opacity?, name?, draggable? }` | Inserts an image element with optional overrides |
-| `undo` / `redo` | – | History traversal |
-| `clear` | – | Clears the canvas |
-| `requestExport` | `{ format?: 'png' \| 'jpeg' \| 'json' }` | Triggers export callback |
-| `requestJSON` | – | Emits latest JSON snapshot |
+When the **Save** button is pressed the editor collects the current canvas state and produces a PNG data URL. The save payload
+contains the encoded image and the transformation metadata (rotation, flip, adjustments, crop rectangle and text overlays).
+You can inspect this payload in the demo UI under "Save preview".
 
-Messages emitted **to** native:
+## Folder structure
 
-- `ready` – Editor boot completed (current options included).
-- `change` – Debounced canvas changes with serialized JSON.
-- `save` – Save button clicked.
-- `export` – Export complete, includes format + payload.
-- `requestImage` – User requested an image element; native hosts can respond with `addImage`.
+```
+├── index.html             # Generated host page (updated by build scripts)
+├── components/
+│   ├── FilerobotEditorApp.tsx    # Demo shell + file picker
+│   └── FilerobotImageEditor.tsx  # Core editor component
+├── styles.css             # Global UI styles
+├── scripts/               # Build & watch scripts wrapping esbuild
+└── vendor/                # React runtime UMD bundles consumed by index.html
+```
 
-## Licensing
+## License
 
 Released under the MIT license. See [LICENSE](LICENSE) for details.

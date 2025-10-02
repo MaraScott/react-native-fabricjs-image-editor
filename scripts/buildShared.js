@@ -12,6 +12,8 @@ const indexTemplateFile = path.resolve(projectRoot, 'index.template.html');
 const indexHtmlFile = path.resolve(projectRoot, 'index.html');
 
 const aliasMap = {
+  react: path.resolve(projectRoot, 'shims/react.ts'),
+  'react-dom/client': path.resolve(projectRoot, 'shims/reactDomClient.ts'),
   'react-native': 'react-native-web-lite',
   'react-konva': path.resolve(projectRoot, 'shims/reactKonva.tsx'),
   'react/jsx-runtime': path.resolve(projectRoot, 'shims/jsxRuntime.ts'),
