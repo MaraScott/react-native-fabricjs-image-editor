@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { RegularPolygon as RegularPolygonShape, Transformer as TransformerShape } from 'react-konva';
 import type { KonvaEventObject } from '../../types/konva';
 import type { TriangleElement } from '../../types/editor';
@@ -7,6 +7,7 @@ import {
   shouldListen,
   useApplyZIndex,
   useAttachTransformer,
+  clampBoundingBoxToStage,
   type BaseNodeProps,
 } from './common';
 
@@ -18,6 +19,7 @@ export function TriangleNode({
   onChange,
   dragBoundFunc,
   zIndex,
+  stageSize,
 }: BaseNodeProps<TriangleElement>) {
   const shapeRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
@@ -26,6 +28,10 @@ export function TriangleNode({
   useApplyZIndex(zIndex, shapeRef);
 
   const draggable = selectionEnabled && shape.draggable && !shape.locked;
+  const boundBoxFunc = useCallback(
+    (_oldBox: any, newBox: any) => clampBoundingBoxToStage(newBox, stageSize, 8, 8),
+    [stageSize?.height, stageSize?.width],
+  );
   const radius = useMemo(() => Math.max(shape.width, shape.height) / 2, [shape.width, shape.height]);
 
   return (
@@ -45,8 +51,14 @@ export function TriangleNode({
         draggable={draggable}
         dragBoundFunc={dragBoundFunc}
         listening={shouldListen(draggable, shape.visible)}
-        onClick={onSelect}
-        onTap={onSelect}
+        onClick={(event: KonvaEventObject<MouseEvent>) => {
+          onSelect(event);
+          event.cancelBubble = true;
+        }}
+        onTap={(event: KonvaEventObject<TouchEvent>) => {
+          onSelect(event);
+          event.cancelBubble = true;
+        }}
         onDragEnd={(event: KonvaEventObject<DragEvent>) => {
           onChange({ x: event.target.x() - shape.width / 2, y: event.target.y() - shape.height / 2 });
         }}
@@ -69,7 +81,7 @@ export function TriangleNode({
         }}
       />
       {isSelected && selectionEnabled && (
-        <TransformerShape ref={transformerRef} {...TRANSFORMER_PROPS} />
+        <TransformerShape ref={transformerRef} {...TRANSFORMER_PROPS} boundBoxFunc={boundBoxFunc} />
       )}
     </>
   );

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { Image as ImageShape, Transformer as TransformerShape } from 'react-konva';
 import type { KonvaEventObject } from '../../types/konva';
 import type { ImageElement } from '../../types/editor';
@@ -8,6 +8,7 @@ import {
   shouldListen,
   useApplyZIndex,
   useAttachTransformer,
+  clampBoundingBoxToStage,
   type BaseNodeProps,
 } from './common';
 
@@ -19,6 +20,7 @@ export function ImageNode({
   onChange,
   dragBoundFunc,
   zIndex,
+  stageSize,
 }: BaseNodeProps<ImageElement>) {
   const shapeRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
@@ -28,6 +30,10 @@ export function ImageNode({
   useApplyZIndex(zIndex, shapeRef);
 
   const draggable = selectionEnabled && shape.draggable && !shape.locked;
+  const boundBoxFunc = useCallback(
+    (_oldBox: any, newBox: any) => clampBoundingBoxToStage(newBox, stageSize, 16, 16),
+    [stageSize?.height, stageSize?.width],
+  );
 
   return (
     <>
@@ -45,8 +51,14 @@ export function ImageNode({
         draggable={draggable}
         dragBoundFunc={dragBoundFunc}
         listening={shouldListen(draggable, shape.visible)}
-        onClick={onSelect}
-        onTap={onSelect}
+        onClick={(event: KonvaEventObject<MouseEvent>) => {
+          onSelect(event);
+          event.cancelBubble = true;
+        }}
+        onTap={(event: KonvaEventObject<TouchEvent>) => {
+          onSelect(event);
+          event.cancelBubble = true;
+        }}
         onDragEnd={(event: KonvaEventObject<DragEvent>) => {
           onChange({ x: event.target.x(), y: event.target.y() });
         }}
@@ -69,7 +81,7 @@ export function ImageNode({
         }}
       />
       {isSelected && selectionEnabled && (
-        <TransformerShape ref={transformerRef} {...TRANSFORMER_PROPS} />
+        <TransformerShape ref={transformerRef} {...TRANSFORMER_PROPS} boundBoxFunc={boundBoxFunc} />
       )}
     </>
   );

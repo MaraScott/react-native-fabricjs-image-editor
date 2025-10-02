@@ -4,13 +4,37 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Konva Image Editor</title>
-    <link rel="stylesheet" href="./dist/editor.bundle.3AK24VYK.css" />
+    <link rel="stylesheet" href="./dist/editor.bundle.QSQJOPQF.css" />
   </head>
   <body>
     <div id="image-editor-root"></div>
     <script src="./vendor/react.production.min.js" crossorigin="anonymous"></script>
     <script src="./vendor/react-dom.production.min.js" crossorigin="anonymous"></script>
     <script src="./vendor/konva.min.js" crossorigin="anonymous"></script>
-    <script src="./dist/editor.bundle.FO72KXSY.js" crossorigin="anonymous"></script>
+    <script src="./dist/editor.bundle.PPCOHHGO.js" crossorigin="anonymous"></script>
+  
+    <script>
+      (function () {
+        var source;
+        function connect() {
+          source = new EventSource('/__livereload');
+          source.addEventListener('reload', function () {
+            window.location.reload();
+          });
+          source.addEventListener('open', function () {
+            console.log('[watch] Connected to live reload server.');
+          });
+          source.addEventListener('error', function () {
+            if (source) {
+              source.close();
+            }
+            setTimeout(connect, 1000);
+          });
+        }
+
+        connect();
+      })();
+    </script>
+  
   </body>
 </html>

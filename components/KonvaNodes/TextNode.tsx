@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { Text as TextShape, Transformer as TransformerShape } from 'react-konva';
 import type { KonvaEventObject } from '../../types/konva';
 import type { TextElement } from '../../types/editor';
@@ -7,6 +7,7 @@ import {
   shouldListen,
   useApplyZIndex,
   useAttachTransformer,
+  clampBoundingBoxToStage,
   type BaseNodeProps,
 } from './common';
 
@@ -18,6 +19,7 @@ export function TextNode({
   onChange,
   dragBoundFunc,
   zIndex,
+  stageSize,
 }: BaseNodeProps<TextElement>) {
   const shapeRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
@@ -26,6 +28,10 @@ export function TextNode({
   useApplyZIndex(zIndex, shapeRef);
 
   const draggable = selectionEnabled && shape.draggable && !shape.locked;
+  const boundBoxFunc = useCallback(
+    (_oldBox: any, newBox: any) => clampBoundingBoxToStage(newBox, stageSize, 32, 16),
+    [stageSize?.height, stageSize?.width],
+  );
 
   return (
     <>
@@ -55,8 +61,14 @@ export function TextNode({
         fillAfterStrokeEnabled
         padding={shape.padding}
         background={shape.backgroundColor}
-        onClick={onSelect}
-        onTap={onSelect}
+        onClick={(event: KonvaEventObject<MouseEvent>) => {
+          onSelect(event);
+          event.cancelBubble = true;
+        }}
+        onTap={(event: KonvaEventObject<TouchEvent>) => {
+          onSelect(event);
+          event.cancelBubble = true;
+        }}
         onDragEnd={(event: KonvaEventObject<DragEvent>) => {
           onChange({ x: event.target.x(), y: event.target.y() });
         }}
@@ -78,6 +90,7 @@ export function TextNode({
         <TransformerShape
           ref={transformerRef}
           {...TRANSFORMER_PROPS}
+          boundBoxFunc={boundBoxFunc}
           enabledAnchors={['middle-left', 'middle-right']}
         />
       )}

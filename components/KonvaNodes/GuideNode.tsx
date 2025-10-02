@@ -39,8 +39,14 @@ export function GuideNode({
       listening={selectionEnabled}
       draggable={draggable}
       dragBoundFunc={dragBound}
-      onClick={onSelect}
-      onTap={onSelect}
+      onClick={(event: KonvaEventObject<MouseEvent>) => {
+        onSelect(event);
+        event.cancelBubble = true;
+      }}
+      onTap={(event: KonvaEventObject<TouchEvent>) => {
+        onSelect(event);
+        event.cancelBubble = true;
+      }}
       shadowColor={isSelected ? '#38bdf8' : undefined}
       shadowBlur={isSelected ? 6 : 0}
       onDragEnd={(event: KonvaEventObject<DragEvent>) => {

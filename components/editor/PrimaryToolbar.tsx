@@ -6,7 +6,6 @@ import type { Tool } from './types';
 export interface PrimaryToolbarProps {
     activeTool: Tool;
     onSelectTool: (tool: Tool) => void;
-    onAddDraw: () => void;
     onAddText: () => void;
     onRequestImage: () => void;
     iconSize: number;
@@ -15,12 +14,11 @@ export interface PrimaryToolbarProps {
 export default function PrimaryToolbar({
     activeTool,
     onSelectTool,
-    onAddDraw,
     onAddText,
     onRequestImage,
     iconSize,
 }: PrimaryToolbarProps) {
-    const activeToolLabel = activeTool === 'draw' ? 'Draw' : 'Select';
+    const activeToolLabel = activeTool === 'draw' ? 'Draw' : activeTool === 'pan' ? 'Pan' : 'Select';
 
     return (
         <YStack className="editor-toolbar">
@@ -36,8 +34,17 @@ export default function PrimaryToolbar({
                 </Button>
                 <Button
                     type="button"
+                    className={activeTool === 'pan' ? 'active' : ''}
+                    onPress={() => onSelectTool('pan')}
+                    aria-label="Pan"
+                    title="Pan"
+                >
+                    <MaterialCommunityIcons key="hand-back-right-outline" name="hand-back-right-outline" size={iconSize} />
+                </Button>
+                <Button
+                    type="button"
                     className={activeTool === 'draw' ? 'active' : ''}
-                    onPress={onAddDraw}
+                    onPress={() => onSelectTool('draw')}
                     aria-label="Draw"
                     title="Draw"
                 >

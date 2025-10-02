@@ -1,5 +1,5 @@
-import type { ChangeEvent, CSSProperties, RefObject } from 'react';
-import { Layer, Rect as RectShape, Stage } from 'react-konva';
+import { useEffect, useRef, type ChangeEvent, type CSSProperties, type RefObject } from 'react';
+import { Layer, Rect as RectShape, Stage, Transformer as TransformerShape } from 'react-konva';
 import {
     Button,
     Heading,
@@ -29,6 +29,7 @@ import {
     TriangleNode,
 } from '../KonvaNodes';
 import { MaterialCommunityIcons } from '../icons/MaterialCommunityIcons';
+import { clampBoundingBoxToStage } from '../KonvaNodes/common';
 import type {
     EditorElement,
     EditorLayer,
@@ -36,8 +37,15 @@ import type {
     GuideElement,
     ImageElement,
 } from '../../types/editor';
-import type { KonvaEventObject, StageType } from '../../types/konva';
+import type { KonvaEventObject, StageType, Vector2d } from '../../types/konva';
 import type { DragBoundFactory, SelectionRect, Tool } from './types';
+
+interface LayerSelectionInfo {
+    layerId: string;
+    elementIds: string[];
+    locked: boolean;
+    bounds: { x: number; y: number; width: number; height: number };
+}
 
 export interface EditorStageViewportProps {
     stageRef: RefObject<StageType | null>;
@@ -58,7 +66,12 @@ export interface EditorStageViewportProps {
     activeTool: Tool;
     layerMap: Map<string, EditorLayer>;
     dragBoundFactory: DragBoundFactory;
-    onSelectElement: (id: string) => void;
+    layerSelection: LayerSelectionInfo | null;
+    onMoveLayerSelection: (delta: Vector2d) => void;
+    onLayerSelectionTransformStart: () => void;
+    onLayerSelectionTransform: (bounds: { x: number; y: number; width: number; height: number }) => void;
+    onLayerSelectionTransformEnd: () => void;
+    onSelectElement: (id: string, mode?: 'layer' | 'single' | 'toggle') => void;
     onUpdateElement: (id: string, attributes: Partial<EditorElement>) => void;
     onStageMouseEnter: (event: KonvaEventObject<MouseEvent>) => void;
     onStageMouseLeave: (event: KonvaEventObject<MouseEvent>) => void;
@@ -113,6 +126,11 @@ export default function EditorStageViewport({
     activeTool,
     layerMap,
     dragBoundFactory,
+    layerSelection,
+    onMoveLayerSelection,
+    onLayerSelectionTransformStart,
+    onLayerSelectionTransform,
+    onLayerSelectionTransformEnd,
     onSelectElement,
     onUpdateElement,
     onStageMouseEnter,
@@ -153,6 +171,109 @@ export default function EditorStageViewport({
 }: EditorStageViewportProps) {
     const iconLarge = iconSize * 1.5;
     const canvasSizeDisabled = canvasSizeLocked || !fixedCanvas;
+    const stageSize = { width: stageWidth, height: stageHeight };
+    const layerSelectionRectRef = useRef<any>(null);
+    const layerSelectionTransformerRef = useRef<any>(null);
+    const layerSelectionDragOrigin = useRef<Vector2d | null>(null);
+    const layerSelectionActive = !!layerSelection;
+    const layerSelectionInteractive = !!(layerSelection && !layerSelection.locked);
+
+    const commitLayerSelectionBounds = (node: any) => {
+        const width = Math.max(1, node.width() * node.scaleX());
+        const height = Math.max(1, node.height() * node.scaleY());
+        const clamped = clampBoundingBoxToStage(
+            { x: node.x(), y: node.y(), width, height },
+            stageSize,
+            4,
+            4,
+        );
+        node.width(clamped.width);
+        node.height(clamped.height);
+        node.position({ x: clamped.x, y: clamped.y });
+        node.scaleX(1);
+        node.scaleY(1);
+        node.getLayer()?.batchDraw();
+        return clamped;
+    };
+
+    useEffect(() => {
+        const transformer = layerSelectionTransformerRef.current;
+        const rect = layerSelectionRectRef.current;
+        if (!transformer) {
+            return;
+        }
+        if (!layerSelectionInteractive || !rect) {
+            transformer.nodes([]);
+            transformer.getLayer()?.batchDraw();
+            return;
+        }
+        transformer.nodes([rect]);
+        transformer.getLayer()?.batchDraw();
+    }, [layerSelectionInteractive, layerSelection?.bounds.x, layerSelection?.bounds.y, layerSelection?.bounds.width, layerSelection?.bounds.height]);
+
+    const handleLayerSelectionDragStart = (event: KonvaEventObject<DragEvent>) => {
+        if (!layerSelectionInteractive) return;
+        const node = event.target;
+        const bounds = commitLayerSelectionBounds(node);
+        layerSelectionDragOrigin.current = { x: bounds.x, y: bounds.y };
+        event.cancelBubble = true;
+    };
+
+    const handleLayerSelectionDragMove = (event: KonvaEventObject<DragEvent>) => {
+        if (!layerSelectionInteractive) return;
+        const node = event.target;
+        const width = Math.max(1, node.width());
+        const height = Math.max(1, node.height());
+        const clampedPosition = clampBoundingBoxToStage(
+            { x: node.x(), y: node.y(), width, height },
+            stageSize,
+            4,
+            4,
+        );
+        node.position({ x: clampedPosition.x, y: clampedPosition.y });
+        const previous = layerSelectionDragOrigin.current ?? { x: clampedPosition.x, y: clampedPosition.y };
+        const delta = {
+            x: clampedPosition.x - previous.x,
+            y: clampedPosition.y - previous.y,
+        };
+        if (delta.x !== 0 || delta.y !== 0) {
+            onMoveLayerSelection(delta);
+            layerSelectionDragOrigin.current = { x: clampedPosition.x, y: clampedPosition.y };
+        }
+        event.cancelBubble = true;
+    };
+
+    const handleLayerSelectionDragEnd = (event: KonvaEventObject<DragEvent>) => {
+        if (!layerSelectionInteractive) return;
+        layerSelectionDragOrigin.current = null;
+        event.cancelBubble = true;
+    };
+
+    const handleElementSelect = (
+        id: string,
+        event: KonvaEventObject<MouseEvent | TouchEvent>,
+        options?: { forceSingle?: boolean },
+    ) => {
+        if (options?.forceSingle) {
+            onSelectElement(id, 'single');
+            event.cancelBubble = true;
+            return;
+        }
+
+        const nativeEvent = event?.evt ?? null;
+        if (nativeEvent) {
+            if (nativeEvent.metaKey || nativeEvent.ctrlKey || nativeEvent.altKey) {
+                onSelectElement(id, 'single');
+            } else if (nativeEvent.shiftKey) {
+                onSelectElement(id, 'toggle');
+            } else {
+                onSelectElement(id, 'layer');
+            }
+        } else {
+            onSelectElement(id, 'layer');
+        }
+        event.cancelBubble = true;
+    };
 
     return (
         <Stack className="editor-layout">
@@ -198,9 +319,10 @@ export default function EditorStageViewport({
                                             shape={guide}
                                             isSelected={selectedIds.includes(guide.id)}
                                             selectionEnabled={activeTool === 'select'}
-                                            onSelect={() => onSelectElement(guide.id)}
+                                            onSelect={(event) => handleElementSelect(guide.id, event, { forceSingle: true })}
                                             onChange={(attributes) => onUpdateElement(guide.id, attributes)}
                                             zIndex={guideIndex}
+                                            stageSize={stageSize}
                                         />
                                     ))}
                                 {contentElements.map((element, elementIndex) => {
@@ -208,7 +330,13 @@ export default function EditorStageViewport({
                                     const layer = element.layerId ? layerMap.get(element.layerId) ?? null : null;
                                     const isLayerLocked = layer?.locked ?? false;
                                     const isSelected = selectedIds.includes(element.id);
-                                    const selectionEnabled = activeTool === 'select' && !isLayerLocked;
+                                    const isPartOfLayerSelection =
+                                        layerSelectionActive && (layerSelection?.elementIds.includes(element.id) ?? false);
+                                    const multiSelectionActive = (layerSelection?.elementIds.length ?? 0) > 1;
+                                    const selectionEnabled =
+                                        activeTool === 'select' &&
+                                        !isLayerLocked &&
+                                        (!multiSelectionActive || !isPartOfLayerSelection);
                                     const dragBound = dragBoundFactory(element);
 
                                     switch (element.type) {
@@ -219,9 +347,10 @@ export default function EditorStageViewport({
                                                     shape={element}
                                                     isSelected={isSelected}
                                                     selectionEnabled={selectionEnabled}
-                                                    onSelect={() => onSelectElement(element.id)}
+                                                    onSelect={(event) => handleElementSelect(element.id, event)}
                                                     onChange={(attributes) => onUpdateElement(element.id, attributes)}
                                                     dragBoundFunc={dragBound}
+                                                    stageSize={stageSize}
                                                     zIndex={zIndex}
                                                 />
                                             );
@@ -232,9 +361,10 @@ export default function EditorStageViewport({
                                                     shape={element}
                                                     isSelected={isSelected}
                                                     selectionEnabled={selectionEnabled}
-                                                    onSelect={() => onSelectElement(element.id)}
+                                                    onSelect={(event) => handleElementSelect(element.id, event)}
                                                     onChange={(attributes) => onUpdateElement(element.id, attributes)}
                                                     dragBoundFunc={dragBound}
+                                                    stageSize={stageSize}
                                                     zIndex={zIndex}
                                                 />
                                             );
@@ -245,9 +375,10 @@ export default function EditorStageViewport({
                                                     shape={element}
                                                     isSelected={isSelected}
                                                     selectionEnabled={selectionEnabled}
-                                                    onSelect={() => onSelectElement(element.id)}
+                                                    onSelect={(event) => handleElementSelect(element.id, event)}
                                                     onChange={(attributes) => onUpdateElement(element.id, attributes)}
                                                     dragBoundFunc={dragBound}
+                                                    stageSize={stageSize}
                                                     zIndex={zIndex}
                                                 />
                                             );
@@ -258,9 +389,10 @@ export default function EditorStageViewport({
                                                     shape={element}
                                                     isSelected={isSelected}
                                                     selectionEnabled={selectionEnabled}
-                                                    onSelect={() => onSelectElement(element.id)}
+                                                    onSelect={(event) => handleElementSelect(element.id, event)}
                                                     onChange={(attributes) => onUpdateElement(element.id, attributes)}
                                                     dragBoundFunc={dragBound}
+                                                    stageSize={stageSize}
                                                     zIndex={zIndex}
                                                 />
                                             );
@@ -271,9 +403,10 @@ export default function EditorStageViewport({
                                                     shape={element}
                                                     isSelected={isSelected}
                                                     selectionEnabled={selectionEnabled}
-                                                    onSelect={() => onSelectElement(element.id)}
+                                                    onSelect={(event) => handleElementSelect(element.id, event)}
                                                     onChange={(attributes) => onUpdateElement(element.id, attributes)}
                                                     dragBoundFunc={dragBound}
+                                                    stageSize={stageSize}
                                                     zIndex={zIndex}
                                                 />
                                             );
@@ -284,9 +417,10 @@ export default function EditorStageViewport({
                                                     shape={element}
                                                     isSelected={isSelected}
                                                     selectionEnabled={selectionEnabled}
-                                                    onSelect={() => onSelectElement(element.id)}
+                                                    onSelect={(event) => handleElementSelect(element.id, event)}
                                                     onChange={(attributes) => onUpdateElement(element.id, attributes)}
                                                     dragBoundFunc={dragBound}
+                                                    stageSize={stageSize}
                                                     zIndex={zIndex}
                                                 />
                                             );
@@ -297,9 +431,10 @@ export default function EditorStageViewport({
                                                     shape={element}
                                                     isSelected={isSelected}
                                                     selectionEnabled={selectionEnabled}
-                                                    onSelect={() => onSelectElement(element.id)}
+                                                    onSelect={(event) => handleElementSelect(element.id, event)}
                                                     onChange={(attributes) => onUpdateElement(element.id, attributes)}
                                                     dragBoundFunc={dragBound}
+                                                    stageSize={stageSize}
                                                     zIndex={zIndex}
                                                 />
                                             );
@@ -310,9 +445,10 @@ export default function EditorStageViewport({
                                                     shape={element}
                                                     isSelected={isSelected}
                                                     selectionEnabled={selectionEnabled}
-                                                    onSelect={() => onSelectElement(element.id)}
+                                                    onSelect={(event) => handleElementSelect(element.id, event)}
                                                     onChange={(attributes) => onUpdateElement(element.id, attributes)}
                                                     dragBoundFunc={dragBound}
+                                                    stageSize={stageSize}
                                                     zIndex={zIndex}
                                                 />
                                             );
@@ -323,9 +459,10 @@ export default function EditorStageViewport({
                                                     shape={element}
                                                     isSelected={isSelected}
                                                     selectionEnabled={selectionEnabled}
-                                                    onSelect={() => onSelectElement(element.id)}
+                                                    onSelect={(event) => handleElementSelect(element.id, event)}
                                                     onChange={(attributes) => onUpdateElement(element.id, attributes)}
                                                     dragBoundFunc={dragBound}
+                                                    stageSize={stageSize}
                                                     zIndex={zIndex}
                                                 />
                                             );
@@ -336,9 +473,10 @@ export default function EditorStageViewport({
                                                     shape={element as ImageElement}
                                                     isSelected={isSelected}
                                                     selectionEnabled={selectionEnabled}
-                                                    onSelect={() => onSelectElement(element.id)}
+                                                    onSelect={(event) => handleElementSelect(element.id, event)}
                                                     onChange={(attributes) => onUpdateElement(element.id, attributes)}
                                                     dragBoundFunc={dragBound}
+                                                    stageSize={stageSize}
                                                     zIndex={zIndex}
                                                 />
                                             );
@@ -347,6 +485,78 @@ export default function EditorStageViewport({
                                     }
                                 })}
                             </Layer>
+                            {layerSelectionActive && activeTool === 'select' ? (
+                                <Layer>
+                                    <RectShape
+                                        ref={layerSelectionRectRef}
+                                        x={layerSelection?.bounds.x ?? 0}
+                                        y={layerSelection?.bounds.y ?? 0}
+                                        width={layerSelection?.bounds.width ?? 0}
+                                        height={layerSelection?.bounds.height ?? 0}
+                                        stroke="#38bdf8"
+                                        dash={[6, 4]}
+                                        strokeWidth={1}
+                                        fill="rgba(56, 189, 248, 0.08)"
+                                        listening={layerSelectionInteractive}
+                                        draggable={layerSelectionInteractive}
+                                        hitStrokeWidth={12}
+                                        perfectDrawEnabled={false}
+                                        onMouseDown={(event) => {
+                                            event.cancelBubble = true;
+                                        }}
+                                        onClick={(event) => {
+                                            event.cancelBubble = true;
+                                        }}
+                                        onTap={(event) => {
+                                            event.cancelBubble = true;
+                                        }}
+                                        onDragStart={handleLayerSelectionDragStart}
+                                        onDragMove={handleLayerSelectionDragMove}
+                                        onDragEnd={handleLayerSelectionDragEnd}
+                                        onTransformStart={(event) => {
+                                            if (!layerSelectionInteractive) return;
+                                            event.cancelBubble = true;
+                                            layerSelectionDragOrigin.current = null;
+                                            onLayerSelectionTransformStart();
+                                        }}
+                                        onTransform={(event) => {
+                                            if (!layerSelectionInteractive) return;
+                                            event.cancelBubble = true;
+                                            const node = layerSelectionRectRef.current;
+                                            if (!node) return;
+                                            const bounds = commitLayerSelectionBounds(node);
+                                            onLayerSelectionTransform(bounds);
+                                        }}
+                                        onTransformEnd={(event) => {
+                                            if (!layerSelectionInteractive) return;
+                                            event.cancelBubble = true;
+                                            const node = layerSelectionRectRef.current;
+                                            if (node) {
+                                                const bounds = commitLayerSelectionBounds(node);
+                                                onLayerSelectionTransform(bounds);
+                                            }
+                                            onLayerSelectionTransformEnd();
+                                        }}
+                                    />
+                                    {layerSelectionInteractive ? (
+                                        <TransformerShape
+                                            ref={layerSelectionTransformerRef}
+                                            rotateEnabled={false}
+                                            enabledAnchors={['top-left', 'top-center', 'top-right', 'middle-left', 'middle-right', 'bottom-left', 'bottom-center', 'bottom-right']}
+                                            boundBoxFunc={(oldBox, newBox) => {
+                                                const minSize = 8;
+                                                const clampedWidth = Math.max(minSize, newBox.width);
+                                                const clampedHeight = Math.max(minSize, newBox.height);
+                                                return {
+                                                    ...newBox,
+                                                    width: clampedWidth,
+                                                    height: clampedHeight,
+                                                };
+                                            }}
+                                        />
+                                    ) : null}
+                                </Layer>
+                            ) : null}
                             {selectionRect && selectionRect.width > 0 && selectionRect.height > 0 ? (
                                 <Layer listening={false}>
                                     <RectShape
@@ -373,7 +583,13 @@ export default function EditorStageViewport({
                                     <Popover.Arrow />
                                     <YStack className="tool-stats editor-sidebar">
                                         <YStack tag="aside">
-                                            <Heading tag="h2">{activeTool === 'draw' ? 'Draw settings' : 'Selection'}</Heading>
+                                            <Heading tag="h2">
+                                                {activeTool === 'draw'
+                                                    ? 'Draw settings'
+                                                    : activeTool === 'pan'
+                                                        ? 'Pan mode'
+                                                        : 'Selection'}
+                                            </Heading>
                                             {activeTool === 'draw' ? (
                                                 <YStack gap="$3" paddingTop="$3">
                                                     <XStack alignItems="center" gap="$3">
@@ -424,10 +640,33 @@ export default function EditorStageViewport({
                                                         </Slider>
                                                     </YStack>
                                                 </YStack>
-                                            ) : (
+                                            ) : activeTool === 'pan' ? (
                                                 <Paragraph paddingTop="$3" fontSize={12} color="rgba(226, 232, 240, 0.65)">
-                                                    Select an element on the canvas to view its properties.
+                                                    Drag anywhere on the canvas to scroll. Use a trackpad pinch, touch
+                                                    gesture, or mouse wheel to zoom in and out.
                                                 </Paragraph>
+                                            ) : (
+                                                <YStack gap="$3" paddingTop="$3">
+                                                    <Paragraph fontSize={12} color="rgba(226, 232, 240, 0.65)">
+                                                        Use the layer resize tool below to scale the active selection. Hold
+                                                        Ctrl/Cmd/Alt to select a single element, Shift to toggle.
+                                                    </Paragraph>
+                                                    <Button
+                                                        type="button"
+                                                        disabled={!layerSelectionInteractive}
+                                                        onPress={() => {
+                                                            if (layerSelectionInteractive && layerSelectionRectRef.current) {
+                                                                onLayerSelectionTransformStart();
+                                                                const rect = layerSelectionRectRef.current;
+                                                                const bounds = commitLayerSelectionBounds(rect);
+                                                                onLayerSelectionTransform(bounds);
+                                                                onLayerSelectionTransformEnd();
+                                                            }
+                                                        }}
+                                                    >
+                                                        {layerSelectionInteractive ? 'Resize selection' : 'Layer locked'}
+                                                    </Button>
+                                                </YStack>
                                             )}
                                         </YStack>
                                     </YStack>

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { Line as LineShape, Transformer as TransformerShape } from 'react-konva';
 import type { KonvaEventObject } from '../../types/konva';
 import type { LineElement } from '../../types/editor';
@@ -7,6 +7,7 @@ import {
   shouldListen,
   useApplyZIndex,
   useAttachTransformer,
+  clampBoundingBoxToStage,
   type BaseNodeProps,
 } from './common';
 
@@ -18,6 +19,7 @@ export function LineNode({
   onChange,
   dragBoundFunc,
   zIndex,
+  stageSize,
 }: BaseNodeProps<LineElement>) {
   const shapeRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
@@ -26,6 +28,10 @@ export function LineNode({
   useApplyZIndex(zIndex, shapeRef);
 
   const draggable = selectionEnabled && shape.draggable && !shape.locked;
+  const boundBoxFunc = useCallback(
+    (_oldBox: any, newBox: any) => clampBoundingBoxToStage(newBox, stageSize, 1, 1),
+    [stageSize?.height, stageSize?.width],
+  );
 
   return (
     <>
@@ -48,8 +54,14 @@ export function LineNode({
         tension={shape.tension ?? 0}
         closed={shape.closed}
         fill={shape.fill}
-        onClick={onSelect}
-        onTap={onSelect}
+        onClick={(event: KonvaEventObject<MouseEvent>) => {
+          onSelect(event);
+          event.cancelBubble = true;
+        }}
+        onTap={(event: KonvaEventObject<TouchEvent>) => {
+          onSelect(event);
+          event.cancelBubble = true;
+        }}
         onDragEnd={(event: KonvaEventObject<DragEvent>) => {
           onChange({ x: event.target.x(), y: event.target.y() });
         }}
@@ -72,7 +84,7 @@ export function LineNode({
         }}
       />
       {isSelected && selectionEnabled && (
-        <TransformerShape ref={transformerRef} {...TRANSFORMER_PROPS} />
+        <TransformerShape ref={transformerRef} {...TRANSFORMER_PROPS} boundBoxFunc={boundBoxFunc} />
       )}
     </>
   );

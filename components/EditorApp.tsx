@@ -17,13 +17,17 @@ import type {
     EditorElement,
     EditorLayer,
     EditorOptions,
+    CircleElement,
+    EllipseElement,
     FrameElement,
     GuideElement,
     ImageElement,
     LineElement,
+    PathElement,
     PencilElement,
     RectElement,
     TextElement,
+    TriangleElement,
 } from '../types/editor';
 import {
     assignElementsToLayer,
@@ -232,27 +236,176 @@ function isElementInsideSelection(element: EditorElement, rect: SelectionRect): 
     return withinHorizontal && withinVertical;
 }
 
-function createDragBound(options: EditorOptions, guides: GuideElement[]): DragBoundFactory {
-    if (!options.snapToGrid && (!options.snapToGuides || guides.length === 0)) {
-        return () => undefined;
+function clampElementPositionToStage(
+    element: EditorElement,
+    position: Vector2d,
+    stageSize: { width: number; height: number },
+): Vector2d {
+    const bounds = getElementBounds(element, position);
+    if (!bounds) {
+        return position;
     }
 
-    const verticalGuides = guides.filter((guide) => guide.orientation === 'vertical').map((guide) => guide.x);
-    const horizontalGuides = guides.filter((guide) => guide.orientation === 'horizontal').map((guide) => guide.y);
+    const stageWidth = Number.isFinite(stageSize.width) ? Math.max(0, stageSize.width) : 0;
+    const stageHeight = Number.isFinite(stageSize.height) ? Math.max(0, stageSize.height) : 0;
+
+    const leftOffset = bounds.left - position.x;
+    const rightOffset = bounds.right - position.x;
+    const topOffset = bounds.top - position.y;
+    const bottomOffset = bounds.bottom - position.y;
+
+    const minX = -leftOffset;
+    const maxX = stageWidth - rightOffset;
+    const minY = -topOffset;
+    const maxY = stageHeight - bottomOffset;
+
+    let x = position.x;
+    let y = position.y;
+
+    if (Number.isFinite(minX) && Number.isFinite(maxX)) {
+        if (minX <= maxX) {
+            x = Math.min(maxX, Math.max(minX, x));
+        } else {
+            x = (minX + maxX) / 2;
+        }
+    } else if (Number.isFinite(minX)) {
+        x = Math.max(minX, x);
+    } else if (Number.isFinite(maxX)) {
+        x = Math.min(maxX, x);
+    }
+
+    if (Number.isFinite(minY) && Number.isFinite(maxY)) {
+        if (minY <= maxY) {
+            y = Math.min(maxY, Math.max(minY, y));
+        } else {
+            y = (minY + maxY) / 2;
+        }
+    } else if (Number.isFinite(minY)) {
+        y = Math.max(minY, y);
+    } else if (Number.isFinite(maxY)) {
+        y = Math.min(maxY, y);
+    }
+
+    return { x, y };
+}
+
+interface LayerElementSnapshot {
+    offsetX: number;
+    offsetY: number;
+    width?: number;
+    height?: number;
+    radius?: number;
+    radiusX?: number;
+    radiusY?: number;
+    cornerRadius?: number;
+    strokeWidth?: number;
+    fontSize?: number;
+    letterSpacing?: number;
+    padding?: number;
+    lineHeight?: number;
+    pointerLength?: number;
+    pointerWidth?: number;
+    points?: number[];
+}
+
+function createLayerElementSnapshot(element: EditorElement, bounds: { x: number; y: number }): LayerElementSnapshot | null {
+    const offsetX = element.x - bounds.x;
+    const offsetY = element.y - bounds.y;
+
+    switch (element.type) {
+        case 'rect':
+        case 'frame':
+        case 'triangle':
+            return {
+                offsetX,
+                offsetY,
+                width: element.width,
+                height: element.height,
+                cornerRadius: 'cornerRadius' in element ? element.cornerRadius : undefined,
+                strokeWidth: element.strokeWidth,
+            };
+        case 'image':
+            return {
+                offsetX,
+                offsetY,
+                width: element.width,
+                height: element.height,
+                cornerRadius: element.cornerRadius,
+            };
+        case 'circle':
+            return {
+                offsetX,
+                offsetY,
+                radius: element.radius,
+                strokeWidth: element.strokeWidth,
+            };
+        case 'ellipse':
+            return {
+                offsetX,
+                offsetY,
+                radiusX: element.radiusX,
+                radiusY: element.radiusY,
+                strokeWidth: element.strokeWidth,
+            };
+        case 'text':
+            return {
+                offsetX,
+                offsetY,
+                width: element.width,
+                fontSize: element.fontSize,
+                padding: element.padding,
+                strokeWidth: element.strokeWidth,
+                letterSpacing: element.letterSpacing,
+                lineHeight: element.lineHeight,
+            };
+        case 'line':
+            return {
+                offsetX,
+                offsetY,
+                points: [...element.points],
+                strokeWidth: element.strokeWidth,
+                pointerLength: element.pointerLength,
+                pointerWidth: element.pointerWidth,
+            };
+        case 'path':
+        case 'pencil':
+            return {
+                offsetX,
+                offsetY,
+                points: [...element.points],
+                strokeWidth: element.strokeWidth,
+            };
+        default:
+            return {
+                offsetX,
+                offsetY,
+            };
+    }
+}
+
+function createDragBound(options: EditorOptions, guides: GuideElement[]): DragBoundFactory {
+    const stageSize = { width: Math.max(0, options.width), height: Math.max(0, options.height) };
+    const snapToGrid = options.snapToGrid && options.gridSize > 0;
+    const snapToGuides = options.snapToGuides && guides.length > 0;
+
+    const verticalGuides = snapToGuides
+        ? guides.filter((guide) => guide.orientation === 'vertical').map((guide) => guide.x)
+        : [];
+    const horizontalGuides = snapToGuides
+        ? guides.filter((guide) => guide.orientation === 'horizontal').map((guide) => guide.y)
+        : [];
 
     return (element: EditorElement) => {
-        if (element.type === 'guide') return undefined;
-
         return (position: Vector2d) => {
             let { x, y } = position;
 
-            if (options.snapToGrid) {
+            if (snapToGrid) {
                 const grid = Math.max(2, options.gridSize);
                 x = Math.round(x / grid) * grid;
                 y = Math.round(y / grid) * grid;
             }
 
-            if (options.snapToGuides && (verticalGuides.length > 0 || horizontalGuides.length > 0)) {
+            if (snapToGuides && (verticalGuides.length > 0 || horizontalGuides.length > 0)) {
                 const bounds = getElementBounds(element, { x, y });
                 if (bounds) {
                     if (verticalGuides.length > 0) {
@@ -327,7 +480,7 @@ function createDragBound(options: EditorOptions, guides: GuideElement[]): DragBo
                 }
             }
 
-            return { x, y };
+            return clampElementPositionToStage(element, { x, y }, stageSize);
         };
     };
 }
@@ -1065,7 +1218,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             return;
         }
 
-        if (isPanMode || isPanning) {
+        if (isPanMode || activeTool === 'pan' || isPanning) {
             if (!previousCursorRef.current) {
                 const inline = container.style.cursor;
                 previousCursorRef.current = {
@@ -1078,7 +1231,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         }
 
         restoreStageCursor();
-    }, [isPanMode, isPanning, restoreStageCursor]);
+    }, [activeTool, isPanMode, isPanning, restoreStageCursor]);
 
     useEffect(() => {
         const viewportWidth = workspaceSize.width;
@@ -1297,8 +1450,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
     const dragBoundFactory = useMemo(() => createDragBound(options, guides), [options, guides]);
 
-    const templates = useMemo(() => createDefaultTemplates(options), [options.width, options.height, options.backgroundColor]);
-    const frames = useMemo(() => createDefaultFrames(options), [options.width, options.height]);
+    const selectedElements = useMemo(
+        () => contentElements.filter((element) => selectedIds.includes(element.id)),
+        [contentElements, selectedIds],
+    );
 
     const layerMap = useMemo(() => {
         const map = new Map<string, EditorLayer>();
@@ -1308,13 +1463,85 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         return map;
     }, [layers]);
 
+    const layerSelection = useMemo(() => {
+        if (selectedElements.length === 0) {
+            return null;
+        }
+
+        const layerIds = new Set(
+            selectedElements
+                .map((element) => (element.layerId ? element.layerId : null))
+                .filter((layerId): layerId is string => layerId !== null),
+        );
+        if (layerIds.size !== 1) {
+            return null;
+        }
+
+        const [layerId] = Array.from(layerIds);
+        const layer = layerMap.get(layerId) ?? null;
+        if (!layer) {
+            return null;
+        }
+
+        let minX = Number.POSITIVE_INFINITY;
+        let minY = Number.POSITIVE_INFINITY;
+        let maxX = Number.NEGATIVE_INFINITY;
+        let maxY = Number.NEGATIVE_INFINITY;
+
+        selectedElements.forEach((element) => {
+            const bounds = getElementBounds(element, { x: element.x, y: element.y });
+            if (!bounds) {
+                return;
+            }
+            minX = Math.min(minX, bounds.left);
+            minY = Math.min(minY, bounds.top);
+            maxX = Math.max(maxX, bounds.right);
+            maxY = Math.max(maxY, bounds.bottom);
+        });
+
+        if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+            return null;
+        }
+
+        return {
+            layerId,
+            elementIds: selectedElements.map((element) => element.id),
+            locked: layer.locked,
+            bounds: {
+                x: minX,
+                y: minY,
+                width: Math.max(1, maxX - minX),
+                height: Math.max(1, maxY - minY),
+            },
+        } as const;
+    }, [layerMap, selectedElements]);
+
+    const layerSelectionTransformRef = useRef<{
+        bounds: { x: number; y: number; width: number; height: number };
+        elements: Map<string, LayerElementSnapshot>;
+    } | null>(null);
+
+    useEffect(() => {
+        layerSelectionTransformRef.current = null;
+    }, [layerSelection]);
+
+    const templates = useMemo(() => createDefaultTemplates(options), [options.width, options.height, options.backgroundColor]);
+    const frames = useMemo(() => createDefaultFrames(options), [options.width, options.height]);
+
     const { postMessage } = useBridge();
 
     const updateElements = useCallback(
         (updater: (elements: EditorElement[]) => EditorElement[]) => {
             setDesign((current) => {
                 const nextLayers = current.layers.length > 0 ? current.layers : [createLayerDefinition('Layer 1')];
-                const updatedElements = updater(current.elements);
+                const stageSize = { width: stageWidth, height: stageHeight };
+                const updatedElements = updater(current.elements).map((element) => {
+                    const { x, y } = clampElementPositionToStage(element, { x: element.x, y: element.y }, stageSize);
+                    if (x !== element.x || y !== element.y) {
+                        return { ...element, x, y };
+                    }
+                    return element;
+                });
                 return {
                     ...current,
                     layers: nextLayers,
@@ -1322,8 +1549,240 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 };
             });
         },
-        [setDesign],
+        [setDesign, stageHeight, stageWidth],
     );
+
+    const handleMoveLayerSelection = useCallback(
+        (delta: Vector2d) => {
+            if (!layerSelection || layerSelection.locked) {
+                return;
+            }
+
+            if (delta.x === 0 && delta.y === 0) {
+                return;
+            }
+
+            const idSet = new Set(layerSelection.elementIds);
+            updateElements((current) =>
+                current.map((element) =>
+                    idSet.has(element.id)
+                        ? ({ ...element, x: element.x + delta.x, y: element.y + delta.y } as EditorElement)
+                        : element,
+                ),
+            );
+        },
+        [layerSelection, updateElements],
+    );
+
+    const handleLayerSelectionTransformStart = useCallback(() => {
+        if (!layerSelection || layerSelection.locked || layerSelection.elementIds.length <= 1) {
+            layerSelectionTransformRef.current = null;
+            return;
+        }
+
+        const originalBounds = layerSelection.bounds;
+        const snapshot = new Map<string, LayerElementSnapshot>();
+        const contentMap = new Map(contentElements.map((element) => [element.id, element]));
+        layerSelection.elementIds.forEach((id) => {
+            const element = contentMap.get(id);
+            if (!element) return;
+            const elementSnapshot = createLayerElementSnapshot(element, originalBounds);
+            if (elementSnapshot) {
+                snapshot.set(id, elementSnapshot);
+            }
+        });
+
+        if (snapshot.size === 0) {
+            layerSelectionTransformRef.current = null;
+            return;
+        }
+
+        layerSelectionTransformRef.current = {
+            bounds: { ...originalBounds },
+            elements: snapshot,
+        };
+    }, [contentElements, layerSelection]);
+
+    const handleLayerSelectionTransform = useCallback(
+        (nextBounds: { x: number; y: number; width: number; height: number }) => {
+            let state = layerSelectionTransformRef.current;
+            if (!state) {
+                handleLayerSelectionTransformStart();
+                state = layerSelectionTransformRef.current;
+                if (!state) {
+                    return;
+                }
+            }
+
+            const { bounds: original, elements: snapshots } = state;
+            if (snapshots.size === 0) {
+                return;
+            }
+
+            const scaleXRaw = original.width !== 0 ? nextBounds.width / original.width : 1;
+            const scaleYRaw = original.height !== 0 ? nextBounds.height / original.height : 1;
+            const scaleX = Number.isFinite(scaleXRaw) ? Math.max(0.01, scaleXRaw) : 1;
+            const scaleY = Number.isFinite(scaleYRaw) ? Math.max(0.01, scaleYRaw) : 1;
+            const averageScale = (scaleX + scaleY) / 2;
+
+            updateElements((current) =>
+                current.map((element) => {
+                    const snapshot = snapshots.get(element.id);
+                    if (!snapshot) {
+                        return element;
+                    }
+
+                    const nextElement = { ...element } as EditorElement;
+                    nextElement.x = nextBounds.x + snapshot.offsetX * scaleX;
+                    nextElement.y = nextBounds.y + snapshot.offsetY * scaleY;
+
+                    switch (element.type) {
+                        case 'rect':
+                        case 'frame': {
+                            const rect = nextElement as RectElement;
+                            const baseWidth = snapshot.width ?? rect.width;
+                            const baseHeight = snapshot.height ?? rect.height;
+                            rect.width = Math.max(1, baseWidth * scaleX);
+                            rect.height = Math.max(1, baseHeight * scaleY);
+                            if (snapshot.cornerRadius !== undefined) {
+                                rect.cornerRadius = Math.max(0, snapshot.cornerRadius * averageScale);
+                            }
+                            if (snapshot.strokeWidth !== undefined) {
+                                rect.strokeWidth = Math.max(0, snapshot.strokeWidth * averageScale);
+                            }
+                            break;
+                        }
+                        case 'triangle': {
+                            const triangle = nextElement as TriangleElement;
+                            const baseWidth = snapshot.width ?? triangle.width;
+                            const baseHeight = snapshot.height ?? triangle.height;
+                            triangle.width = Math.max(1, baseWidth * scaleX);
+                            triangle.height = Math.max(1, baseHeight * scaleY);
+                            if (snapshot.strokeWidth !== undefined) {
+                                triangle.strokeWidth = Math.max(0, snapshot.strokeWidth * averageScale);
+                            }
+                            break;
+                        }
+                        case 'image': {
+                            const image = nextElement as ImageElement;
+                            const baseWidth = snapshot.width ?? image.width;
+                            const baseHeight = snapshot.height ?? image.height;
+                            if (image.keepRatio) {
+                                const ratioScale = Math.min(scaleX, scaleY);
+                                image.width = Math.max(1, baseWidth * ratioScale);
+                                image.height = Math.max(1, baseHeight * ratioScale);
+                            } else {
+                                image.width = Math.max(1, baseWidth * scaleX);
+                                image.height = Math.max(1, baseHeight * scaleY);
+                            }
+                            if (snapshot.cornerRadius !== undefined) {
+                                image.cornerRadius = Math.max(0, snapshot.cornerRadius * averageScale);
+                            }
+                            break;
+                        }
+                        case 'circle': {
+                            const circle = nextElement as CircleElement;
+                            if (snapshot.radius !== undefined) {
+                                circle.radius = Math.max(1, snapshot.radius * averageScale);
+                            }
+                            if (snapshot.strokeWidth !== undefined) {
+                                circle.strokeWidth = Math.max(0, snapshot.strokeWidth * averageScale);
+                            }
+                            break;
+                        }
+                        case 'ellipse': {
+                            const ellipse = nextElement as EllipseElement;
+                            if (snapshot.radiusX !== undefined) {
+                                ellipse.radiusX = Math.max(1, snapshot.radiusX * scaleX);
+                            }
+                            if (snapshot.radiusY !== undefined) {
+                                ellipse.radiusY = Math.max(1, snapshot.radiusY * scaleY);
+                            }
+                            if (snapshot.strokeWidth !== undefined) {
+                                ellipse.strokeWidth = Math.max(0, snapshot.strokeWidth * averageScale);
+                            }
+                            break;
+                        }
+                        case 'text': {
+                            const text = nextElement as TextElement;
+                            const baseWidth = snapshot.width ?? text.width;
+                            text.width = Math.max(1, baseWidth * scaleX);
+                            if (snapshot.fontSize !== undefined) {
+                                text.fontSize = Math.max(1, snapshot.fontSize * averageScale);
+                            }
+                            if (snapshot.padding !== undefined) {
+                                text.padding = Math.max(0, snapshot.padding * averageScale);
+                            }
+                            if (snapshot.letterSpacing !== undefined) {
+                                text.letterSpacing = snapshot.letterSpacing * averageScale;
+                            }
+                            if (snapshot.lineHeight !== undefined) {
+                                text.lineHeight = snapshot.lineHeight * scaleY;
+                            }
+                            if (snapshot.strokeWidth !== undefined) {
+                                text.strokeWidth = Math.max(0, snapshot.strokeWidth * averageScale);
+                            }
+                            break;
+                        }
+                        case 'line': {
+                            const line = nextElement as LineElement;
+                            if (snapshot.points) {
+                                const scaledPoints = snapshot.points.map((value, index) =>
+                                    index % 2 === 0 ? value * scaleX : value * scaleY,
+                                );
+                                line.points = scaledPoints;
+                            }
+                            if (snapshot.strokeWidth !== undefined) {
+                                line.strokeWidth = Math.max(0, snapshot.strokeWidth * averageScale);
+                            }
+                            if (snapshot.pointerLength !== undefined) {
+                                line.pointerLength = snapshot.pointerLength * averageScale;
+                            }
+                            if (snapshot.pointerWidth !== undefined) {
+                                line.pointerWidth = snapshot.pointerWidth * averageScale;
+                            }
+                            break;
+                        }
+                        case 'path': {
+                            const path = nextElement as PathElement;
+                            if (snapshot.points) {
+                                const scaledPoints = snapshot.points.map((value, index) =>
+                                    index % 2 === 0 ? value * scaleX : value * scaleY,
+                                );
+                                path.points = scaledPoints;
+                            }
+                            if (snapshot.strokeWidth !== undefined) {
+                                path.strokeWidth = Math.max(0, snapshot.strokeWidth * averageScale);
+                            }
+                            break;
+                        }
+                        case 'pencil': {
+                            const pencil = nextElement as PencilElement;
+                            if (snapshot.points) {
+                                const scaledPoints = snapshot.points.map((value, index) =>
+                                    index % 2 === 0 ? value * scaleX : value * scaleY,
+                                );
+                                pencil.points = scaledPoints;
+                            }
+                            if (snapshot.strokeWidth !== undefined) {
+                                pencil.strokeWidth = Math.max(0, snapshot.strokeWidth * averageScale);
+                            }
+                            break;
+                        }
+                        default:
+                            break;
+                    }
+
+                    return nextElement;
+                }),
+            );
+        },
+        [handleLayerSelectionTransformStart, updateElements],
+    );
+
+    const handleLayerSelectionTransformEnd = useCallback(() => {
+        layerSelectionTransformRef.current = null;
+    }, []);
 
     const updateLayers = useCallback(
         (updater: (layers: EditorLayer[]) => EditorLayer[]) => {
@@ -1396,9 +1855,18 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         setSelectedIds([]);
     }, [selectedIds, updateElements]);
 
-    const handleAddDraw = useCallback(() => {
-        setActiveTool('draw');
-    }, []);
+    const handleSelectTool = useCallback(
+        (tool: Tool) => {
+            setActiveTool(tool);
+            if (tool !== 'select') {
+                setSelectedIds([]);
+            }
+            if (tool !== 'draw') {
+                setToolSettingsOpen(false);
+            }
+        },
+        [setSelectedIds, setToolSettingsOpen],
+    );
 
     const handleAddText = useCallback(() => {
         addElement(createText(options));
@@ -1644,17 +2112,52 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         [elements, layers, setDesign, setSelectedIds],
     );
 
-    const handleSelectElement = useCallback(
-        (id: string) => {
-            const element = elements.find((item) => item.id === id) ?? null;
-            if (element?.layerId) {
-                setActiveLayerId(element.layerId);
-            }
+    const handleSelectElement = useCallback((id: string, mode: 'layer' | 'single' | 'toggle' = 'layer') => {
+        const element = elements.find((item) => item.id === id) ?? null;
+        if (!element) {
+            return;
+        }
+
+        const elementLayerId = element.layerId ?? null;
+
+        if (mode === 'single') {
             setSelectedIds([id]);
+            if (elementLayerId) {
+                setActiveLayerId(elementLayerId);
+            }
             setActiveTool('select');
-        },
-        [elements, setActiveTool, setActiveLayerId, setSelectedIds],
-    );
+            return;
+        }
+
+        if (mode === 'toggle') {
+            setSelectedIds((current) => {
+                const exists = current.includes(id);
+                if (exists) {
+                    return current.filter((candidate) => candidate !== id);
+                }
+                return [...current, id];
+            });
+            if (elementLayerId) {
+                setActiveLayerId(elementLayerId);
+            }
+            setActiveTool('select');
+            return;
+        }
+
+        if (elementLayerId) {
+            setActiveLayerId(elementLayerId);
+            const layerElements = contentElements.filter(
+                (candidate) =>
+                    candidate.layerId === elementLayerId && candidate.visible && !candidate.locked,
+            );
+            const layerIds = layerElements.map((candidate) => candidate.id);
+            setSelectedIds(layerIds.length > 0 ? layerIds : [id]);
+        } else {
+            setSelectedIds([id]);
+        }
+
+        setActiveTool('select');
+    }, [contentElements, elements, setActiveLayerId, setActiveTool, setSelectedIds]);
 
     const handleStageMouseEnter = useCallback(() => {
         stageHoverRef.current = true;
@@ -1678,7 +2181,9 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             const stage = event.target.getStage();
             if (!stage) return;
 
-            if (isPanMode) {
+            const panActive = isPanMode || activeTool === 'pan';
+
+            if (panActive) {
                 event.evt.preventDefault();
                 stopInertia();
                 const pointerPosition = stage.getPointerPosition();
@@ -1731,7 +2236,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 if (activeTool === 'select') {
                     selectionOriginRef.current = pointer;
                     updateSelectionRect({ x: pointer.x, y: pointer.y, width: 0, height: 0 });
-                } else {
+                } else if (activeTool === 'draw') {
                     setActiveTool('select');
                 }
             }
@@ -2325,7 +2830,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             backgroundSize: `${baseGrid}px ${baseGrid}px`,
         } as const;
     }, [options.backgroundColor, options.gridSize, options.showGrid]);
-    const stageCursor = isPanning ? 'grabbing' : isPanMode ? 'grab' : undefined;
+    const stageCursor = isPanning ? 'grabbing' : isPanMode || activeTool === 'pan' ? 'grab' : undefined;
     const rulerPadding = options.showRulers ? 24 : 0;
     const stageWrapperStyle = useMemo((): CSSProperties => {
         const viewportWidth = workspaceSize.width > 0 ? workspaceSize.width : stageWidth;
@@ -2461,8 +2966,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 <XStack width={mainLayoutWidth} className="editor-shell-layout" zIndex={0} >
                     <PrimaryToolbar
                         activeTool={activeTool}
-                        onSelectTool={(tool) => setActiveTool(tool)}
-                        onAddDraw={handleAddDraw}
+                        onSelectTool={handleSelectTool}
                         onAddText={handleAddText}
                         onRequestImage={handleRequestImage}
                         iconSize={TOOLBAR_ICON_SIZE}
@@ -2484,6 +2988,11 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                         activeTool={activeTool}
                         layerMap={layerMap}
                         dragBoundFactory={dragBoundFactory}
+                        layerSelection={layerSelection}
+                        onMoveLayerSelection={handleMoveLayerSelection}
+                        onLayerSelectionTransformStart={handleLayerSelectionTransformStart}
+                        onLayerSelectionTransform={handleLayerSelectionTransform}
+                        onLayerSelectionTransformEnd={handleLayerSelectionTransformEnd}
                         onSelectElement={handleSelectElement}
                         onUpdateElement={updateElement}
                         onStageMouseEnter={handleStageMouseEnter}
@@ -2535,4 +3044,3 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         </YStack>
     );
 }
-
