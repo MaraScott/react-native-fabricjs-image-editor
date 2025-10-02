@@ -6,6 +6,7 @@ import type { Tool } from './types';
 export interface PrimaryToolbarProps {
     activeTool: Tool;
     onSelectTool: (tool: Tool) => void;
+    onStartCrop: () => void;
     onAddDraw: () => void;
     onAddText: () => void;
     onRequestImage: () => void;
@@ -15,12 +16,14 @@ export interface PrimaryToolbarProps {
 export default function PrimaryToolbar({
     activeTool,
     onSelectTool,
+    onStartCrop,
     onAddDraw,
     onAddText,
     onRequestImage,
     iconSize,
 }: PrimaryToolbarProps) {
-    const activeToolLabel = activeTool === 'draw' ? 'Draw' : 'Select';
+    const activeToolLabel =
+        activeTool === 'draw' ? 'Draw' : activeTool === 'crop' ? 'Crop' : 'Select';
 
     return (
         <YStack className="editor-toolbar">
@@ -42,6 +45,15 @@ export default function PrimaryToolbar({
                     title="Draw"
                 >
                     <MaterialCommunityIcons key="pencil-outline" name="pencil-outline" size={iconSize} />
+                </Button>
+                <Button
+                    type="button"
+                    className={activeTool === 'crop' ? 'active' : ''}
+                    onPress={onStartCrop}
+                    aria-label="Crop"
+                    title="Crop"
+                >
+                    <MaterialCommunityIcons key="crop" name="crop" size={iconSize} />
                 </Button>
             </YStack>
             <Text className="active-tool-status" aria-live="polite">

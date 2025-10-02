@@ -66,6 +66,10 @@ export interface EditorStageViewportProps {
     onStagePointerMove: (event: KonvaEventObject<MouseEvent | TouchEvent>) => void;
     onStagePointerUp: (event: KonvaEventObject<MouseEvent | TouchEvent>) => void;
     selectionRect: SelectionRect | null;
+    cropRect: SelectionRect | null;
+    isCropping: boolean;
+    onApplyCrop: () => void;
+    onCancelCrop: () => void;
     toolSettingsOpen: boolean;
     onToolSettingsOpenChange: (open: boolean) => void;
     drawSettings: { color: string; width: number };
@@ -121,6 +125,10 @@ export default function EditorStageViewport({
     onStagePointerMove,
     onStagePointerUp,
     selectionRect,
+    cropRect,
+    isCropping,
+    onApplyCrop,
+    onCancelCrop,
     toolSettingsOpen,
     onToolSettingsOpenChange,
     drawSettings,
@@ -153,6 +161,7 @@ export default function EditorStageViewport({
 }: EditorStageViewportProps) {
     const iconLarge = iconSize * 1.5;
     const canvasSizeDisabled = canvasSizeLocked || !fixedCanvas;
+    const hasCropRect = Boolean(cropRect && cropRect.width > 0 && cropRect.height > 0);
 
     return (
         <Stack className="editor-layout">
@@ -361,7 +370,98 @@ export default function EditorStageViewport({
                                     />
                                 </Layer>
                             ) : null}
+                            {hasCropRect && cropRect ? (
+                                <Layer listening={false}>
+                                    <RectShape
+                                        x={0}
+                                        y={0}
+                                        width={stageWidth}
+                                        height={Math.max(0, cropRect.y)}
+                                        fill="rgba(15, 23, 42, 0.65)"
+                                    />
+                                    <RectShape
+                                        x={0}
+                                        y={cropRect.y}
+                                        width={Math.max(0, cropRect.x)}
+                                        height={cropRect.height}
+                                        fill="rgba(15, 23, 42, 0.65)"
+                                    />
+                                    <RectShape
+                                        x={cropRect.x + cropRect.width}
+                                        y={cropRect.y}
+                                        width={Math.max(0, stageWidth - (cropRect.x + cropRect.width))}
+                                        height={cropRect.height}
+                                        fill="rgba(15, 23, 42, 0.65)"
+                                    />
+                                    <RectShape
+                                        x={0}
+                                        y={cropRect.y + cropRect.height}
+                                        width={stageWidth}
+                                        height={Math.max(0, stageHeight - (cropRect.y + cropRect.height))}
+                                        fill="rgba(15, 23, 42, 0.65)"
+                                    />
+                                    <RectShape
+                                        x={cropRect.x}
+                                        y={cropRect.y}
+                                        width={cropRect.width}
+                                        height={cropRect.height}
+                                        stroke="#f97316"
+                                        strokeWidth={2}
+                                        dash={[10, 6]}
+                                        fillEnabled={false}
+                                    />
+                                </Layer>
+                            ) : null}
                         </Stage>
+                        {isCropping ? (
+                            <Stack
+                                position="absolute"
+                                bottom={16}
+                                left="50%"
+                                transform="translateX(-50%)"
+                                alignItems="center"
+                                gap={8}
+                                zIndex={3}
+                            >
+                                <XStack gap={12} padding={8} borderRadius={999} backgroundColor="rgba(15, 23, 42, 0.8)">
+                                    <Button
+                                        type="button"
+                                        onPress={onCancelCrop}
+                                        size="$2"
+                                        aria-label="Cancel crop"
+                                        title="Cancel crop"
+                                    >
+                                        <MaterialCommunityIcons key="close" name="close" size={iconSize} />
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        onPress={onApplyCrop}
+                                        disabled={!hasCropRect}
+                                        size="$2"
+                                        aria-label="Apply crop"
+                                        title="Apply crop"
+                                    >
+                                        <MaterialCommunityIcons key="check" name="check" size={iconSize} />
+                                    </Button>
+                                </XStack>
+                                <Text
+                                    fontSize={12}
+                                    color="rgba(226, 232, 240, 0.85)"
+                                    style={{
+                                        backgroundColor: 'rgba(15, 23, 42, 0.7)',
+                                        padding: '4px 12px',
+                                        borderRadius: 999,
+                                    }}
+                                >
+                                    Drag on the canvas to adjust the crop area.
+                                </Text>
+                                {hasCropRect && cropRect ? (
+                                    <Text fontSize={11} color="rgba(148, 163, 184, 0.9)">
+                                        {Math.round(cropRect.width)} × {Math.round(cropRect.height)} px
+                                    </Text>
+                                ) : null}
+                            </Stack>
+                        ) : null}
                         <Stack position="absolute" top={5} left={5} zIndex={2}>
                             <Popover placement="bottom-start" open={toolSettingsOpen} onOpenChange={onToolSettingsOpenChange}>
                                 <Popover.Trigger position="absolute" top={0} left={0}>

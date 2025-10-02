@@ -232,6 +232,54 @@ function isElementInsideSelection(element: EditorElement, rect: SelectionRect): 
     return withinHorizontal && withinVertical;
 }
 
+function doesElementIntersectRect(element: EditorElement, rect: SelectionRect): boolean {
+    const bounds = getElementBounds(element, { x: element.x, y: element.y });
+    if (!bounds) {
+        return true;
+    }
+    const horizontalOverlap = bounds.right > rect.x && bounds.left < rect.x + rect.width;
+    const verticalOverlap = bounds.bottom > rect.y && bounds.top < rect.y + rect.height;
+    return horizontalOverlap && verticalOverlap;
+}
+
+function translateElementForCrop(element: EditorElement, crop: SelectionRect): EditorElement | null {
+    if (element.type === 'guide') {
+        const orientation = element.orientation;
+        const position = orientation === 'horizontal' ? element.y : element.x;
+        const start = orientation === 'horizontal' ? crop.y : crop.x;
+        const end = start + (orientation === 'horizontal' ? crop.height : crop.width);
+        if (position < start || position > end) {
+            return null;
+        }
+        const offsetX = element.x - crop.x;
+        const offsetY = element.y - crop.y;
+        return {
+            ...element,
+            x: orientation === 'vertical' ? offsetX : 0,
+            y: orientation === 'horizontal' ? offsetY : 0,
+            length: orientation === 'horizontal' ? crop.width : crop.height,
+        };
+    }
+
+    if (!doesElementIntersectRect(element, crop)) {
+        return null;
+    }
+
+    const offsetX = element.x - crop.x;
+    const offsetY = element.y - crop.y;
+
+    switch (element.type) {
+        case 'line':
+            return { ...element, x: offsetX, y: offsetY, points: [...element.points] };
+        case 'path':
+            return { ...element, x: offsetX, y: offsetY, points: [...element.points] };
+        case 'pencil':
+            return { ...element, x: offsetX, y: offsetY, points: [...element.points] };
+        default:
+            return { ...element, x: offsetX, y: offsetY } as EditorElement;
+    }
+}
+
 function createDragBound(options: EditorOptions, guides: GuideElement[]): DragBoundFactory {
     if (!options.snapToGrid && (!options.snapToGuides || guides.length === 0)) {
         return () => undefined;
@@ -763,6 +811,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const drawingStateRef = useRef<DrawingState | null>(null);
     const selectionOriginRef = useRef<Vector2d | null>(null);
     const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
+    const cropOriginRef = useRef<Vector2d | null>(null);
+    const [cropRect, setCropRect] = useState<SelectionRect | null>(null);
     const [clipboard, setClipboard] = useState<EditorElement[] | null>(null);
     const [drawSettings, setDrawSettings] = useState(DEFAULT_DRAW);
     const handleDrawSettingsChange = useCallback((updates: Partial<typeof DEFAULT_DRAW>) => {
@@ -843,6 +893,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             updateSelectionRect(null);
         }
     }, [activeTool, updateSelectionRect]);
+
+    useEffect(() => {
+        if (activeTool !== 'crop') {
+            cropOriginRef.current = null;
+            setCropRect(null);
+        }
+    }, [activeTool]);
 
     useEffect(() => {
         if (activeTool === 'draw') {
@@ -1400,6 +1457,19 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         setActiveTool('draw');
     }, []);
 
+    const handleStartCrop = useCallback(() => {
+        setSelectedIds([]);
+        setActiveTool('crop');
+        setToolSettingsOpen(false);
+        setCropRect({
+            x: 0,
+            y: 0,
+            width: options.width,
+            height: options.height,
+        });
+        cropOriginRef.current = null;
+    }, [options.height, options.width, setSelectedIds, setToolSettingsOpen]);
+
     const handleAddText = useCallback(() => {
         addElement(createText(options));
     }, [addElement, options]);
@@ -1444,6 +1514,64 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         fileInputRef.current?.click();
     }, [options, postMessage]);
 
+    const handleCancelCrop = useCallback(() => {
+        cropOriginRef.current = null;
+        setCropRect(null);
+        setActiveTool('select');
+    }, []);
+
+    const handleApplyCrop = useCallback(() => {
+        if (!cropRect) {
+            setActiveTool('select');
+            return;
+        }
+
+        if (cropRect.width < MIN_SELECTION_SIZE || cropRect.height < MIN_SELECTION_SIZE) {
+            setCropRect(null);
+            setActiveTool('select');
+            return;
+        }
+
+        const boundedX = Math.max(0, Math.min(cropRect.x, options.width - MIN_SELECTION_SIZE));
+        const boundedY = Math.max(0, Math.min(cropRect.y, options.height - MIN_SELECTION_SIZE));
+        const maxWidth = Math.max(0, options.width - boundedX);
+        const maxHeight = Math.max(0, options.height - boundedY);
+
+        if (maxWidth < MIN_SELECTION_SIZE || maxHeight < MIN_SELECTION_SIZE) {
+            setCropRect(null);
+            setActiveTool('select');
+            return;
+        }
+
+        const normalizedRect: SelectionRect = {
+            x: Math.round(boundedX),
+            y: Math.round(boundedY),
+            width: Math.round(Math.min(Math.max(cropRect.width, MIN_SELECTION_SIZE), maxWidth)),
+            height: Math.round(Math.min(Math.max(cropRect.height, MIN_SELECTION_SIZE), maxHeight)),
+        };
+
+        setDesign((current) => {
+            const croppedElements = current.elements
+                .map((element) => translateElementForCrop(element, normalizedRect))
+                .filter((value): value is EditorElement => value !== null);
+            return {
+                ...current,
+                elements: orderElementsByLayer(croppedElements, current.layers),
+            };
+        });
+
+        setOptions((current) => ({
+            ...current,
+            width: normalizedRect.width,
+            height: normalizedRect.height,
+        }));
+
+        setSelectedIds([]);
+        setActiveTool('select');
+        setCropRect(null);
+        cropOriginRef.current = null;
+    }, [cropRect, options.height, options.width, setDesign, setOptions, setSelectedIds]);
+
     const handleUploadFile = useCallback((event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -1483,7 +1611,9 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const handleClear = useCallback(() => {
         updateElements(() => []);
         setSelectedIds([]);
-    }, [updateElements]);
+        setCropRect(null);
+        setActiveTool('select');
+    }, [setActiveTool, setCropRect, setSelectedIds, updateElements]);
 
     const handleAddLayer = useCallback(() => {
         const name = getNextLayerName(layers);
@@ -1697,6 +1827,14 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             const pointer = getStagePointer(stage);
             if (!pointer) return;
 
+            if (activeTool === 'crop') {
+                event.evt.preventDefault();
+                cropOriginRef.current = pointer;
+                setCropRect({ x: pointer.x, y: pointer.y, width: 0, height: 0 });
+                setSelectedIds([]);
+                return;
+            }
+
             if (activeTool === 'draw') {
                 const element: PencilElement = {
                     ...createBaseElement('pencil', {
@@ -1736,7 +1874,18 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 }
             }
         },
-        [activeTool, addElement, drawSettings, isPanMode, setActiveTool, setSelectedIds, stopInertia, updateSelectionRect, setToolSettingsOpen],
+        [
+            activeTool,
+            addElement,
+            drawSettings,
+            isPanMode,
+            setActiveTool,
+            setSelectedIds,
+            setCropRect,
+            stopInertia,
+            updateSelectionRect,
+            setToolSettingsOpen,
+        ],
     );
 
     const handleStagePointerMove = useCallback(
@@ -1775,6 +1924,13 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 return;
             }
 
+            if (activeTool === 'crop' && cropOriginRef.current) {
+                const pointer = getStagePointer(stage);
+                if (!pointer) return;
+                setCropRect(normalizeSelectionRect(cropOriginRef.current, pointer));
+                return;
+            }
+
             if (selectionOriginRef.current && activeTool === 'select') {
                 const pointer = getStagePointer(stage);
                 if (!pointer) return;
@@ -1799,7 +1955,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 }),
             );
         },
-        [activeTool, setStagePosition, stageHeight, stageWidth, updateElements, updateSelectionRect],
+        [activeTool, setStagePosition, setCropRect, stageHeight, stageWidth, updateElements, updateSelectionRect],
     );
 
     const handleStagePointerUp = useCallback(
@@ -1815,6 +1971,22 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             }
 
             const stage = event.target.getStage();
+
+            if (activeTool === 'crop') {
+                if (stage && cropOriginRef.current) {
+                    const pointer = getStagePointer(stage);
+                    if (pointer) {
+                        const rect = normalizeSelectionRect(cropOriginRef.current, pointer);
+                        if (rect.width >= MIN_SELECTION_SIZE && rect.height >= MIN_SELECTION_SIZE) {
+                            setCropRect(rect);
+                        } else {
+                            setCropRect(null);
+                        }
+                    }
+                }
+                cropOriginRef.current = null;
+                return;
+            }
 
             if (selectionOriginRef.current && activeTool === 'select' && stage) {
                 const pointer = getStagePointer(stage);
@@ -1847,7 +2019,17 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             if (!drawingStateRef.current) return;
             drawingStateRef.current = null;
         },
-        [activeLayerId, activeTool, contentElements, layerMap, setIsPanning, setSelectedIds, startPanInertia, updateSelectionRect],
+        [
+            activeLayerId,
+            activeTool,
+            contentElements,
+            layerMap,
+            setIsPanning,
+            setSelectedIds,
+            setCropRect,
+            startPanInertia,
+            updateSelectionRect,
+        ],
     );
 
     const handleSave = useCallback(() => {
@@ -2462,6 +2644,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     <PrimaryToolbar
                         activeTool={activeTool}
                         onSelectTool={(tool) => setActiveTool(tool)}
+                        onStartCrop={handleStartCrop}
                         onAddDraw={handleAddDraw}
                         onAddText={handleAddText}
                         onRequestImage={handleRequestImage}
@@ -2492,6 +2675,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                         onStagePointerMove={handleStagePointerMove}
                         onStagePointerUp={handleStagePointerUp}
                         selectionRect={selectionRect}
+                        cropRect={cropRect}
+                        isCropping={activeTool === 'crop'}
+                        onApplyCrop={handleApplyCrop}
+                        onCancelCrop={handleCancelCrop}
                         toolSettingsOpen={toolSettingsOpen}
                         onToolSettingsOpenChange={(open) => setToolSettingsOpen(open)}
                         drawSettings={drawSettings}
