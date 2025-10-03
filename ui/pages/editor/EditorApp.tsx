@@ -3155,21 +3155,15 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
     }, [options.backgroundColor, options.gridSize, options.showGrid]);
     const stageCursor = zoomPan.isPanning ? 'grabbing' : zoomPan.isPanMode || activeTool === 'pan' ? 'grab' : undefined;
     const stageWrapperStyle = useMemo((): CSSProperties => {
-        const viewportWidth = zoomPan.workspaceSize.width > 0 ? zoomPan.workspaceSize.width : stageWidth;
-        const viewportHeight = zoomPan.workspaceSize.height > 0 ? zoomPan.workspaceSize.height : stageHeight;
         return {
-            width: viewportWidth,
-            height: viewportHeight,
             maxWidth: '100%',
             maxHeight: '100%',
         } as CSSProperties;
-    }, [stageHeight, stageWidth, zoomPan.workspaceSize.height, zoomPan.workspaceSize.width]);
+    }, []);
     const stageCanvasStyle = useMemo(() => {
-        const viewportWidth = zoomPan.workspaceSize.width > 0 ? zoomPan.workspaceSize.width : stageWidth;
-        const viewportHeight = zoomPan.workspaceSize.height > 0 ? zoomPan.workspaceSize.height : stageHeight;
         const baseStyle: CSSProperties = {
-            width: viewportWidth,
-            height: viewportHeight,
+            width: stageWidth,
+            height: stageHeight,
             backgroundColor: WORKSPACE_COLOR,
             overflow: 'hidden',
         };
@@ -3177,7 +3171,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             baseStyle.cursor = stageCursor;
         }
         return baseStyle;
-    }, [stageCursor, stageHeight, stageWidth, zoomPan.workspaceSize.height, zoomPan.workspaceSize.width]);
+    }, [stageCursor, stageHeight, stageWidth]);
     const stageBackgroundStyle = useMemo(() => {
         return {
             position: 'absolute' as const,

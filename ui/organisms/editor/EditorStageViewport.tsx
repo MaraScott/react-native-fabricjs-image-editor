@@ -1,20 +1,7 @@
-import { useEffect, useRef, type ChangeEvent, type CSSProperties, type RefObject } from 'react';
+import { useEffect, useRef, type CSSProperties, type RefObject } from 'react';
 import { Layer, Rect as RectShape, Stage, Transformer as TransformerShape } from 'react-konva';
-import {
-    Button,
-    Heading,
-    Input,
-    Label,
-    Paragraph,
-    Popover,
-    Slider,
-    Stack,
-    Text,
-    XStack,
-    YStack,
-} from 'tamagui';
+import { Stack, XStack } from 'tamagui';
 
-import LayersPanel from '@organisms/editor/LayersPanel';
 import {
     CircleNode,
     EllipseNode,
@@ -28,8 +15,13 @@ import {
     TextNode,
     TriangleNode,
 } from '@atoms/konva/nodes';
-import { MaterialCommunityIcons } from '@atoms/icons/MaterialCommunityIcons';
 import { clampBoundingBoxToStage } from '@atoms/konva/nodes/common';
+import {
+    ToolSettingsPopover,
+    CanvasSettingsPopover,
+    LayersPopover,
+    ZoomControlPopover,
+} from '@templates';
 import type {
     EditorElement,
     EditorLayer,
@@ -675,277 +667,64 @@ export default function EditorStageViewport({
                             ) : null}
                         </Stage>
                         <Stack position="absolute" top={5} left={5} zIndex={2}>
-                            <Popover placement="bottom-start" open={toolSettingsOpen} onOpenChange={onToolSettingsOpenChange}>
-                                <Popover.Trigger position="absolute" top={0} left={0}>
-                                    <Button type="button" aria-label="tool" title="tool">
-                                        <MaterialCommunityIcons key="tool" name="tool" size={iconLarge} />
-                                    </Button>
-                                </Popover.Trigger>
-                                <Popover.Content top={0} left={0}>
-                                    <Popover.Arrow />
-                                    <YStack className="tool-stats editor-sidebar">
-                                        <YStack tag="aside">
-                                            <Heading tag="h2">
-                                                {activeTool === 'draw'
-                                                    ? 'Draw settings'
-                                                    : activeTool === 'pan'
-                                                        ? 'Pan mode'
-                                                        : activeTool === 'crop'
-                                                            ? 'Crop mode'
-                                                            : 'Selection'}
-                                            </Heading>
-                                            {activeTool === 'crop' ? (
-                                                <YStack gap="$3" paddingTop="$3">
-                                                    <Paragraph fontSize={12} color="rgba(226, 232, 240, 0.65)">
-                                                        Click on an image to start cropping. Adjust the crop area and click Apply to crop the image.
-                                                    </Paragraph>
-                                                    {cropState ? (
-                                                        <XStack gap="$2">
-                                                            <Button
-                                                                type="button"
-                                                                onPress={onCropApply}
-                                                                flex={1}
-                                                            >
-                                                                Apply Crop
-                                                            </Button>
-                                                            <Button
-                                                                type="button"
-                                                                onPress={onCropCancel}
-                                                                flex={1}
-                                                            >
-                                                                Cancel
-                                                            </Button>
-                                                        </XStack>
-                                                    ) : null}
-                                                </YStack>
-                                            ) : activeTool === 'draw' ? (
-                                                <YStack gap="$3" paddingTop="$3">
-                                                    <XStack alignItems="center" gap="$3">
-                                                        <Label htmlFor="draw-color" flex={1}>
-                                                            Stroke color
-                                                        </Label>
-                                                        <input
-                                                            id="draw-color"
-                                                            type="color"
-                                                            aria-label="Stroke color"
-                                                            value={drawSettings.color}
-                                                            onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                                                                onDrawSettingsChange({ color: event.target.value })
-                                                            }
-                                                            style={{
-                                                                width: 44,
-                                                                height: 44,
-                                                                padding: 0,
-                                                                border: 'none',
-                                                                background: 'transparent',
-                                                                cursor: 'pointer',
-                                                            }}
-                                                        />
-                                                    </XStack>
-                                                    <YStack gap="$2">
-                                                        <XStack alignItems="center" justifyContent="space-between">
-                                                            <Label htmlFor="draw-width">Stroke width</Label>
-                                                            <Text fontSize={12} fontWeight="600">
-                                                                {Math.round(drawSettings.width)} px
-                                                            </Text>
-                                                        </XStack>
-                                                        <Slider
-                                                            id="draw-width"
-                                                            value={[drawSettings.width]}
-                                                            min={1}
-                                                            max={64}
-                                                            step={1}
-                                                            onValueChange={(value) => {
-                                                                const width = value[0] ?? drawSettings.width;
-                                                                onDrawSettingsChange({ width });
-                                                            }}
-                                                            aria-label="Stroke width"
-                                                        >
-                                                            <Slider.Track>
-                                                                <Slider.TrackActive />
-                                                            </Slider.Track>
-                                                            <Slider.Thumb index={0} circular size="$2" />
-                                                        </Slider>
-                                                    </YStack>
-                                                </YStack>
-                                            ) : activeTool === 'pan' ? (
-                                                <Paragraph paddingTop="$3" fontSize={12} color="rgba(226, 232, 240, 0.65)">
-                                                    Drag anywhere on the canvas to scroll. Use a trackpad pinch, touch
-                                                    gesture, or mouse wheel to zoom in and out.
-                                                </Paragraph>
-                                            ) : (
-                                                <YStack gap="$3" paddingTop="$3">
-                                                    <Paragraph fontSize={12} color="rgba(226, 232, 240, 0.65)">
-                                                        Use the layer resize tool below to scale the active selection. Hold
-                                                        Ctrl/Cmd/Alt to select a single element, Shift to toggle.
-                                                    </Paragraph>
-                                                    <Button
-                                                        type="button"
-                                                        disabled={!layerSelectionInteractive}
-                                                        onPress={() => {
-                                                            if (layerSelectionInteractive && layerSelectionRectRef.current) {
-                                                                onLayerSelectionTransformStart();
-                                                                const rect = layerSelectionRectRef.current;
-                                                                const bounds = commitLayerSelectionBounds(rect);
-                                                                onLayerSelectionTransform(bounds);
-                                                                onLayerSelectionTransformEnd();
-                                                            }
-                                                        }}
-                                                    >
-                                                        {layerSelectionInteractive ? 'Resize selection' : 'Layer locked'}
-                                                    </Button>
-                                                </YStack>
-                                            )}
-                                        </YStack>
-                                    </YStack>
-                                </Popover.Content>
-                            </Popover>
+                            <ToolSettingsPopover
+                                activeTool={activeTool}
+                                toolSettingsOpen={toolSettingsOpen}
+                                onToolSettingsOpenChange={onToolSettingsOpenChange}
+                                drawSettings={drawSettings}
+                                onDrawSettingsChange={onDrawSettingsChange}
+                                cropState={cropState}
+                                onCropApply={onCropApply}
+                                onCropCancel={onCropCancel}
+                                layerSelectionInteractive={layerSelectionInteractive}
+                                layerSelectionRectRef={layerSelectionRectRef}
+                                onLayerSelectionTransformStart={onLayerSelectionTransformStart}
+                                onLayerSelectionTransform={onLayerSelectionTransform}
+                                onLayerSelectionTransformEnd={onLayerSelectionTransformEnd}
+                                commitLayerSelectionBounds={commitLayerSelectionBounds}
+                                iconLarge={iconLarge}
+                            />
                         </Stack>
                         <Stack position="absolute" top={5} right={5} zIndex={2}>
-                            <Popover placement="bottom-end">
-                                <Popover.Trigger position="absolute" top={0} right={0}>
-                                    <Button type="button" aria-label="cog" title="cog">
-                                        <MaterialCommunityIcons key="cog" name="cog" size={iconLarge} />
-                                    </Button>
-                                </Popover.Trigger>
-                                <Popover.Content top={0} right={0}>
-                                    <Popover.Arrow />
-                                    <YStack>
-                                        <XStack>
-                                            <Heading tag="h2">Canvas</Heading>
-                                        </XStack>
-                                        <XStack>
-                                            <YStack className="canvas-stats">
-                                                <XStack gap="$2">
-                                                    <Label>Width</Label>
-                                                    <Input
-                                                        size="$2"
-                                                        min={100}
-                                                        value={displayWidth}
-                                                        onChange={(event) => onCanvasWidthChange(Number(event.target.value))}
-                                                        disabled={canvasSizeDisabled}
-                                                    />
-                                                </XStack>
-                                                <XStack gap="$2">
-                                                    <Label>Height</Label>
-                                                    <Input
-                                                        size="$2"
-                                                        min={100}
-                                                        value={displayHeight}
-                                                        onChange={(event) => onCanvasHeightChange(Number(event.target.value))}
-                                                        disabled={canvasSizeDisabled}
-                                                    />
-                                                </XStack>
-                                                <XStack gap="$2">
-                                                    <Label className="full-width">Background</Label>
-                                                    <Input
-                                                        size="$2"
-                                                        value={options.backgroundColor}
-                                                        onChange={(event) => onCanvasBackgroundChange(event.target.value)}
-                                                    />
-                                                </XStack>
-                                            </YStack>
-                                        </XStack>
-                                    </YStack>
-                                </Popover.Content>
-                            </Popover>
+                            <CanvasSettingsPopover
+                                displayWidth={displayWidth}
+                                displayHeight={displayHeight}
+                                backgroundColor={options.backgroundColor}
+                                canvasSizeDisabled={canvasSizeDisabled}
+                                onCanvasWidthChange={onCanvasWidthChange}
+                                onCanvasHeightChange={onCanvasHeightChange}
+                                onCanvasBackgroundChange={onCanvasBackgroundChange}
+                                iconLarge={iconLarge}
+                            />
                         </Stack>
                         <Stack position="absolute" bottom={5} left={5} zIndex={2}>
-                            <Popover placement="top-start">
-                                <Popover.Trigger position="absolute" bottom={0} left={0}>
-                                    <Button type="button" aria-label="Layers" title="Layers">
-                                        <MaterialCommunityIcons key="layers" name="layers" size={iconLarge} />
-                                    </Button>
-                                </Popover.Trigger>
-                                <Popover.Content>
-                                    <Popover.Arrow />
-                                    <YStack>
-                                        <Heading tag="h2">Layers</Heading>
-                                        <Paragraph>{layers.length} layers</Paragraph>
-                                        <LayersPanel
-                                            layers={layers}
-                                            elements={contentElements}
-                                            activeLayerId={activeLayerId}
-                                            selectedElementIds={selectedIds}
-                                            onSelectLayer={onSelectLayer}
-                                            onToggleVisibility={onToggleVisibility}
-                                            onToggleLock={onToggleLock}
-                                            onRemoveLayer={onRemoveLayer}
-                                            onMoveLayer={onMoveLayer}
-                                            onAddLayer={onAddLayer}
-                                        />
-                                    </YStack>
-                                </Popover.Content>
-                            </Popover>
+                            <LayersPopover
+                                layers={layers}
+                                contentElements={contentElements}
+                                activeLayerId={activeLayerId}
+                                selectedIds={selectedIds}
+                                onSelectLayer={onSelectLayer}
+                                onToggleVisibility={onToggleVisibility}
+                                onToggleLock={onToggleLock}
+                                onRemoveLayer={onRemoveLayer}
+                                onMoveLayer={onMoveLayer}
+                                onAddLayer={onAddLayer}
+                                iconLarge={iconLarge}
+                            />
                         </Stack>
                         {isBrowser ? (
                             <Stack position="absolute" bottom={5} right={5} zIndex={2}>
-                                <Popover placement="top-end">
-                                    <Popover.Trigger position="absolute" bottom={0} right={0}>
-                                        <Button type="button" aria-label="Zoom" title="Zoom">
-                                            <MaterialCommunityIcons key="zoom" name="zoom" size={iconLarge} />
-                                        </Button>
-                                    </Popover.Trigger>
-                                    <Popover.Content>
-                                        <Popover.Arrow />
-                                        <YStack
-                                            gap="$2"
-                                            padding="$3"
-                                            alignItems="center"
-                                            borderRadius={12}
-                                            borderWidth={1}
-                                            borderColor="rgba(148, 163, 184, 0.35)"
-                                            backgroundColor="rgba(15, 23, 42, 0.8)"
-                                            className="stage-zoom-bar"
-                                        >
-                                            <Text fontSize={12} fontWeight="600" aria-live="polite">
-                                                {zoomPercentage}%
-                                            </Text>
-                                            <Button
-                                                type="button"
-                                                onPress={onZoomIn}
-                                                aria-label="Zoom in"
-                                                title="Zoom in"
-                                                size="$2"
-                                            >
-                                                <MaterialCommunityIcons
-                                                    key="plus"
-                                                    name="plus"
-                                                    size={iconSize - 4}
-                                                />
-                                            </Button>
-                                            <Slider
-                                                value={sliderValue}
-                                                min={sliderBounds.min}
-                                                max={sliderBounds.max}
-                                                step={sliderStep}
-                                                orientation="vertical"
-                                                height={200}
-                                                onValueChange={onSliderChange}
-                                                aria-label="Zoom level"
-                                                width={36}
-                                            >
-                                                <Slider.Track>
-                                                    <Slider.TrackActive />
-                                                </Slider.Track>
-                                                <Slider.Thumb index={0} circular size="$2" />
-                                            </Slider>
-                                            <Button
-                                                type="button"
-                                                onPress={onZoomOut}
-                                                aria-label="Zoom out"
-                                                title="Zoom out"
-                                                size="$2"
-                                            >
-                                                <MaterialCommunityIcons
-                                                    key="minus"
-                                                    name="minus"
-                                                    size={iconSize - 4}
-                                                />
-                                            </Button>
-                                        </YStack>
-                                    </Popover.Content>
-                                </Popover>
+                                <ZoomControlPopover
+                                    zoomPercentage={zoomPercentage}
+                                    sliderValue={sliderValue}
+                                    sliderBounds={sliderBounds}
+                                    sliderStep={sliderStep}
+                                    onZoomIn={onZoomIn}
+                                    onZoomOut={onZoomOut}
+                                    onSliderChange={onSliderChange}
+                                    iconSize={iconSize}
+                                    iconLarge={iconLarge}
+                                />
                             </Stack>
                         ) : null}
                     </Stack>
