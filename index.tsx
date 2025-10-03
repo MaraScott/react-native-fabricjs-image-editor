@@ -7,7 +7,7 @@ import type { EditorDocument, EditorOptions, EditorTheme } from '@types/editor';
 import { createEmptyDesign, parseDesign } from '@utils/design';
 import { applyThemeToBody, resolveInitialTheme } from '@utils/theme';
 import '@tinyartist/assets/tamagui/tamagui.css';
-import './styles.css';
+import '@editor/styles.css';
 
 const DEFAULT_OPTIONS: EditorOptions = {
   width: 1024,
