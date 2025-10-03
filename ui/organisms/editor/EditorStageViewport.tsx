@@ -313,9 +313,9 @@ export default function EditorStageViewport({
     };
 
     return (
-        <Stack className="editor-layout">
+        <XStack className="editor-layout">
             <XStack ref={editorCanvasRef} className="editor-canvas">
-                <Stack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={stageWrapperStyle}>
+                <XStack className={`stage-wrapper ${options.showRulers ? 'with-rulers' : ''}`} style={stageWrapperStyle}>
                     {options.showRulers && (
                         <Stack
                             className="stage-ruler stage-ruler-horizontal"
@@ -328,7 +328,7 @@ export default function EditorStageViewport({
                             style={{ height: stageHeight, backgroundSize: `100% ${rulerStep}px` }}
                         />
                     )}
-                    <Stack className="stage-canvas" style={stageCanvasStyle} position="relative">
+                    <XStack className="stage-canvas" style={stageCanvasStyle} position="relative">
                         <Stack aria-hidden className="stage-surface" style={stageBackgroundStyle} />
                         <Stage
                             ref={stageRef}
@@ -727,9 +727,9 @@ export default function EditorStageViewport({
                                 />
                             </Stack>
                         ) : null}
-                    </Stack>
-                </Stack>
+                    </XStack>
+                </XStack>
             </XStack>
-        </Stack>
+        </XStack>
     );
 }

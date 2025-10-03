@@ -3162,8 +3162,8 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
     }, []);
     const stageCanvasStyle = useMemo(() => {
         const baseStyle: CSSProperties = {
-            width: stageWidth,
-            height: stageHeight,
+            width: '100%',
+            height: '100%',
             backgroundColor: WORKSPACE_COLOR,
             overflow: 'hidden',
         };
@@ -3180,12 +3180,12 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             width: stageWidth,
             height: stageHeight,
             transformOrigin: 'top left',
-            transform: `translate(${zoomPan.stagePosition.x}px, ${zoomPan.stagePosition.y}px) scale(${options.zoom})`,
+            transform: `translate(${zoomPan.stagePosition.x}px, ${zoomPan.stagePosition.y}px) scale(${zoomPan.zoom})`,
             pointerEvents: 'none' as const,
             borderRadius: 8,
             ...gridBackground,
         };
-    }, [gridBackground, options.zoom, stageHeight, zoomPan.stagePosition.x, zoomPan.stagePosition.y, stageWidth]);
+    }, [gridBackground, zoomPan.zoom, stageHeight, zoomPan.stagePosition.x, zoomPan.stagePosition.y, stageWidth]);
 
     const displayWidth = Math.round(options.width)
     const displayHeight = Math.round(options.height)
