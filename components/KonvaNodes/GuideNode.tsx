@@ -1,8 +1,8 @@
 import { useRef } from 'react';
 import { Line as LineShape } from 'react-konva';
-import type { KonvaEventObject, Vector2d } from '../../types/konva';
-import type { GuideElement } from '../../types/editor';
-import { useApplyZIndex, type BaseNodeProps } from './common';
+import type { KonvaEventObject, Vector2d } from '@types/konva';
+import type { GuideElement } from '@types/editor';
+import { useApplyZIndex, type BaseNodeProps } from '@components/KonvaNodes/common';
 
 export function GuideNode({
   shape,

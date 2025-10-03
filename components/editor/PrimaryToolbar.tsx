@@ -1,7 +1,7 @@
 import { Button, Text, YStack } from 'tamagui';
 
-import { MaterialCommunityIcons } from '../icons/MaterialCommunityIcons';
-import type { Tool } from './types';
+import { MaterialCommunityIcons } from '@components/icons/MaterialCommunityIcons';
+import type { Tool } from '@components/editor/types';
 
 export interface PrimaryToolbarProps {
     activeTool: Tool;

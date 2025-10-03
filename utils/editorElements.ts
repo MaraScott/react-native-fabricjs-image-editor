@@ -12,8 +12,8 @@ import type {
   RectElement,
   TextElement,
   TriangleElement,
-} from '../types/editor';
-import { createEditorId } from './ids';
+} from '@types/editor';
+import { createEditorId } from '@utils/ids';
 
 type BaseElementInit = Pick<EditorElement, 'name' | 'x' | 'y' | 'rotation' | 'opacity' | 'metadata'>;
 

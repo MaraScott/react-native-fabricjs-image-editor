@@ -17,6 +17,18 @@ const aliasMap = {
   'react/jsx-runtime': path.resolve(projectRoot, 'shims/jsxRuntime.ts'),
   'its-fine': path.resolve(projectRoot, 'shims/itsFine.ts'),
   konva: path.resolve(projectRoot, 'shims/konvaGlobal.ts'),
+  '@editor': path.resolve(projectRoot, '.'),
+  '@components': path.resolve(projectRoot, 'components'),
+  '@hooks': path.resolve(projectRoot, 'hooks'),
+  '@contexts': path.resolve(projectRoot, 'contexts'),
+  '@utils': path.resolve(projectRoot, 'utils'),
+  '@types': path.resolve(projectRoot, 'types'),
+  '@ui': path.resolve(projectRoot, 'ui'),
+  '@canvas': path.resolve(projectRoot, 'canvas'),
+  '@vendor': path.resolve(projectRoot, 'vendor'),
+  '@templates': path.resolve(projectRoot, 'templates'),
+  '@tinyartist': path.resolve(projectRoot, '..', '..', '..'),
+  '@config/tamagui': path.resolve(projectRoot, '..', '..', '..', '..', 'tamagui.config.ts'),
 };
 
 const emptyModules = new Set(['fs', 'path', 'module', 'os', 'child_process']);
@@ -70,17 +82,65 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+const extensionPriority = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json'];
+
+function resolveWithExtensions(candidate) {
+  if (fs.existsSync(candidate)) {
+    const stat = fs.statSync(candidate);
+    if (stat.isFile()) {
+      return candidate;
+    }
+    if (stat.isDirectory()) {
+      for (const ext of ['', ...extensionPriority]) {
+        const indexFile = ext ? path.join(candidate, `index${ext}`) : path.join(candidate, 'index');
+        if (fs.existsSync(indexFile)) {
+          const indexStat = fs.statSync(indexFile);
+          if (indexStat.isFile()) {
+            return indexFile;
+          }
+        }
+      }
+      return candidate;
+    }
+  }
+
+  for (const ext of extensionPriority) {
+    const filePath = `${candidate}${ext}`;
+    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+      return filePath;
+    }
+  }
+
+  return null;
+}
+
 function createAliasPlugin() {
+  const entries = Object.entries(aliasMap);
   return {
     name: 'alias-plugin',
     setup(build) {
-      for (const [from, to] of Object.entries(aliasMap)) {
-        const filter = new RegExp(`^${escapeRegExp(from)}$`);
-        build.onResolve({ filter }, (args) => {
-          const resolved = require.resolve(to, { paths: [args.resolveDir || projectRoot, projectRoot] });
-          return { path: resolved };
-        });
-      }
+      build.onResolve({ filter: /.*/ }, (args) => {
+        for (const [from, target] of entries) {
+          if (args.path === from || args.path.startsWith(`${from}/`)) {
+            const remainder = args.path === from ? '' : args.path.slice(from.length + 1);
+            if (path.isAbsolute(target)) {
+              const candidate = remainder ? path.join(target, remainder) : target;
+              const resolvedPath = resolveWithExtensions(candidate);
+              if (!resolvedPath) {
+                throw new Error(`Unable to resolve alias ${args.path} -> ${candidate}`);
+              }
+              return { path: resolvedPath };
+            }
+
+            const candidate = remainder ? `${target}/${remainder}` : target;
+            const resolved = require.resolve(candidate, {
+              paths: [args.resolveDir || projectRoot, projectRoot],
+            });
+            return { path: resolved };
+          }
+        }
+        return null;
+      });
     },
   };
 }

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { RegularPolygon as RegularPolygonShape, Transformer as TransformerShape } from 'react-konva';
-import type { KonvaEventObject } from '../../types/konva';
-import type { TriangleElement } from '../../types/editor';
+import type { KonvaEventObject } from '@types/konva';
+import type { TriangleElement } from '@types/editor';
 import {
   TRANSFORMER_PROPS,
   shouldListen,
@@ -9,7 +9,7 @@ import {
   useAttachTransformer,
   clampBoundingBoxToStage,
   type BaseNodeProps,
-} from './common';
+} from '@components/KonvaNodes/common';
 
 export function TriangleNode({
   shape,

@@ -1,8 +1,8 @@
 import { useCallback, useRef } from 'react';
 import { Image as ImageShape, Transformer as TransformerShape } from 'react-konva';
-import type { KonvaEventObject } from '../../types/konva';
-import type { ImageElement } from '../../types/editor';
-import useImage from '../../hooks/useImage';
+import type { KonvaEventObject } from '@types/konva';
+import type { ImageElement } from '@types/editor';
+import useImage from '@hooks/useImage';
 import {
   TRANSFORMER_PROPS,
   shouldListen,
@@ -10,7 +10,7 @@ import {
   useAttachTransformer,
   clampBoundingBoxToStage,
   type BaseNodeProps,
-} from './common';
+} from '@components/KonvaNodes/common';
 
 export function ImageNode({
   shape,

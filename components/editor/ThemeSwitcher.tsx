@@ -1,6 +1,6 @@
 import { Button, Text, XStack } from 'tamagui';
 
-import type { EditorTheme } from '../../types/editor';
+import type { EditorTheme } from '@types/editor';
 
 interface ThemeSwitcherProps {
     value: EditorTheme;

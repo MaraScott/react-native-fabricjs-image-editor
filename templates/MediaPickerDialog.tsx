@@ -1,6 +1,6 @@
 import { Button, Dialog, Image, Paragraph, ScrollView, Text, XStack, YStack } from 'tamagui';
-import { MaterialCommunityIcons } from '../components/icons/MaterialCommunityIcons';
-import type { NormalizedMediaItem } from '../hooks/editor/useWordPressIntegration';
+import { MaterialCommunityIcons } from '@components/icons/MaterialCommunityIcons';
+import type { NormalizedMediaItem } from '@hooks/editor/useWordPressIntegration';
 
 export interface MediaPickerDialogProps {
     open: boolean;

@@ -1,4 +1,4 @@
-import type { EditorBootstrapConfig } from './types/editor';
+import type { EditorBootstrapConfig } from '@types/editor';
 
 declare global {
   interface Window {

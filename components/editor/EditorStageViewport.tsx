@@ -14,7 +14,7 @@ import {
     YStack,
 } from 'tamagui';
 
-import LayersPanel from '../LayersPanel';
+import LayersPanel from '@components/LayersPanel';
 import {
     CircleNode,
     EllipseNode,
@@ -27,18 +27,18 @@ import {
     RectNode,
     TextNode,
     TriangleNode,
-} from '../KonvaNodes';
-import { MaterialCommunityIcons } from '../icons/MaterialCommunityIcons';
-import { clampBoundingBoxToStage } from '../KonvaNodes/common';
+} from '@components/KonvaNodes';
+import { MaterialCommunityIcons } from '@components/icons/MaterialCommunityIcons';
+import { clampBoundingBoxToStage } from '@components/KonvaNodes/common';
 import type {
     EditorElement,
     EditorLayer,
     EditorOptions,
     GuideElement,
     ImageElement,
-} from '../../types/editor';
-import type { KonvaEventObject, StageType, Vector2d } from '../../types/konva';
-import type { DragBoundFactory, SelectionRect, Tool } from './types';
+} from '@types/editor';
+import type { KonvaEventObject, StageType, Vector2d } from '@types/konva';
+import type { DragBoundFactory, SelectionRect, Tool } from '@components/editor/types';
 
 interface LayerSelectionInfo {
     layerId: string;

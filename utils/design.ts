@@ -12,8 +12,8 @@ import type {
   RectElement,
   TextElement,
   TriangleElement,
-} from '../types/editor';
-import { createEditorId } from './ids';
+} from '@types/editor';
+import { createEditorId } from '@utils/ids';
 
 function ensureId(type: EditorElementType, id?: string): string {
   if (typeof id === 'string' && id.trim().length > 0) {

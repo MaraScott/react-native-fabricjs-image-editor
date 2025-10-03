@@ -12,15 +12,15 @@ import {
     RectNode,
     TextNode,
     TriangleNode,
-} from '../components/KonvaNodes';
+} from '@components/KonvaNodes';
 import type {
     EditorElement,
     EditorLayer,
     EditorOptions,
     GuideElement,
-} from '../types/editor';
-import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
-import type { DragBoundFactory, SelectionRect } from '../components/editor/types';
+} from '@types/editor';
+import type { KonvaEventObject, StageType, Vector2d } from '@types/konva';
+import type { DragBoundFactory, SelectionRect } from '@components/editor/types';
 
 export interface LayerSelectionInfo {
     layerId: string;

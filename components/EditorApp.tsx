@@ -10,8 +10,8 @@ import {
 } from 'react';
 import { Button, Image, Text, XStack, YStack, useWindowDimensions, Theme } from 'tamagui';
 // import { CiZoomIn } from "react-icons/ci";
-import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
-import { useHistory } from '../hooks/useHistory';
+import type { KonvaEventObject, StageType, Vector2d } from '@types/konva';
+import { useHistory } from '@hooks/useHistory';
 import type {
     EditorDocument,
     EditorElement,
@@ -29,7 +29,7 @@ import type {
     RectElement,
     TextElement,
     TriangleElement,
-} from '../types/editor';
+} from '@types/editor';
 import {
     assignElementsToLayer,
     cloneElement,
@@ -42,18 +42,18 @@ import {
     createText,
     getNextLayerName,
     orderElementsByLayer,
-} from '../utils/editorElements';
-import { createEmptyDesign, parseDesign, stringifyDesign } from '../utils/design';
-import { applyThemeToBody, persistTheme, resolveInitialTheme } from '../utils/theme';
-import { useWordPressIntegration, resolveInitialWpConfig } from '../hooks/editor/useWordPressIntegration';
-import { useZoomPan } from '../hooks/editor/useZoomPan';
-import { useSelection } from '../hooks/editor/useSelection';
+} from '@utils/editorElements';
+import { createEmptyDesign, parseDesign, stringifyDesign } from '@utils/design';
+import { applyThemeToBody, persistTheme, resolveInitialTheme } from '@utils/theme';
+import { useWordPressIntegration, resolveInitialWpConfig } from '@hooks/editor/useWordPressIntegration';
+import { useZoomPan } from '@hooks/editor/useZoomPan';
+import { useSelection } from '@hooks/editor/useSelection';
 
-import EditorStageViewport from './editor/EditorStageViewport';
-import PrimaryToolbar from './editor/PrimaryToolbar';
-import ThemeSwitcher from './editor/ThemeSwitcher';
-import { ExportActions, HistoryActions } from './editor/ToolbarActions';
-import type { DragBoundFactory, SelectionRect, Tool } from './editor/types';
+import EditorStageViewport from '@components/editor/EditorStageViewport';
+import PrimaryToolbar from '@components/editor/PrimaryToolbar';
+import ThemeSwitcher from '@components/editor/ThemeSwitcher';
+import { ExportActions, HistoryActions } from '@components/editor/ToolbarActions';
+import type { DragBoundFactory, SelectionRect, Tool } from '@components/editor/types';
 
 import {
     SidebarContainer,
@@ -62,7 +62,7 @@ import {
     SidebarToggle,
     SidebarToggleLabel,
     SidebarContent,
-} from '../../../../theme/ui/styles'
+} from '@tinyartist/theme/ui/styles'
 
 type DrawingState = {
     id: string;

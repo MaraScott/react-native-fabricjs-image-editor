@@ -17,6 +17,7 @@
       "react-konva": ["./shims/reactKonva"],
       "react/jsx-runtime": ["./shims/jsxRuntime"],
       "its-fine": ["./shims/itsFine"],
+      "@editor/*": ["./*"],
       "@components/*": ["./components/*"],
       "@hooks/*": ["./hooks/*"],
       "@contexts/*": ["./contexts/*"],
@@ -25,8 +26,9 @@
       "@ui/*": ["./ui/*"],
       "@canvas/*": ["./canvas/*"],
       "@vendor/*": ["./vendor/*"],
-      "@tamagui/*": ["../../tamagui/*"],
-      "@config/tamagui": ["../../../../tamagui.config"]
+      "@templates/*": ["./templates/*"],
+      "@expo/*": ["../../../../*"],
+      "@tinyartist/*": ["../../../*"]
     }
   },
   "include": [".", "utils", "hooks", "components", "global.d.ts", "index.tsx"],

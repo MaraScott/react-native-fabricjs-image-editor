@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Button, XStack, YStack } from 'tamagui';
 
-import { MaterialCommunityIcons } from '../icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@components/icons/MaterialCommunityIcons';
 
 interface ResponsiveStackProps {
     isCompact: boolean;

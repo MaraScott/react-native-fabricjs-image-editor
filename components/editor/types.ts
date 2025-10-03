@@ -1,5 +1,5 @@
-import type { EditorElement } from '../../types/editor';
-import type { Vector2d } from '../../types/konva';
+import type { EditorElement } from '@types/editor';
+import type { Vector2d } from '@types/konva';
 
 export type Tool = 'select' | 'pan' | 'draw' | 'crop';
 

@@ -13,8 +13,8 @@ import {
 } from 'react-konva';
 import type { Group as GroupType } from 'konva/lib/Group';
 import type { Stage as StageType } from 'konva/lib/Stage';
-import type { EditorElement, ImageElement } from '../types/editor';
-import useImage from '../hooks/useImage';
+import type { EditorElement, ImageElement } from '@types/editor';
+import useImage from '@hooks/useImage';
 
 interface LayerPreviewProps {
   elements: EditorElement[];

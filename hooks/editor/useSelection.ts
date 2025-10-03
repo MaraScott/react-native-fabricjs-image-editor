@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Vector2d } from '../../types/konva';
-import type { EditorElement } from '../../types/editor';
+import type { Vector2d } from '@types/konva';
+import type { EditorElement } from '@types/editor';
 
 export interface SelectionRect {
     x: number;

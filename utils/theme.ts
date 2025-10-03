@@ -1,4 +1,4 @@
-import type { EditorTheme } from '../types/editor';
+import type { EditorTheme } from '@types/editor';
 
 export const THEME_STORAGE_KEY = 'tinyartist-editor-theme';
 

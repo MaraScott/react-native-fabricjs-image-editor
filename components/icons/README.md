@@ -15,7 +15,7 @@ Base icon component that provides a comprehensive set of editor icons using SVG 
 
 **Usage:**
 ```tsx
-import { MaterialCommunityIcons } from './MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@components/icons/MaterialCommunityIcons';
 
 <MaterialCommunityIcons
     name="pencil-outline"
@@ -43,7 +43,7 @@ Theme-aware icon variants with additional decorative elements for the kid theme.
 
 **Usage:**
 ```tsx
-import { EnhancedIcon, KidFriendlyDrawIcon, ProfessionalDrawIcon } from './EnhancedIcons';
+import { EnhancedIcon, KidFriendlyDrawIcon, ProfessionalDrawIcon } from '@components/icons/EnhancedIcons';
 
 // Theme-aware icon with sparkles
 <EnhancedIcon

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import type { EditorElement, EditorLayer } from '../types/editor';
-import LayerPreview from './LayerPreview';
+import type { EditorElement, EditorLayer } from '@types/editor';
+import LayerPreview from '@components/LayerPreview';
 
 interface LayersPanelProps {
   layers: EditorLayer[];

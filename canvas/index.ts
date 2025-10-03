@@ -1,1 +1,1 @@
-export * from './EditorCanvas';
+export * from '@canvas/EditorCanvas';

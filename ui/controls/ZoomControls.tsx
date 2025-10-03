@@ -1,5 +1,5 @@
 import { Button, Input, Label, Popover, Slider, Stack, Text, XStack, YStack } from 'tamagui';
-import { MaterialCommunityIcons } from '../../components/icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@components/icons/MaterialCommunityIcons';
 
 export interface ZoomControlsProps {
     zoom: number;

@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { MaterialCommunityIcons, type MaterialCommunityIconsProps } from './MaterialCommunityIcons';
+import { MaterialCommunityIcons, type MaterialCommunityIconsProps } from '@components/icons/MaterialCommunityIcons';
 
 /**
  * Enhanced Icons with Kid-Friendly Decorations

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { Vector2d } from '../../types/konva';
+import type { Vector2d } from '@types/konva';
 
 const PAN_INERTIA_FRICTION = 0.9;
 const PAN_MIN_VELOCITY = 0.01;

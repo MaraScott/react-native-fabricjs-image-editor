@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { Text as TextShape, Transformer as TransformerShape } from 'react-konva';
-import type { KonvaEventObject } from '../../types/konva';
-import type { TextElement } from '../../types/editor';
+import type { KonvaEventObject } from '@types/konva';
+import type { TextElement } from '@types/editor';
 import {
   TRANSFORMER_PROPS,
   shouldListen,
@@ -9,7 +9,7 @@ import {
   useAttachTransformer,
   clampBoundingBoxToStage,
   type BaseNodeProps,
-} from './common';
+} from '@components/KonvaNodes/common';
 
 export function TextNode({
   shape,

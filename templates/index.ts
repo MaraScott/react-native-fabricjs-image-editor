@@ -1,1 +1,1 @@
-export * from './MediaPickerDialog';
+export * from '@templates/MediaPickerDialog';
