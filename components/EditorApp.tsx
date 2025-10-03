@@ -8,7 +8,7 @@ import {
     type ChangeEvent,
     type CSSProperties,
 } from 'react';
-import { Image, Text, XStack, YStack, useWindowDimensions, Theme } from 'tamagui';
+import { Button, Image, Text, XStack, YStack, useWindowDimensions, Theme } from 'tamagui';
 // import { CiZoomIn } from "react-icons/ci";
 import type { KonvaEventObject, StageType, Vector2d } from '../types/konva';
 import { useHistory } from '../hooks/useHistory';
@@ -70,6 +70,42 @@ type TemplateDefinition = {
     apply: () => { design: EditorDocument; options?: Partial<EditorOptions> };
 };
 
+interface TinyArtistMediaSize {
+    url: string;
+    width?: number;
+    height?: number;
+}
+
+interface TinyArtistMediaItem {
+    id: number;
+    title?: string;
+    file?: string;
+    sizes?: Record<string, TinyArtistMediaSize>;
+}
+
+interface WordPressConfig {
+    restUrl: string;
+    nonce: string;
+    username?: string;
+    userMedia?: TinyArtistMediaItem[];
+}
+
+type PartialWordPressConfig = Partial<WordPressConfig> & {
+    restUrl?: string;
+    nonce?: string;
+    userMedia?: TinyArtistMediaItem[];
+};
+
+interface NormalizedMediaItem {
+    id: number;
+    title: string;
+    url: string;
+    previewUrl: string;
+    width?: number;
+    height?: number;
+    sizes: Record<string, TinyArtistMediaSize>;
+}
+
 const SNAP_THRESHOLD = 12;
 const STORAGE_KEY = 'konva-image-editor-design';
 
@@ -87,6 +123,161 @@ const ZOOM_PERCENT_MIN = -100;
 const ZOOM_PERCENT_MAX = 100;
 const ZOOM_EXP_BASE = 2;
 const MIN_SELECTION_SIZE = 2;
+
+function normalizeRestUrl(restUrl?: string | null): string {
+    if (!restUrl) {
+        return '';
+    }
+    return restUrl.endsWith('/') ? restUrl : `${restUrl}/`;
+}
+
+function sanitizeFileName(value: string | null | undefined, fallbackBase: string): string {
+    const raw = (value ?? '').trim();
+    const cleaned = raw
+        .replace(/[^a-z0-9._-]+/gi, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+/, '')
+        .replace(/-+$/, '');
+    const base = cleaned || fallbackBase;
+    const lower = base.toLowerCase();
+    return lower.endsWith('.png') ? lower : `${lower}.png`;
+}
+
+function extractWpConfig(source: any): PartialWordPressConfig | null {
+    if (!source || typeof source !== 'object') {
+        return null;
+    }
+
+    const restUrl: string | undefined =
+        source.restUrl || source.rest_url || source.root || source.apiRoot;
+    const nonce: string | undefined =
+        source.nonce || source.wpApiNonce || source.wp_rest?.nonce || source.apiNonce;
+    const username: string | undefined =
+        source.username || source.current_user || source.currentUser || source.user_login;
+    const userMedia: TinyArtistMediaItem[] | undefined = Array.isArray(source.user_media)
+        ? source.user_media
+        : undefined;
+
+    if (!restUrl || !nonce) {
+        return null;
+    }
+
+    return {
+        restUrl: normalizeRestUrl(restUrl),
+        nonce,
+        username,
+        userMedia,
+    } satisfies PartialWordPressConfig;
+}
+
+function mergeWpConfig(base: WordPressConfig | null, incoming: PartialWordPressConfig | null): WordPressConfig | null {
+    if (!incoming) {
+        return base;
+    }
+
+    const restUrl = incoming.restUrl ? normalizeRestUrl(incoming.restUrl) : base?.restUrl;
+    const nonce = incoming.nonce ?? base?.nonce;
+
+    if (!restUrl || !nonce) {
+        return base;
+    }
+
+    const username = incoming.username ?? base?.username;
+    const userMedia = incoming.userMedia ?? base?.userMedia;
+
+    if (
+        base &&
+        base.restUrl === restUrl &&
+        base.nonce === nonce &&
+        base.username === username &&
+        base.userMedia === userMedia
+    ) {
+        return base;
+    }
+
+    return {
+        restUrl,
+        nonce,
+        username,
+        userMedia,
+    };
+}
+
+function mapUserMediaToOptions(list?: TinyArtistMediaItem[] | null): NormalizedMediaItem[] {
+    if (!Array.isArray(list) || list.length === 0) {
+        return [];
+    }
+
+    return list
+        .map((item) => {
+            if (!item) {
+                return null;
+            }
+
+            const sizes = item.sizes ?? {};
+            const full = sizes.full ?? Object.values(sizes)[0];
+            const url = full?.url;
+            if (!url) {
+                return null;
+            }
+            const preview = sizes.thumbnail?.url ?? sizes.medium?.url ?? url;
+            const title = item.title || item.file || `Media ${item.id}`;
+
+            return {
+                id: typeof item.id === 'number' ? item.id : Number(item.id) || Date.now(),
+                title,
+                url,
+                previewUrl: preview,
+                width: full?.width,
+                height: full?.height,
+                sizes,
+            } satisfies NormalizedMediaItem;
+        })
+        .filter((item): item is NormalizedMediaItem => Boolean(item));
+}
+
+function resolveInitialWpConfig(): WordPressConfig | null {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    const sources: any[] = [];
+    const selfAny = window as any;
+
+    if (selfAny.TA_VAR) {
+        sources.push(selfAny.TA_VAR);
+    }
+    if (selfAny.wpApiSettings) {
+        sources.push(selfAny.wpApiSettings);
+    }
+
+    try {
+        if (window.parent && window.parent !== window) {
+            const parentAny = window.parent as any;
+            if (parentAny.TA_VAR) {
+                sources.push(parentAny.TA_VAR);
+            }
+            if (parentAny.wpApiSettings) {
+                sources.push(parentAny.wpApiSettings);
+            }
+        }
+    } catch (error) {
+        // Accessing window.parent can throw when cross-origin. Ignore.
+    }
+
+    for (const source of sources) {
+        const config = extractWpConfig(source);
+        if (config) {
+            return mergeWpConfig(null, config);
+        }
+    }
+
+    return null;
+}
+
+function createTimestampSlug(): string {
+    return new Date().toISOString().replace(/[:.]/g, '-');
+}
 
 const DEFAULT_IMAGES: { id: string; name: string; src: string }[] = [
     {
@@ -902,6 +1093,75 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const stageRef = useRef<StageType | null>(null);
     const editorCanvasRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const initialWpConfig = useMemo(() => resolveInitialWpConfig(), []);
+    const [wpConfig, setWpConfig] = useState<WordPressConfig | null>(initialWpConfig);
+    const [wpMedia, setWpMedia] = useState<NormalizedMediaItem[]>(() =>
+        mapUserMediaToOptions(initialWpConfig?.userMedia),
+    );
+    const [isMediaPickerOpen, setMediaPickerOpen] = useState(false);
+    const [isMediaLoading, setMediaLoading] = useState(false);
+    const [mediaError, setMediaError] = useState<string | null>(null);
+    const [isSavingToWp, setIsSavingToWp] = useState(false);
+    const [desiredFileName, setDesiredFileName] = useState<string | null>(null);
+    const hasWpCredentials = Boolean(wpConfig?.restUrl && wpConfig?.nonce);
+
+    const applyWpConfig = useCallback((incoming: PartialWordPressConfig | null | undefined) => {
+        if (!incoming) {
+            return;
+        }
+        setWpConfig((current) => {
+            const next = mergeWpConfig(current, incoming);
+            if (next && (next !== current || next.userMedia !== current?.userMedia)) {
+                setWpMedia(mapUserMediaToOptions(next.userMedia));
+            }
+            return next;
+        });
+    }, []);
+
+    const refreshUserMedia = useCallback(async () => {
+        if (!wpConfig?.restUrl || !wpConfig.nonce) {
+            return;
+        }
+        setMediaLoading(true);
+        setMediaError(null);
+        try {
+            const response = await fetch(`${wpConfig.restUrl}marascott/v1/ta-var`, {
+                headers: { 'X-WP-Nonce': wpConfig.nonce },
+                credentials: 'include',
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const data = await response.json();
+            applyWpConfig({
+                restUrl: data?.rest_url ?? wpConfig.restUrl,
+                nonce: data?.nonce ?? wpConfig.nonce,
+                username: data?.username ?? data?.current_user ?? wpConfig.username,
+                userMedia: Array.isArray(data?.user_media) ? data.user_media : undefined,
+            });
+        } catch (error) {
+            console.error('Failed to fetch WordPress media', error);
+            setMediaError(error instanceof Error ? error.message : String(error));
+        } finally {
+            setMediaLoading(false);
+        }
+    }, [applyWpConfig, wpConfig]);
+
+    const openMediaPicker = useCallback(() => {
+        if (!hasWpCredentials) {
+            fileInputRef.current?.click();
+            return;
+        }
+        setMediaError(null);
+        setMediaPickerOpen(true);
+        if (wpMedia.length === 0 && !isMediaLoading) {
+            void refreshUserMedia();
+        }
+    }, [hasWpCredentials, isMediaLoading, refreshUserMedia, wpMedia.length]);
+
+    const closeMediaPicker = useCallback(() => {
+        setMediaPickerOpen(false);
+    }, []);
 
     const initialDocument = useMemo(() => initialDesign ?? createEmptyDesign(), [initialDesign]);
     const { value: design, set: setDesign, reset: resetDesign, undo, redo, canUndo, canRedo } =
@@ -1546,6 +1806,10 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
 
     const { postMessage } = useBridge();
 
+    useEffect(() => {
+        postMessage('requestConfig');
+    }, [postMessage]);
+
     const updateElements = useCallback(
         (updater: (elements: EditorElement[]) => EditorElement[]) => {
             setDesign((current) => {
@@ -2071,13 +2335,35 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         [addElement, options],
     );
 
+    const handleSelectMedia = useCallback(
+        (item: NormalizedMediaItem) => {
+            if (!item || !item.url) {
+                return;
+            }
+            handleAddImage(item.url, {
+                width: item.width ?? options.width,
+                height: item.height ?? options.height,
+            });
+            setMediaPickerOpen(false);
+        },
+        [handleAddImage, options.height, options.width],
+    );
+
+    const handleMediaRefresh = useCallback(() => {
+        void refreshUserMedia();
+    }, [refreshUserMedia]);
+
+    const handleModalUploadFromDevice = useCallback(() => {
+        fileInputRef.current?.click();
+    }, []);
+
     const handleRequestImage = useCallback(() => {
         if (window.ReactNativeWebView) {
             postMessage('requestImage', { options });
             return;
         }
-        fileInputRef.current?.click();
-    }, [options, postMessage]);
+        openMediaPicker();
+    }, [openMediaPicker, options, postMessage]);
 
     const handleUploadFile = useCallback((event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -2091,7 +2377,77 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         };
         reader.readAsDataURL(file);
         event.target.value = '';
+        setMediaPickerOpen(false);
     }, [handleAddImage]);
+
+    const saveToWordPress = useCallback(async () => {
+        if (isSavingToWp) {
+            return;
+        }
+        if (!wpConfig?.restUrl || !wpConfig.nonce) {
+            return;
+        }
+        const stage = stageRef.current;
+        if (!stage) {
+            return;
+        }
+
+        try {
+            setIsSavingToWp(true);
+            setMediaError(null);
+            postMessage('log', { message: 'Uploading image to WordPress…' });
+
+            const dataUrl = stage.toDataURL({ mimeType: 'image/png' });
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
+
+            const fallbackBase = `tinyartist-${createTimestampSlug()}`;
+            const fileName = sanitizeFileName(desiredFileName, fallbackBase);
+
+            const formData = new FormData();
+            formData.append('file', blob, fileName);
+
+            const uploadUrl = `${wpConfig.restUrl}marascott/v1/media-upload`;
+            const uploadResponse = await fetch(uploadUrl, {
+                method: 'POST',
+                headers: { 'X-WP-Nonce': wpConfig.nonce },
+                credentials: 'include',
+                body: formData,
+            });
+
+            if (!uploadResponse.ok) {
+                throw new Error(`HTTP ${uploadResponse.status}`);
+            }
+
+            const payload = await uploadResponse.json().catch(() => ({}));
+
+            if (payload?.source_url) {
+                const newItem: NormalizedMediaItem = {
+                    id: typeof payload.id === 'number' ? payload.id : Number(payload.id) || Date.now(),
+                    title: payload.title || fileName,
+                    url: payload.source_url,
+                    previewUrl: payload.source_url,
+                    width: options.width,
+                    height: options.height,
+                    sizes: {},
+                };
+                setWpMedia((previous) => [newItem, ...previous]);
+                postMessage('mediaUploaded', { id: newItem.id, sourceUrl: newItem.url, fileName });
+            }
+
+            await refreshUserMedia();
+            postMessage('log', { message: 'Saved image to WordPress media library.' });
+        } catch (error) {
+            console.error('Upload to WordPress failed', error);
+            setMediaError(error instanceof Error ? error.message : String(error));
+            postMessage('error', {
+                message: 'Unable to upload image to WordPress media library.',
+                detail: error instanceof Error ? error.message : String(error),
+            });
+        } finally {
+            setIsSavingToWp(false);
+        }
+    }, [desiredFileName, isSavingToWp, options.height, options.width, postMessage, refreshUserMedia, wpConfig]);
 
     const handleCopy = useCallback(() => {
         if (selectedIds.length === 0) return;
@@ -2529,7 +2885,8 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
         } catch (error) {
             console.warn('Unable to save design locally', error);
         }
-    }, [design, postMessage]);
+        void saveToWordPress();
+    }, [design, postMessage, saveToWordPress]);
 
     const handleExport = useCallback(
         (format: 'png' | 'jpeg' | 'json' | 'svg') => {
@@ -2902,6 +3259,30 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
             if (!message) return;
 
             switch (message.type) {
+                case 'config':
+                case 'wpConfig':
+                case 'taConfig': {
+                    const payload = message.payload?.taConfig ?? message.payload ?? {};
+                    applyWpConfig(payload as PartialWordPressConfig);
+                    if (typeof payload?.fileName === 'string') {
+                        setDesiredFileName(payload.fileName);
+                    }
+                    break;
+                }
+                case 'refreshUserMedia': {
+                    refreshUserMedia();
+                    break;
+                }
+                case 'setFileName':
+                case 'setFilename': {
+                    const payload = message.payload;
+                    if (typeof payload === 'string') {
+                        setDesiredFileName(payload);
+                    } else if (payload && typeof payload.fileName === 'string') {
+                        setDesiredFileName(payload.fileName);
+                    }
+                    break;
+                }
                 case 'setDesign':
                 case 'loadDesign': {
                     const designValue = message.payload?.json ?? message.payload ?? null;
@@ -2980,7 +3361,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                 globalDocument.removeEventListener('message', listener as any);
             }
         };
-    }, [design, handleAddImage, handleClear, handleExport, postMessage, redo, resetDesign, undo]);
+    }, [applyWpConfig, design, handleAddImage, handleClear, handleExport, postMessage, redo, refreshUserMedia, resetDesign, undo]);
 
     const rulerStep = Math.max(1, 32 * options.zoom);
     const gridBackground = useMemo(() => {
@@ -3212,6 +3593,62 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                     style={{ display: 'none' }}
                     onChange={handleUploadFile}
                 />
+                {isMediaPickerOpen ? (
+                    <div className="ta-media-modal" role="presentation">
+                        <div className="ta-media-modal__backdrop" onClick={closeMediaPicker} />
+                        <div
+                            className="ta-media-modal__panel"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label="WordPress media library"
+                            onClick={(event) => event.stopPropagation()}
+                        >
+                            <XStack className="ta-media-modal__toolbar" alignItems="center" justifyContent="space-between">
+                                <Text className="ta-media-modal__title">My Media</Text>
+                                <XStack gap="$2">
+                                    <Button
+                                        size="$2"
+                                        onPress={handleMediaRefresh}
+                                        disabled={isMediaLoading}
+                                    >
+                                        Refresh
+                                    </Button>
+                                    <Button size="$2" onPress={handleModalUploadFromDevice}>
+                                        Upload
+                                    </Button>
+                                    <Button size="$2" onPress={closeMediaPicker}>
+                                        Close
+                                    </Button>
+                                </XStack>
+                            </XStack>
+                            {isSavingToWp ? (
+                                <Text className="ta-media-modal__status">Saving image to WordPress…</Text>
+                            ) : null}
+                            {mediaError ? (
+                                <Text className="ta-media-modal__error">{mediaError}</Text>
+                            ) : null}
+                            {isMediaLoading ? (
+                                <Text className="ta-media-modal__status">Loading media…</Text>
+                            ) : wpMedia.length === 0 ? (
+                                <Text className="ta-media-modal__status">No images found in your library yet.</Text>
+                            ) : (
+                                <div className="ta-media-grid">
+                                    {wpMedia.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            className="ta-media-card"
+                                            onClick={() => handleSelectMedia(item)}
+                                        >
+                                            <img src={item.previewUrl} alt={item.title} loading="lazy" />
+                                            <span className="ta-media-card__title">{item.title}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ) : null}
             </YStack>
         </YStack>
     );

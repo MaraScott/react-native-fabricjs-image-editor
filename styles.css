@@ -50,7 +50,7 @@ body {
         var(--pastel-pink) 75%,
         var(--pastel-purple) 100%);
     background-size: 400% 400%;
-    animation: gradientShift 15s ease infinite;
+    /* animation: gradientShift 15s ease infinite; */
     color: var(--text-primary);
     font-family: var(--f-family, 'Comic Sans MS', 'Chalkboard SE', 'Arial Rounded MT Bold', 'Helvetica Rounded', sans-serif);
     font-size: 16px;
@@ -93,7 +93,7 @@ body {
         var(--emerald-light) 75%,
         var(--sapphire) 100%);
     background-size: 300% 300%;
-    animation: headerGradient 8s ease infinite;
+    /* animation: headerGradient 8s ease infinite; */
     border: 4px solid;
     border-image: linear-gradient(90deg,
         var(--gold) 0%,
@@ -126,7 +126,7 @@ body {
         var(--emerald-light) 50%,
         var(--emerald) 100%);
     background-size: 200% 200%;
-    animation: toolbarGlow 6s ease infinite;
+    /* animation: toolbarGlow 6s ease infinite; */
     border: 3px solid var(--emerald);
     border-radius: 16px;
     flex-direction: column;
@@ -143,7 +143,7 @@ body {
         var(--pastel-purple) 100%);
     background-size: 200% 200%;
     border: 3px solid var(--gold-light);
-    animation: toolbarShimmer 7s ease infinite;
+    /* animation: toolbarShimmer 7s ease infinite; */
 }
 
 .editor-toolbar .toolbar-group {
@@ -181,7 +181,7 @@ body {
         var(--burgundy-light) 75%,
         var(--burgundy-lighter) 100%);
     background-size: 300% 300%;
-    animation: statusGlow 5s ease infinite;
+    /* animation: statusGlow 5s ease infinite; */
     color: white;
     box-shadow: 0 6px 16px rgba(139, 21, 56, 0.5),
                 inset 0 2px 0 rgba(255, 255, 255, 0.4),
@@ -224,7 +224,7 @@ body {
         var(--gold-light) 75%,
         var(--gold) 100%);
     background-size: 300% 300%;
-    animation: wiggle 0.5s ease-in-out, activeGlow 3s ease infinite;
+    /* animation: wiggle 0.5s ease-in-out, activeGlow 3s ease infinite; */
     border-color: var(--burgundy);
     color: var(--burgundy);
     transform: scale(1.1) rotate(-2deg);
@@ -254,7 +254,7 @@ body {
         var(--sapphire-lighter) 66%,
         var(--emerald-lighter) 100%);
     background-size: 300% 300%;
-    animation: hoverRainbow 2s ease infinite;
+    /* animation: hoverRainbow 2s ease infinite; */
     border-color: var(--emerald);
     color: white;
     transform: translateY(-4px) scale(1.05);
@@ -415,7 +415,7 @@ body {
         var(--pastel-blue) 66%,
         var(--pastel-pink) 100%);
     background-size: 300% 300%;
-    animation: sidebarGradient 10s ease infinite;
+    /* animation: sidebarGradient 10s ease infinite; */
     border: 4px solid;
     border-image: linear-gradient(180deg,
         var(--burgundy) 0%,
@@ -509,7 +509,7 @@ body {
                 0 4px 12px rgba(0, 208, 132, 0.4),
                 inset 0 2px 4px rgba(0, 0, 0, 0.1);
     transform: scale(1.05);
-    animation: inputFocusGradient 2s ease infinite;
+    /* animation: inputFocusGradient 2s ease infinite; */
 }
 
 @keyframes inputFocusGradient {
@@ -562,7 +562,7 @@ body {
     transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     box-shadow: 0 4px 12px rgba(139, 21, 56, 0.4),
                 inset 0 2px 0 rgba(255, 255, 255, 0.3);
-    animation: exportButtonPulse 3s ease infinite;
+    /* animation: exportButtonPulse 3s ease infinite; */
 }
 
 @keyframes exportButtonPulse {
@@ -670,7 +670,7 @@ body {
         var(--gold-light) 75%,
         var(--gold-lighter) 100%);
     background-size: 300% 300%;
-    animation: selectedLayer 4s ease infinite;
+    /* animation: selectedLayer 4s ease infinite; */
     box-shadow: 0 6px 16px rgba(255, 215, 0, 0.6),
                 0 0 25px rgba(255, 215, 0, 0.4),
                 inset 0 2px 0 rgba(255, 255, 255, 0.7);
@@ -896,4 +896,99 @@ body {
         width: 100%;
         max-height: 320px;
     }
+}
+
+.ta-media-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ta-media-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(6px);
+}
+
+.ta-media-modal__panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: min(720px, 90vw);
+    max-height: 80vh;
+    padding: 24px;
+    border-radius: 20px;
+    background: rgba(15, 23, 42, 0.95);
+    border: 2px solid rgba(148, 163, 184, 0.35);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.55);
+    overflow: hidden;
+}
+
+.ta-media-modal__toolbar {
+    width: 100%;
+    gap: 12px;
+}
+
+.ta-media-modal__title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.ta-media-modal__status {
+    color: #cbd5f5;
+    font-size: 15px;
+}
+
+.ta-media-modal__error {
+    color: #f87171;
+    font-size: 14px;
+}
+
+.ta-media-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.ta-media-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 12px;
+    border-radius: 16px;
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    cursor: pointer;
+    text-align: center;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ta-media-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(56, 189, 248, 0.8);
+    box-shadow: 0 12px 24px rgba(56, 189, 248, 0.2);
+}
+
+.ta-media-card img {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.6);
+}
+
+.ta-media-card__title {
+    font-size: 14px;
+    color: #e2e8f0;
+    word-break: break-word;
 }
