@@ -278,10 +278,11 @@ export function useZoomPan({
                 return { width, height };
             });
 
-            const newFitScale = computeFitScale(stageSize.width, stageSize.height, width, height);
-            setFitScale(newFitScale);
+            const rawFitScale = computeFitScale(stageSize.width, stageSize.height, width, height);
+            const clampedFitScale = Math.min(1, rawFitScale);
+            setFitScale(clampedFitScale);
 
-            const minZoom = Math.max(0.05, newFitScale * 0.1);
+            const minZoom = Math.max(0.05, clampedFitScale * 0.1);
             setZoomBounds({ min: minZoom, max: maxZoom });
         };
 

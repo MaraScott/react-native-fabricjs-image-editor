@@ -1291,7 +1291,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             return;
         }
 
-        const fitScaleRaw = computeFitScale(stageWidth, stageHeight, viewportWidth, viewportHeight);
+        const fitScaleRaw = Math.min(1, computeFitScale(stageWidth, stageHeight, viewportWidth, viewportHeight));
         const nextFit = clampZoom(Math.max(fitScaleRaw, MIN_ZOOM_FALLBACK), MIN_ZOOM_FALLBACK, MAX_ZOOM);
         const previousFit = zoomPan.fitScaleRef.current;
         // fitScale is managed by useZoomPan hook
@@ -2414,13 +2414,16 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
         }
 
         const elementLayerId = element.layerId ?? null;
+        const keepCurrentTool = activeTool === 'crop';
 
         if (mode === 'single') {
             setSelectedIds([id]);
             if (elementLayerId) {
                 setActiveLayerId(elementLayerId);
             }
-            setActiveTool('select');
+            if (!keepCurrentTool) {
+                setActiveTool('select');
+            }
             return;
         }
 
@@ -2435,7 +2438,9 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             if (elementLayerId) {
                 setActiveLayerId(elementLayerId);
             }
-            setActiveTool('select');
+            if (!keepCurrentTool) {
+                setActiveTool('select');
+            }
             return;
         }
 
@@ -2451,8 +2456,10 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             setSelectedIds([id]);
         }
 
-        setActiveTool('select');
-    }, [contentElements, elements, setActiveLayerId, setActiveTool, setSelectedIds]);
+        if (!keepCurrentTool) {
+            setActiveTool('select');
+        }
+    }, [activeTool, contentElements, elements, setActiveLayerId, setActiveTool, setSelectedIds]);
 
     const handleStageMouseEnter = useCallback(() => {
         zoomPan.stageHoverRef.current = true;
@@ -3152,19 +3159,21 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
     }, [options.backgroundColor, options.gridSize, options.showGrid]);
     const stageCursor = zoomPan.isPanning ? 'grabbing' : zoomPan.isPanMode || activeTool === 'pan' ? 'grab' : undefined;
     const stageWrapperStyle = useMemo((): CSSProperties => {
+        const viewportWidth = zoomPan.workspaceSize.width > 0 ? zoomPan.workspaceSize.width : stageWidth;
+        const viewportHeight = zoomPan.workspaceSize.height > 0 ? zoomPan.workspaceSize.height : stageHeight;
         return {
-            width: stageWidth,
-            height: stageHeight,
+            width: viewportWidth,
+            height: viewportHeight,
             maxWidth: '100%',
             maxHeight: '100%',
         } as CSSProperties;
-    }, [stageHeight, stageWidth]);
+    }, [stageHeight, stageWidth, zoomPan.workspaceSize.height, zoomPan.workspaceSize.width]);
     const stageCanvasStyle = useMemo(() => {
+        const viewportWidth = zoomPan.workspaceSize.width > 0 ? zoomPan.workspaceSize.width : stageWidth;
+        const viewportHeight = zoomPan.workspaceSize.height > 0 ? zoomPan.workspaceSize.height : stageHeight;
         const baseStyle: CSSProperties = {
-            width: stageWidth,
-            height: stageHeight,
-            maxWidth: '100%',
-            maxHeight: '100%',
+            width: viewportWidth,
+            height: viewportHeight,
             backgroundColor: WORKSPACE_COLOR,
             overflow: 'hidden',
         };
@@ -3172,7 +3181,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             baseStyle.cursor = stageCursor;
         }
         return baseStyle;
-    }, [stageCursor, stageHeight, stageWidth]);
+    }, [stageCursor, stageHeight, stageWidth, zoomPan.workspaceSize.height, zoomPan.workspaceSize.width]);
     const stageBackgroundStyle = useMemo(() => {
         return {
             position: 'absolute' as const,
