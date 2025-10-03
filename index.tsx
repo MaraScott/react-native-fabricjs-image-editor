@@ -3,8 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { TamaguiProvider, Theme } from 'tamagui';
 import { tamaguiConfig } from '../../../../tamagui.config';
 import EditorApp from './components/EditorApp';
-import type { EditorDocument, EditorOptions } from './types/editor';
+import type { EditorDocument, EditorOptions, EditorTheme } from './types/editor';
 import { createEmptyDesign, parseDesign } from './utils/design';
+import { applyThemeToBody, resolveInitialTheme } from './utils/theme';
 import '../../tamagui/tamagui.css';
 import './styles.css';
 
@@ -36,15 +37,29 @@ function resolveInitialOptions(): EditorOptions {
   return { ...DEFAULT_OPTIONS, ...(bootstrap?.options ?? {}) };
 }
 
+function resolveInitialThemeName(): EditorTheme {
+  return resolveInitialTheme();
+}
+
 const container = document.getElementById('image-editor-root');
+
+const initialTheme = resolveInitialThemeName();
+applyThemeToBody(initialTheme);
+
+const rootThemeName = initialTheme === 'kid' ? 'gold' : 'sapphire';
 
 if (container) {
   const root = createRoot(container);
   root.render(
     <StrictMode>
       <TamaguiProvider config={tamaguiConfig} defaultTheme="light">
-        <Theme name="gold" key="theme-gold">
-          <EditorApp initialDesign={resolveInitialDesign()} initialOptions={resolveInitialOptions()} backgroundColor="#eeeeee" />
+        <Theme name={rootThemeName} key={`theme-${rootThemeName}`}>
+          <EditorApp
+            initialDesign={resolveInitialDesign()}
+            initialOptions={resolveInitialOptions()}
+            initialTheme={initialTheme}
+            backgroundColor="#eeeeee"
+          />
         </Theme>
       </TamaguiProvider>
     </StrictMode>,

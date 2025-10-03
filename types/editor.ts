@@ -140,6 +140,8 @@ export type EditorElement =
   | ImageElement
   | GuideElement;
 
+export type EditorTheme = 'kid' | 'adult';
+
 export interface EditorLayer {
   id: string;
   name: string;
@@ -175,4 +177,5 @@ export interface EditorOptions {
 export interface EditorBootstrapConfig {
   initialDesign?: string | EditorDesign | null;
   options?: Partial<EditorOptions>;
+  theme?: EditorTheme;
 }

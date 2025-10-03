@@ -17,6 +17,7 @@ import type {
     EditorElement,
     EditorLayer,
     EditorOptions,
+    EditorTheme,
     CircleElement,
     EllipseElement,
     FrameElement,
@@ -43,9 +44,11 @@ import {
     orderElementsByLayer,
 } from '../utils/editorElements';
 import { createEmptyDesign, parseDesign, stringifyDesign } from '../utils/design';
+import { applyThemeToBody, persistTheme, resolveInitialTheme } from '../utils/theme';
 
 import EditorStageViewport from './editor/EditorStageViewport';
 import PrimaryToolbar from './editor/PrimaryToolbar';
+import ThemeSwitcher from './editor/ThemeSwitcher';
 import { ExportActions, HistoryActions } from './editor/ToolbarActions';
 import type { DragBoundFactory, SelectionRect, Tool } from './editor/types';
 
@@ -1086,10 +1089,14 @@ function cloneDocument(document: EditorDocument): EditorDocument {
 interface EditorAppProps {
     initialDesign?: EditorDocument | null;
     initialOptions?: Partial<EditorOptions>;
+    initialTheme?: EditorTheme;
 }
 
-export default function EditorApp({ initialDesign, initialOptions }: EditorAppProps) {
+export default function EditorApp({ initialDesign, initialOptions, initialTheme }: EditorAppProps) {
     const [options, setOptions] = useState<EditorOptions>(getInitialOptions(initialOptions));
+    const [editorTheme, setEditorTheme] = useState<EditorTheme>(
+        () => initialTheme ?? resolveInitialTheme(),
+    );
     const stageRef = useRef<StageType | null>(null);
     const editorCanvasRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1104,6 +1111,16 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const [isSavingToWp, setIsSavingToWp] = useState(false);
     const [desiredFileName, setDesiredFileName] = useState<string | null>(null);
     const hasWpCredentials = Boolean(wpConfig?.restUrl && wpConfig?.nonce);
+
+    useEffect(() => {
+        const cleanup = applyThemeToBody(editorTheme);
+        persistTheme(editorTheme);
+        return cleanup;
+    }, [editorTheme]);
+
+    const handleThemeChange = useCallback((nextTheme: EditorTheme) => {
+        setEditorTheme(nextTheme);
+    }, []);
 
     const applyWpConfig = useCallback((incoming: PartialWordPressConfig | null | undefined) => {
         if (!incoming) {
@@ -3423,10 +3440,11 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
     const displayHeight = Math.round(options.height)
     const hasSelection = selectedIds.length > 0
     const hasClipboard = Boolean(clipboard && clipboard.length > 0)
+    const sidebarThemeName = editorTheme === 'kid' ? 'emerald' : 'sapphire'
 
     return (
         <YStack>
-            <Theme name="emerald">
+            <Theme name={sidebarThemeName} key={`theme-${sidebarThemeName}`}>
                 <SidebarContainer left={0}>
                     {leftOpen ? (
                         <SidebarPanel width={sidebarWidth} padding="0">
@@ -3482,6 +3500,7 @@ export default function EditorApp({ initialDesign, initialOptions }: EditorAppPr
                         />
                         <Text>TinyArtist Editor</Text>
                     </XStack>
+                    <ThemeSwitcher value={editorTheme} onChange={handleThemeChange} />
                     {!isSmall && (
                         <XStack>
                             <HistoryActions
