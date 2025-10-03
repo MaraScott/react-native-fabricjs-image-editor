@@ -45,6 +45,9 @@ import {
 } from '../utils/editorElements';
 import { createEmptyDesign, parseDesign, stringifyDesign } from '../utils/design';
 import { applyThemeToBody, persistTheme, resolveInitialTheme } from '../utils/theme';
+import { useWordPressIntegration, resolveInitialWpConfig } from '../hooks/editor/useWordPressIntegration';
+import { useZoomPan } from '../hooks/editor/useZoomPan';
+import { useSelection } from '../hooks/editor/useSelection';
 
 import EditorStageViewport from './editor/EditorStageViewport';
 import PrimaryToolbar from './editor/PrimaryToolbar';
@@ -1100,17 +1103,15 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
     const stageRef = useRef<StageType | null>(null);
     const editorCanvasRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+    // WordPress integration
     const initialWpConfig = useMemo(() => resolveInitialWpConfig(), []);
-    const [wpConfig, setWpConfig] = useState<WordPressConfig | null>(initialWpConfig);
-    const [wpMedia, setWpMedia] = useState<NormalizedMediaItem[]>(() =>
-        mapUserMediaToOptions(initialWpConfig?.userMedia),
-    );
+    const { wpConfig, wpMedia, isMediaLoading, mediaError, hasWpCredentials, applyWpConfig, refreshUserMedia } =
+        useWordPressIntegration(initialWpConfig);
+
     const [isMediaPickerOpen, setMediaPickerOpen] = useState(false);
-    const [isMediaLoading, setMediaLoading] = useState(false);
-    const [mediaError, setMediaError] = useState<string | null>(null);
     const [isSavingToWp, setIsSavingToWp] = useState(false);
     const [desiredFileName, setDesiredFileName] = useState<string | null>(null);
-    const hasWpCredentials = Boolean(wpConfig?.restUrl && wpConfig?.nonce);
 
     useEffect(() => {
         const cleanup = applyThemeToBody(editorTheme);
@@ -1121,48 +1122,6 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
     const handleThemeChange = useCallback((nextTheme: EditorTheme) => {
         setEditorTheme(nextTheme);
     }, []);
-
-    const applyWpConfig = useCallback((incoming: PartialWordPressConfig | null | undefined) => {
-        if (!incoming) {
-            return;
-        }
-        setWpConfig((current) => {
-            const next = mergeWpConfig(current, incoming);
-            if (next && (next !== current || next.userMedia !== current?.userMedia)) {
-                setWpMedia(mapUserMediaToOptions(next.userMedia));
-            }
-            return next;
-        });
-    }, []);
-
-    const refreshUserMedia = useCallback(async () => {
-        if (!wpConfig?.restUrl || !wpConfig.nonce) {
-            return;
-        }
-        setMediaLoading(true);
-        setMediaError(null);
-        try {
-            const response = await fetch(`${wpConfig.restUrl}marascott/v1/ta-var`, {
-                headers: { 'X-WP-Nonce': wpConfig.nonce },
-                credentials: 'include',
-            });
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-            const data = await response.json();
-            applyWpConfig({
-                restUrl: data?.rest_url ?? wpConfig.restUrl,
-                nonce: data?.nonce ?? wpConfig.nonce,
-                username: data?.username ?? data?.current_user ?? wpConfig.username,
-                userMedia: Array.isArray(data?.user_media) ? data.user_media : undefined,
-            });
-        } catch (error) {
-            console.error('Failed to fetch WordPress media', error);
-            setMediaError(error instanceof Error ? error.message : String(error));
-        } finally {
-            setMediaLoading(false);
-        }
-    }, [applyWpConfig, wpConfig]);
 
     const openMediaPicker = useCallback(() => {
         if (!hasWpCredentials) {
@@ -1196,13 +1155,14 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
         [orderedElements],
     );
 
-    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    // Selection state
+    const selection = useSelection();
+    const { selectedIds, selectionRect, selectionOriginRef, setSelectedIds, setSelectionRect } = selection;
+
     const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
     const [activeTool, setActiveTool] = useState<Tool>('draw');
     const [toolSettingsOpen, setToolSettingsOpen] = useState(false);
     const drawingStateRef = useRef<DrawingState | null>(null);
-    const selectionOriginRef = useRef<Vector2d | null>(null);
-    const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
     const [clipboard, setClipboard] = useState<EditorElement[] | null>(null);
     const [cropState, setCropState] = useState<{
         elementId: string;
@@ -1213,27 +1173,18 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
     const handleDrawSettingsChange = useCallback((updates: Partial<typeof DEFAULT_DRAW>) => {
         setDrawSettings((current) => ({ ...current, ...updates }));
     }, []);
-    const [stagePosition, setStagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-    const stagePositionRef = useRef(stagePosition);
-    const [workspaceSize, setWorkspaceSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
-    const workspaceSizeRef = useRef(workspaceSize);
-    const [fitScale, setFitScale] = useState(1);
-    const fitScaleRef = useRef(fitScale);
-    const [zoomBounds, setZoomBounds] = useState<{ min: number; max: number }>({ min: 1, max: MAX_ZOOM });
-    const zoomBoundsRef = useRef(zoomBounds);
-    const zoomRef = useRef(options.zoom);
-    const panStateRef = useRef<{
-        startPointer: Vector2d;
-        startPosition: { x: number; y: number };
-    } | null>(null);
-    const panVelocityRef = useRef<{ vx: number; vy: number }>({ vx: 0, vy: 0 });
-    const lastPanTimestampRef = useRef<number | null>(null);
-    const inertiaHandleRef = useRef<number | null>(null);
-    const spacePressedRef = useRef(false);
-    const stageHoverRef = useRef(false);
-    const previousCursorRef = useRef<{ inline: string; hadInline: boolean } | null>(null);
-    const [isPanMode, setIsPanMode] = useState(false);
-    const [isPanning, setIsPanning] = useState(false);
+
+    const stageWidth = Math.round(options.width);
+    const stageHeight = Math.round(options.height);
+
+    // Zoom/Pan state
+    const zoomPan = useZoomPan({
+        initialZoom: options.zoom,
+        maxZoom: MAX_ZOOM,
+        stageSize: { width: stageWidth, height: stageHeight },
+        canvasRef: editorCanvasRef,
+    });
+    const { setIsPanMode, setIsPanning, setStagePosition, startPanInertia, stopInertia } = zoomPan;
 
     const { width } = useWindowDimensions();
     // const { width } = Dimensions.get('window')
@@ -1243,9 +1194,6 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
     const sidebarWidth = isSmall ? width - 30 : 90
     // const sidebarImageSize = isSmall ? 120 : 80
     const [leftOpen, setLeftOpen] = useState(false);
-
-    const stageWidth = Math.round(options.width);
-    const stageHeight = Math.round(options.height);
     const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
     const sliderBounds = useMemo(
         () => ({
@@ -1262,32 +1210,20 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
         return Math.max(1, range / 200);
     }, [sliderBounds.max, sliderBounds.min]);
     const sliderValue = useMemo(() => {
-        const value = Number.isFinite(options.zoom) ? options.zoom : zoomBounds.min;
-        const clamped = clampZoom(value, zoomBounds.min, zoomBounds.max);
-        return [scaleToPercent(clamped, fitScaleRef.current)];
-    }, [options.zoom, zoomBounds.max, zoomBounds.min]);
+        const value = Number.isFinite(zoomPan.zoom) ? zoomPan.zoom : zoomPan.zoomBounds.min;
+        const clamped = clampZoom(value, zoomPan.zoomBounds.min, zoomPan.zoomBounds.max);
+        return [scaleToPercent(clamped, zoomPan.fitScale)];
+    }, [zoomPan.zoom, zoomPan.zoomBounds.min, zoomPan.zoomBounds.max, zoomPan.fitScale]);
     const zoomPercentage = useMemo(
-        () => Math.round(scaleToPercent(options.zoom, fitScale)),
-        [fitScale, options.zoom],
+        () => Math.round(scaleToPercent(zoomPan.zoom, zoomPan.fitScale)),
+        [zoomPan.fitScale, zoomPan.zoom],
     );
-
-    const stopInertia = useCallback(() => {
-        if (inertiaHandleRef.current !== null) {
-            cancelAnimationFrame(inertiaHandleRef.current);
-            inertiaHandleRef.current = null;
-        }
-    }, []);
-
-    const updateSelectionRect = useCallback((rect: SelectionRect | null) => {
-        setSelectionRect(rect);
-    }, []);
 
     useEffect(() => {
         if (activeTool !== 'select') {
-            selectionOriginRef.current = null;
-            updateSelectionRect(null);
+            selection.cancelRectSelection();
         }
-    }, [activeTool, updateSelectionRect]);
+    }, [activeTool, selection]);
 
     useEffect(() => {
         if (activeTool === 'draw') {
@@ -1297,190 +1233,13 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
         }
     }, [activeTool]);
 
-    const startPanInertia = useCallback(
-        (velocity: { vx: number; vy: number }) => {
-            let { vx, vy } = velocity;
-            if (Math.abs(vx) < PAN_MIN_VELOCITY && Math.abs(vy) < PAN_MIN_VELOCITY) {
-                return;
-            }
 
-            stopInertia();
-
-            let lastTime: number | null = null;
-
-            const step = (time: number) => {
-                if (lastTime === null) {
-                    lastTime = time;
-                }
-                const delta = time - lastTime;
-                lastTime = time;
-
-                const decay = Math.pow(PAN_INERTIA_FRICTION, delta / 16.67);
-                vx *= decay;
-                vy *= decay;
-
-                if (Math.abs(vx) < PAN_MIN_VELOCITY && Math.abs(vy) < PAN_MIN_VELOCITY) {
-                    stopInertia();
-                    return;
-                }
-
-                const nextPosition = clampStagePosition(
-                    {
-                        x: stagePositionRef.current.x + vx * delta,
-                        y: stagePositionRef.current.y + vy * delta,
-                    },
-                    zoomRef.current,
-                    { width: stageWidth, height: stageHeight },
-                    workspaceSizeRef.current,
-                );
-
-                if (
-                    nextPosition.x === stagePositionRef.current.x &&
-                    nextPosition.y === stagePositionRef.current.y
-                ) {
-                    stopInertia();
-                    return;
-                }
-
-                setStagePosition(nextPosition);
-                inertiaHandleRef.current = requestAnimationFrame(step);
-            };
-
-            inertiaHandleRef.current = requestAnimationFrame(step);
-        },
-        [setStagePosition, stageHeight, stageWidth, stopInertia],
-    );
-
-    useEffect(() => () => stopInertia(), [stopInertia]);
-
+    // Sync zoom from options to zoomPan hook
     useEffect(() => {
-        workspaceSizeRef.current = workspaceSize;
-    }, [workspaceSize]);
-
-    useEffect(() => {
-        zoomBoundsRef.current = zoomBounds;
-    }, [zoomBounds]);
-
-    useEffect(() => {
-        fitScaleRef.current = fitScale;
-    }, [fitScale]);
-
-    useEffect(() => {
-        zoomRef.current = options.zoom;
-    }, [options.zoom]);
-
-    useLayoutEffect(() => {
-        const element = editorCanvasRef.current;
-        if (!element) {
-            return;
+        if (Number.isFinite(options.zoom) && options.zoom !== zoomPan.zoom) {
+            zoomPan.setZoom(options.zoom);
         }
-
-        const parseSpacingValue = (value: string | null | undefined) => {
-            if (!value) {
-                return 0;
-            }
-            const parsed = Number.parseFloat(value);
-            return Number.isFinite(parsed) ? parsed : 0;
-        };
-
-        let frame: number | null = null;
-
-        const measure = () => {
-            frame = null;
-
-            const rect = element.getBoundingClientRect();
-            const style = typeof window !== 'undefined' ? window.getComputedStyle(element) : null;
-            const paddingX = style
-                ? parseSpacingValue(style.paddingLeft) + parseSpacingValue(style.paddingRight)
-                : 0;
-            const paddingY = style
-                ? parseSpacingValue(style.paddingTop) + parseSpacingValue(style.paddingBottom)
-                : 0;
-            const borderX = style
-                ? parseSpacingValue(style.borderLeftWidth) + parseSpacingValue(style.borderRightWidth)
-                : 0;
-            const borderY = style
-                ? parseSpacingValue(style.borderTopWidth) + parseSpacingValue(style.borderBottomWidth)
-                : 0;
-            const marginLeft = style ? parseSpacingValue(style.marginLeft) : 0;
-            const marginRight = style ? parseSpacingValue(style.marginRight) : 0;
-            const marginTop = style ? parseSpacingValue(style.marginTop) : 0;
-            const marginBottom = style ? parseSpacingValue(style.marginBottom) : 0;
-
-            const measuredWidth = Math.max(0, rect.width - paddingX);
-            const measuredHeight = Math.max(0, rect.height - paddingY);
-
-            let availableWidth = measuredWidth;
-            let availableHeight = measuredHeight;
-
-            if (typeof window !== 'undefined') {
-                const viewportWidth = window.innerWidth;
-                const viewportHeight = window.innerHeight;
-
-                const offsetLeft = Math.max(0, rect.left - marginLeft);
-                const offsetRight = Math.max(0, viewportWidth - rect.right - marginRight);
-                const offsetTop = Math.max(0, rect.top - marginTop);
-                const offsetBottom = Math.max(0, viewportHeight - rect.bottom - marginBottom);
-
-                const totalHorizontalChrome = paddingX + borderX;
-                const totalVerticalChrome = paddingY + borderY;
-
-                availableWidth = Math.max(0, viewportWidth - offsetLeft - offsetRight - totalHorizontalChrome);
-                availableHeight = Math.max(0, viewportHeight - offsetTop - offsetBottom - totalVerticalChrome);
-
-                const minHeight = Math.max(0, Math.round(viewportHeight - offsetTop - offsetBottom));
-                element.style.minHeight = `${minHeight}px`;
-            }
-
-            const nextSize = {
-                width: Math.max(0, Math.round(availableWidth || measuredWidth)),
-                height: Math.max(0, Math.round(availableHeight || measuredHeight)),
-            };
-
-            setWorkspaceSize((current) =>
-                current.width === nextSize.width && current.height === nextSize.height ? current : nextSize,
-            );
-        };
-
-        const scheduleMeasure = () => {
-            if (frame !== null) {
-                cancelAnimationFrame(frame);
-            }
-            frame = requestAnimationFrame(measure);
-        };
-
-        measure();
-
-        let observer: ResizeObserver | null = null;
-        const hasWindow = typeof window !== 'undefined';
-
-        if (typeof ResizeObserver !== 'undefined') {
-            observer = new ResizeObserver(() => scheduleMeasure());
-            observer.observe(element);
-        }
-
-        if (hasWindow) {
-            window.addEventListener('resize', scheduleMeasure);
-            window.addEventListener('scroll', scheduleMeasure, true);
-        }
-
-        return () => {
-            if (hasWindow) {
-                window.removeEventListener('resize', scheduleMeasure);
-                window.removeEventListener('scroll', scheduleMeasure, true);
-            }
-
-            if (observer) {
-                observer.disconnect();
-            }
-
-            if (frame !== null) {
-                cancelAnimationFrame(frame);
-            }
-
-            element.style.removeProperty('min-height');
-        };
-    }, [editorCanvasRef]);
+    }, [options.zoom, zoomPan]);
 
     const restoreStageCursor = useCallback(() => {
         const stage = stageRef.current;
@@ -1489,8 +1248,8 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             return;
         }
 
-        if (previousCursorRef.current) {
-            const { inline, hadInline } = previousCursorRef.current;
+        if (zoomPan.previousCursorRef.current) {
+            const { inline, hadInline } = zoomPan.previousCursorRef.current;
             if (hadInline) {
                 container.style.cursor = inline;
             } else {
@@ -1500,7 +1259,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             container.style.removeProperty('cursor');
         }
 
-        previousCursorRef.current = null;
+        zoomPan.previousCursorRef.current = null;
     }, []);
 
     useEffect(() => {
@@ -1510,49 +1269,46 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             return;
         }
 
-        if (isPanMode || activeTool === 'pan' || isPanning) {
-            if (!previousCursorRef.current) {
+        if (zoomPan.isPanMode || activeTool === 'pan' || zoomPan.isPanning) {
+            if (!zoomPan.previousCursorRef.current) {
                 const inline = container.style.cursor;
-                previousCursorRef.current = {
+                zoomPan.previousCursorRef.current = {
                     inline,
                     hadInline: inline.length > 0,
                 };
             }
-            container.style.cursor = isPanning ? 'grabbing' : 'grab';
+            container.style.cursor = zoomPan.isPanning ? 'grabbing' : 'grab';
             return;
         }
 
         restoreStageCursor();
-    }, [activeTool, isPanMode, isPanning, restoreStageCursor]);
+    }, [activeTool, zoomPan.isPanMode, zoomPan.isPanning, restoreStageCursor, zoomPan.previousCursorRef]);
 
     useEffect(() => {
-        const viewportWidth = workspaceSize.width;
-        const viewportHeight = workspaceSize.height;
+        const viewportWidth = zoomPan.workspaceSize.width;
+        const viewportHeight = zoomPan.workspaceSize.height;
         if (viewportWidth <= 0 || viewportHeight <= 0) {
             return;
         }
 
         const fitScaleRaw = computeFitScale(stageWidth, stageHeight, viewportWidth, viewportHeight);
         const nextFit = clampZoom(Math.max(fitScaleRaw, MIN_ZOOM_FALLBACK), MIN_ZOOM_FALLBACK, MAX_ZOOM);
-        const previousFit = fitScaleRef.current;
-        fitScaleRef.current = nextFit;
-        setFitScale((current) => (Math.abs(current - nextFit) < 0.0001 ? current : nextFit));
+        const previousFit = zoomPan.fitScaleRef.current;
+        // fitScale is managed by useZoomPan hook
 
         const minScale = Math.max(MIN_ZOOM_FALLBACK, nextFit * Math.pow(ZOOM_EXP_BASE, ZOOM_PERCENT_MIN / 100));
         const maxScale = Math.max(minScale, nextFit * Math.pow(ZOOM_EXP_BASE, ZOOM_PERCENT_MAX / 100));
 
-        setZoomBounds((current) =>
-            current.min === minScale && current.max === maxScale ? current : { min: minScale, max: maxScale },
-        );
+        // zoomBounds managed by useZoomPan hook
 
-        const currentZoom = zoomRef.current;
+        const currentZoom = zoomPan.zoomRef.current;
         const shouldSnapToFit =
             !Number.isFinite(currentZoom) || Math.abs(currentZoom - previousFit) < 0.0001;
         const clampedZoom = shouldSnapToFit
             ? nextFit
             : clampZoom(currentZoom, minScale, maxScale);
         if (clampedZoom !== currentZoom || shouldSnapToFit) {
-            zoomRef.current = clampedZoom;
+            zoomPan.zoomRef.current = clampedZoom;
             setOptions((current) => (current.zoom === clampedZoom ? current : { ...current, zoom: clampedZoom }));
         }
 
@@ -1568,17 +1324,17 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             { width: viewportWidth, height: viewportHeight },
         );
         const clampedPosition = clampStagePosition(
-            stagePositionRef.current,
+            zoomPan.stagePositionRef.current,
             clampedZoom,
             { width: stageWidth, height: stageHeight },
             { width: viewportWidth, height: viewportHeight },
         );
         const nextPosition = shouldSnapToFit ? preferredPosition : clampedPosition;
 
-        if (nextPosition.x !== stagePositionRef.current.x || nextPosition.y !== stagePositionRef.current.y) {
+        if (nextPosition.x !== zoomPan.stagePositionRef.current.x || nextPosition.y !== zoomPan.stagePositionRef.current.y) {
             setStagePosition(nextPosition);
         }
-    }, [setOptions, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
+    }, [setOptions, stageHeight, stageWidth, zoomPan.workspaceSize.height, zoomPan.workspaceSize.width]);
 
     useEffect(() => {
         if (layers.length === 0) {
@@ -1606,13 +1362,12 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
     }, []);
 
     useEffect(() => {
-        stagePositionRef.current = stagePosition;
         const stage = stageRef.current;
         if (stage) {
-            stage.position(stagePosition);
+            stage.position(zoomPan.stagePosition);
             stage.batchDraw();
         }
-    }, [stagePosition]);
+    }, [zoomPan.stagePosition]);
 
     useEffect(() => {
         const stage = stageRef.current;
@@ -1660,11 +1415,11 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
                 return;
             }
 
-            if (!spacePressedRef.current) {
-                spacePressedRef.current = true;
+            if (!zoomPan.spacePressedRef.current) {
+                zoomPan.spacePressedRef.current = true;
             }
 
-            if (stageHoverRef.current) {
+            if (zoomPan.stageHoverRef.current) {
                 event.preventDefault();
                 setIsPanMode(true);
             }
@@ -1675,11 +1430,11 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
                 return;
             }
 
-            spacePressedRef.current = false;
+            zoomPan.spacePressedRef.current = false;
             setIsPanMode(false);
 
-            if (panStateRef.current) {
-                panStateRef.current = null;
+            if (zoomPan.panStateRef.current) {
+                zoomPan.panStateRef.current = null;
                 setIsPanning(false);
             }
 
@@ -2700,16 +2455,16 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
     }, [contentElements, elements, setActiveLayerId, setActiveTool, setSelectedIds]);
 
     const handleStageMouseEnter = useCallback(() => {
-        stageHoverRef.current = true;
-        if (spacePressedRef.current) {
+        zoomPan.stageHoverRef.current = true;
+        if (zoomPan.spacePressedRef.current) {
             setIsPanMode(true);
         }
     }, [setIsPanMode]);
 
     const handleStageMouseLeave = useCallback(() => {
-        stageHoverRef.current = false;
-        if (panStateRef.current) {
-            panStateRef.current = null;
+        zoomPan.stageHoverRef.current = false;
+        if (zoomPan.panStateRef.current) {
+            zoomPan.panStateRef.current = null;
             setIsPanning(false);
         }
         setIsPanMode(false);
@@ -2721,20 +2476,20 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             const stage = event.target.getStage();
             if (!stage) return;
 
-            const panActive = isPanMode || activeTool === 'pan';
+            const panActive = zoomPan.isPanMode || activeTool === 'pan';
 
             if (panActive) {
                 event.evt.preventDefault();
                 stopInertia();
                 const pointerPosition = stage.getPointerPosition();
                 if (!pointerPosition) return;
-                const startPosition = stagePositionRef.current;
-                panStateRef.current = {
+                const startPosition = zoomPan.stagePositionRef.current;
+                zoomPan.panStateRef.current = {
                     startPointer: { x: pointerPosition.x, y: pointerPosition.y },
                     startPosition: { x: startPosition.x, y: startPosition.y },
                 };
-                panVelocityRef.current = { vx: 0, vy: 0 };
-                lastPanTimestampRef.current = performance.now();
+                zoomPan.panVelocityRef.current = { vx: 0, vy: 0 };
+                zoomPan.lastPanTimestampRef.current = performance.now();
                 setIsPanning(true);
                 return;
             }
@@ -2769,19 +2524,19 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             }
 
             selectionOriginRef.current = null;
-            updateSelectionRect(null);
+            setSelectionRect(null);
 
             if (event.target === stage) {
                 setSelectedIds([]);
                 if (activeTool === 'select') {
                     selectionOriginRef.current = pointer;
-                    updateSelectionRect({ x: pointer.x, y: pointer.y, width: 0, height: 0 });
+                    setSelectionRect({ x: pointer.x, y: pointer.y, width: 0, height: 0 });
                 } else if (activeTool === 'draw') {
                     setActiveTool('select');
                 }
             }
         },
-        [activeTool, addElement, drawSettings, isPanMode, setActiveTool, setSelectedIds, stopInertia, updateSelectionRect, setToolSettingsOpen],
+        [activeTool, addElement, drawSettings, zoomPan.isPanMode, setActiveTool, setSelectedIds, stopInertia, setSelectionRect, setToolSettingsOpen],
     );
 
     const handleStagePointerMove = useCallback(
@@ -2789,10 +2544,10 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             const stage = event.target.getStage();
             if (!stage) return;
 
-            if (panStateRef.current) {
+            if (zoomPan.panStateRef.current) {
                 const pointerPosition = stage.getPointerPosition();
                 if (!pointerPosition) return;
-                const { startPointer, startPosition } = panStateRef.current;
+                const { startPointer, startPosition } = zoomPan.panStateRef.current;
                 const deltaX = pointerPosition.x - startPointer.x;
                 const deltaY = pointerPosition.y - startPointer.y;
                 const targetPosition = {
@@ -2801,21 +2556,21 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
                 };
                 const clamped = clampStagePosition(
                     targetPosition,
-                    zoomRef.current,
+                    zoomPan.zoomRef.current,
                     { width: stageWidth, height: stageHeight },
-                    workspaceSizeRef.current,
+                    zoomPan.workspaceSizeRef.current,
                 );
-                const previous = stagePositionRef.current;
+                const previous = zoomPan.stagePositionRef.current;
                 const now = performance.now();
-                const last = lastPanTimestampRef.current;
+                const last = zoomPan.lastPanTimestampRef.current;
                 if (last !== null && now > last) {
                     const dt = now - last;
-                    panVelocityRef.current = {
+                    zoomPan.panVelocityRef.current = {
                         vx: (clamped.x - previous.x) / dt,
                         vy: (clamped.y - previous.y) / dt,
                     };
                 }
-                lastPanTimestampRef.current = now;
+                zoomPan.lastPanTimestampRef.current = now;
                 setStagePosition(clamped);
                 return;
             }
@@ -2823,7 +2578,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             if (selectionOriginRef.current && activeTool === 'select') {
                 const pointer = getStagePointer(stage);
                 if (!pointer) return;
-                updateSelectionRect(normalizeSelectionRect(selectionOriginRef.current, pointer));
+                setSelectionRect(normalizeSelectionRect(selectionOriginRef.current, pointer));
                 return;
             }
 
@@ -2844,17 +2599,17 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
                 }),
             );
         },
-        [activeTool, setStagePosition, stageHeight, stageWidth, updateElements, updateSelectionRect],
+        [activeTool, setSelectionRect, setStagePosition, stageHeight, stageWidth, updateElements],
     );
 
     const handleStagePointerUp = useCallback(
         (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
-            if (panStateRef.current) {
-                panStateRef.current = null;
+            if (zoomPan.panStateRef.current) {
+                zoomPan.panStateRef.current = null;
                 setIsPanning(false);
-                const velocity = panVelocityRef.current;
-                panVelocityRef.current = { vx: 0, vy: 0 };
-                lastPanTimestampRef.current = null;
+                const velocity = zoomPan.panVelocityRef.current;
+                zoomPan.panVelocityRef.current = { vx: 0, vy: 0 };
+                zoomPan.lastPanTimestampRef.current = null;
                 startPanInertia(velocity);
                 return;
             }
@@ -2887,12 +2642,12 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             }
 
             selectionOriginRef.current = null;
-            updateSelectionRect(null);
+            setSelectionRect(null);
 
             if (!drawingStateRef.current) return;
             drawingStateRef.current = null;
         },
-        [activeLayerId, activeTool, contentElements, layerMap, setIsPanning, setSelectedIds, startPanInertia, updateSelectionRect],
+        [activeLayerId, activeTool, contentElements, layerMap, setIsPanning, setSelectedIds, setSelectionRect, startPanInertia],
     );
 
     const handleSave = useCallback(() => {
@@ -2987,22 +2742,22 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             const container = typeof stage?.container === 'function' ? stage.container() : null;
             const containerBounds = container?.getBoundingClientRect() ?? null;
 
-            const currentZoom = zoomRef.current;
+            const currentZoom = zoomPan.zoomRef.current;
             const resolved = typeof value === 'function' ? value(currentZoom) : value;
-            const clamped = clampZoom(resolved, zoomBoundsRef.current.min, zoomBoundsRef.current.max);
+            const clamped = clampZoom(resolved, zoomPan.zoomBoundsRef.current.min, zoomPan.zoomBoundsRef.current.max);
 
             if (clamped === currentZoom) {
                 return;
             }
 
-            zoomRef.current = clamped;
+            zoomPan.zoomRef.current = clamped;
             setOptions((current) => (current.zoom === clamped ? current : { ...current, zoom: clamped }));
 
             if (stage) {
                 stage.scale({ x: clamped, y: clamped });
             }
 
-            const currentPosition = stagePositionRef.current;
+            const currentPosition = zoomPan.stagePositionRef.current;
             let nextPosition = currentPosition;
 
             if (anchor && containerBounds && currentZoom > 0) {
@@ -3020,7 +2775,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
                 nextPosition,
                 clamped,
                 { width: stageWidth, height: stageHeight },
-                workspaceSizeRef.current,
+                zoomPan.workspaceSizeRef.current,
             );
 
             if (stage) {
@@ -3049,7 +2804,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             if (typeof next !== 'number' || Number.isNaN(next)) {
                 return;
             }
-            applyZoom(percentToScale(next, fitScaleRef.current));
+            applyZoom(percentToScale(next, zoomPan.fitScaleRef.current));
         },
         [applyZoom],
     );
@@ -3163,9 +2918,9 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             }
             const zoomFactor = Math.exp(-deltaY * WHEEL_ZOOM_SENSITIVITY);
             const target = clampZoom(
-                zoomRef.current * zoomFactor,
-                zoomBoundsRef.current.min,
-                zoomBoundsRef.current.max,
+                zoomPan.zoomRef.current * zoomFactor,
+                zoomPan.zoomBoundsRef.current.min,
+                zoomPan.zoomBoundsRef.current.max,
             );
             applyZoom(target, { clientX: event.clientX, clientY: event.clientY });
         };
@@ -3190,7 +2945,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
                 const [touchA, touchB] = [event.touches[0], event.touches[1]];
                 pinchState = {
                     distance: getTouchDistance(touchA, touchB),
-                    zoom: zoomRef.current,
+                    zoom: zoomPan.zoomRef.current,
                 };
             }
         };
@@ -3206,8 +2961,8 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
                 const ratio = distance / pinchState.distance;
                 const target = clampZoom(
                     pinchState.zoom * ratio,
-                    zoomBoundsRef.current.min,
-                    zoomBoundsRef.current.max,
+                    zoomPan.zoomBoundsRef.current.min,
+                    zoomPan.zoomBoundsRef.current.max,
                 );
                 const center = getTouchCenter(touchA, touchB);
                 applyZoom(target, center);
@@ -3228,10 +2983,10 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
                 const touch = event.changedTouches[0];
                 if (now - lastTapTime < 300) {
                     event.preventDefault();
-                    const minZoom = zoomBoundsRef.current.min;
-                    const maxZoom = zoomBoundsRef.current.max;
+                    const minZoom = zoomPan.zoomBoundsRef.current.min;
+                    const maxZoom = zoomPan.zoomBoundsRef.current.max;
                     const target =
-                        zoomRef.current < DOUBLE_TAP_ZOOM
+                        zoomPan.zoomRef.current < DOUBLE_TAP_ZOOM
                             ? Math.min(DOUBLE_TAP_ZOOM, maxZoom)
                             : minZoom;
                     applyZoom(target, { clientX: touch.clientX, clientY: touch.clientY });
@@ -3246,10 +3001,10 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
 
         const handleDoubleClick = (event: MouseEvent) => {
             event.preventDefault();
-            const minZoom = zoomBoundsRef.current.min;
-            const maxZoom = zoomBoundsRef.current.max;
+            const minZoom = zoomPan.zoomBoundsRef.current.min;
+            const maxZoom = zoomPan.zoomBoundsRef.current.max;
             const target =
-                zoomRef.current < DOUBLE_TAP_ZOOM ? Math.min(DOUBLE_TAP_ZOOM, maxZoom) : minZoom;
+                zoomPan.zoomRef.current < DOUBLE_TAP_ZOOM ? Math.min(DOUBLE_TAP_ZOOM, maxZoom) : minZoom;
             applyZoom(target, { clientX: event.clientX, clientY: event.clientY });
         };
 
@@ -3395,24 +3150,21 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             backgroundSize: `${baseGrid}px ${baseGrid}px`,
         } as const;
     }, [options.backgroundColor, options.gridSize, options.showGrid]);
-    const stageCursor = isPanning ? 'grabbing' : isPanMode || activeTool === 'pan' ? 'grab' : undefined;
-    const rulerPadding = options.showRulers ? 24 : 0;
+    const stageCursor = zoomPan.isPanning ? 'grabbing' : zoomPan.isPanMode || activeTool === 'pan' ? 'grab' : undefined;
     const stageWrapperStyle = useMemo((): CSSProperties => {
-        const viewportWidth = workspaceSize.width > 0 ? workspaceSize.width : stageWidth;
-        const viewportHeight = workspaceSize.height > 0 ? workspaceSize.height : stageHeight;
-        const width = options.showRulers ? viewportWidth + rulerPadding : viewportWidth;
-        const height = options.showRulers ? viewportHeight + rulerPadding : viewportHeight;
         return {
-            width,
-            height,
+            width: stageWidth,
+            height: stageHeight,
+            maxWidth: '100%',
+            maxHeight: '100%',
         } as CSSProperties;
-    }, [options.showRulers, rulerPadding, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
+    }, [stageHeight, stageWidth]);
     const stageCanvasStyle = useMemo(() => {
-        const viewportWidth = workspaceSize.width > 0 ? workspaceSize.width : stageWidth;
-        const viewportHeight = workspaceSize.height > 0 ? workspaceSize.height : stageHeight;
         const baseStyle: CSSProperties = {
-            width: viewportWidth,
-            height: viewportHeight,
+            width: stageWidth,
+            height: stageHeight,
+            maxWidth: '100%',
+            maxHeight: '100%',
             backgroundColor: WORKSPACE_COLOR,
             overflow: 'hidden',
         };
@@ -3420,7 +3172,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             baseStyle.cursor = stageCursor;
         }
         return baseStyle;
-    }, [stageCursor, stageHeight, stageWidth, workspaceSize.height, workspaceSize.width]);
+    }, [stageCursor, stageHeight, stageWidth]);
     const stageBackgroundStyle = useMemo(() => {
         return {
             position: 'absolute' as const,
@@ -3429,12 +3181,12 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             width: stageWidth,
             height: stageHeight,
             transformOrigin: 'top left',
-            transform: `translate(${stagePosition.x}px, ${stagePosition.y}px) scale(${options.zoom})`,
+            transform: `translate(${zoomPan.stagePosition.x}px, ${zoomPan.stagePosition.y}px) scale(${options.zoom})`,
             pointerEvents: 'none' as const,
             borderRadius: 8,
             ...gridBackground,
         };
-    }, [gridBackground, options.zoom, stageHeight, stagePosition.x, stagePosition.y, stageWidth]);
+    }, [gridBackground, options.zoom, stageHeight, zoomPan.stagePosition.x, zoomPan.stagePosition.y, stageWidth]);
 
     const displayWidth = Math.round(options.width)
     const displayHeight = Math.round(options.height)
@@ -3547,7 +3299,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
                         stageBackgroundStyle={stageBackgroundStyle}
                         stageWidth={stageWidth}
                         stageHeight={stageHeight}
-                        stagePosition={stagePosition}
+                        stagePosition={zoomPan.stagePosition}
                         options={options}
                         guides={guides}
                         contentElements={contentElements}
