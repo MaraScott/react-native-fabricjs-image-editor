@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { TamaguiProvider, Theme } from 'tamagui';
 import { tamaguiConfig } from '@expo/tamagui.config';
-import EditorApp from '@components/EditorApp';
+import EditorApp from '@pages/editor/EditorApp';
 import type { EditorDocument, EditorOptions, EditorTheme } from '@types/editor';
 import { createEmptyDesign, parseDesign } from '@utils/design';
 import { applyThemeToBody, resolveInitialTheme } from '@utils/theme';

@@ -25,14 +25,16 @@ The build command now emits hashed JS/CSS assets recorded in `dist/asset-manifes
 
 ```
 ├── index.html              # Minimal host page for the editor
-├── components/
-│  ├── EditorApp.tsx   # Main application shell + toolbar/bridge
-│  ├── KonvaNodes.tsx  # Rect/Circle/Text/Image renderers with transformers
-│  └── PropertiesPanel.tsx
-├── hooks/useHistory.ts # Simple undo/redo state helper
-├── types/              # Editor model + React/konva shims
-├── utils/design.ts     # JSON serialisation helpers
-├── index.tsx           # Entrypoint rendered by webpack
+├── ui/
+│  ├── atoms/           # Iconography, Konva primitives and other base components
+│  ├── molecules/       # Small compositions (zoom controls, layer previews, etc.)
+│  ├── organisms/       # Feature-level sections (stage viewport, toolbars, panels)
+│  ├── templates/       # Layout scaffolds and dialogs
+│  └── pages/           # Screen-level compositions (e.g. EditorApp)
+├── hooks/              # State and integration hooks (history, selection, zoom/pan, WordPress)
+├── utils/              # Pure helpers for design serialisation and element factories
+├── canvas/             # Konva stage renderer and related utilities
+├── index.tsx           # Entrypoint rendered by webpack/esbuild
 ├── tsconfig.json
 └── webpack.config.js
 ```
