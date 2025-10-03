@@ -12,10 +12,21 @@
     "allowSyntheticDefaultImports": true,
     "noEmitOnError": false,
     "types": ["react", "react-dom"],
+    "baseUrl": ".",
     "paths": {
       "react-konva": ["./shims/reactKonva"],
       "react/jsx-runtime": ["./shims/jsxRuntime"],
-      "its-fine": ["./shims/itsFine"]
+      "its-fine": ["./shims/itsFine"],
+      "@components/*": ["./components/*"],
+      "@hooks/*": ["./hooks/*"],
+      "@contexts/*": ["./contexts/*"],
+      "@utils/*": ["./utils/*"],
+      "@types/*": ["./types/*"],
+      "@ui/*": ["./ui/*"],
+      "@canvas/*": ["./canvas/*"],
+      "@vendor/*": ["./vendor/*"],
+      "@tamagui/*": ["../../tamagui/*"],
+      "@config/tamagui": ["../../../../tamagui.config"]
     }
   },
   "include": [".", "utils", "hooks", "components", "global.d.ts", "index.tsx"],
