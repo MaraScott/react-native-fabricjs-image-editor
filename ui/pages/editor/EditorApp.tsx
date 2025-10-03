@@ -1190,6 +1190,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
     const sidebarWidth = isSmall ? width - 30 : 90
     // const sidebarImageSize = isSmall ? 120 : 80
     const [leftOpen, setLeftOpen] = useState(false);
+    const [hasUserInteracted, setHasUserInteracted] = useState(false);
     const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
     const sliderBounds = useMemo(
         () => ({
@@ -1308,14 +1309,16 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             setOptions((current) => (current.zoom === clampedZoom ? current : { ...current, zoom: clampedZoom }));
         }
 
-        const scaledWidth = stageWidth * clampedZoom;
-        const scaledHeight = stageHeight * clampedZoom;
+        // Use fitScale for centering calculation when not yet interacted
+        const scaleForCentering = hasUserInteracted ? clampedZoom : nextFit;
+        const scaledWidth = stageWidth * scaleForCentering;
+        const scaledHeight = stageHeight * scaleForCentering;
         const preferredPosition = clampStagePosition(
             {
                 x: Math.max(0, (viewportWidth - scaledWidth) / 2),
                 y: Math.max(0, (viewportHeight - scaledHeight) / 2),
             },
-            clampedZoom,
+            scaleForCentering,
             { width: stageWidth, height: stageHeight },
             { width: viewportWidth, height: viewportHeight },
         );
@@ -1325,12 +1328,13 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             { width: stageWidth, height: stageHeight },
             { width: viewportWidth, height: viewportHeight },
         );
-        const nextPosition = shouldSnapToFit ? preferredPosition : clampedPosition;
+        // Always use centered position when user hasn't interacted yet
+        const nextPosition = (!hasUserInteracted || shouldSnapToFit) ? preferredPosition : clampedPosition;
 
         if (nextPosition.x !== zoomPan.stagePositionRef.current.x || nextPosition.y !== zoomPan.stagePositionRef.current.y) {
             setStagePosition(nextPosition);
         }
-    }, [setOptions, stageHeight, stageWidth, zoomPan.workspaceSize.height, zoomPan.workspaceSize.width]);
+    }, [setOptions, stageHeight, stageWidth, zoomPan.workspaceSize.height, zoomPan.workspaceSize.width, hasUserInteracted]);
 
     useEffect(() => {
         if (layers.length === 0) {
@@ -2794,10 +2798,12 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
     );
 
     const handleZoomOut = useCallback(() => {
+        setHasUserInteracted(true);
         applyZoom((current) => current / KEYBOARD_ZOOM_FACTOR);
     }, [applyZoom]);
 
     const handleZoomIn = useCallback(() => {
+        setHasUserInteracted(true);
         applyZoom((current) => current * KEYBOARD_ZOOM_FACTOR);
     }, [applyZoom]);
 
@@ -2807,6 +2813,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             if (typeof next !== 'number' || Number.isNaN(next)) {
                 return;
             }
+            setHasUserInteracted(true);
             applyZoom(percentToScale(next, zoomPan.fitScaleRef.current));
         },
         [applyZoom],
@@ -2919,6 +2926,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             if (deltaY === 0) {
                 return;
             }
+            setHasUserInteracted(true);
             const zoomFactor = Math.exp(-deltaY * WHEEL_ZOOM_SENSITIVITY);
             const target = clampZoom(
                 zoomPan.zoomRef.current * zoomFactor,
@@ -2956,6 +2964,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
         const handleTouchMove = (event: TouchEvent) => {
             if (event.touches.length === 2 && pinchState) {
                 event.preventDefault();
+                setHasUserInteracted(true);
                 const [touchA, touchB] = [event.touches[0], event.touches[1]];
                 const distance = getTouchDistance(touchA, touchB);
                 if (pinchState.distance === 0) {
@@ -3004,6 +3013,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
 
         const handleDoubleClick = (event: MouseEvent) => {
             event.preventDefault();
+            setHasUserInteracted(true);
             const minZoom = zoomPan.zoomBoundsRef.current.min;
             const maxZoom = zoomPan.zoomBoundsRef.current.max;
             const target =
@@ -3171,8 +3181,20 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             baseStyle.cursor = stageCursor;
         }
         return baseStyle;
-    }, [stageCursor, stageHeight, stageWidth]);
+    }, [stageCursor]);
     const stageBackgroundStyle = useMemo(() => {
+        const containerWidth = zoomPan.workspaceSize.width;
+        const containerHeight = zoomPan.workspaceSize.height;
+
+        const scaleX = containerWidth / stageWidth;
+        const scaleY = containerHeight / stageHeight;
+
+        // Pick the smaller one so it fits both dimensions
+        const fitScale = Math.min(scaleX, scaleY);
+
+        // Use fitScale on initial load, then switch to zoomPan.zoom after user interaction
+        const scale = hasUserInteracted ? zoomPan.zoom : fitScale;
+
         return {
             position: 'absolute' as const,
             top: 0,
@@ -3180,12 +3202,22 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
             width: stageWidth,
             height: stageHeight,
             transformOrigin: 'top left',
-            transform: `translate(${zoomPan.stagePosition.x}px, ${zoomPan.stagePosition.y}px) scale(${zoomPan.zoom})`,
+            transform: `translate(${zoomPan.stagePosition.x}px, ${zoomPan.stagePosition.y}px) scale(${scale})`,
             pointerEvents: 'none' as const,
             borderRadius: 8,
             ...gridBackground,
         };
-    }, [gridBackground, zoomPan.zoom, stageHeight, zoomPan.stagePosition.x, zoomPan.stagePosition.y, stageWidth]);
+    }, [
+        gridBackground,
+        stageWidth,
+        stageHeight,
+        zoomPan.workspaceSize.width,
+        zoomPan.workspaceSize.height,
+        zoomPan.stagePosition.x,
+        zoomPan.stagePosition.y,
+        zoomPan.zoom,
+        hasUserInteracted,
+    ]);
 
     const displayWidth = Math.round(options.width)
     const displayHeight = Math.round(options.height)
