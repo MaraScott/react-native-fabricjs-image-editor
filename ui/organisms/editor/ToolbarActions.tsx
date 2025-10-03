@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Button, XStack, YStack } from 'tamagui';
 
 import { MaterialCommunityIcons } from '@atoms/icons/MaterialCommunityIcons';
+import { KidFriendlyEraserIcon, KidFriendlyUndoIcon, KidFriendlyRedoIcon } from '@atoms/icons/EnhancedIcons';
 
 interface ResponsiveStackProps {
     isCompact: boolean;
@@ -48,10 +49,10 @@ export function HistoryActions({
     return (
         <ResponsiveStack isCompact={isCompact} className="toolbar-group">
             <Button type="button" onPress={onUndo} disabled={!canUndo} aria-label="Undo" title="Undo">
-                <MaterialCommunityIcons key="undo" name="undo" size={iconSize} />
+                <KidFriendlyUndoIcon key="undo" size={iconSize} />
             </Button>
             <Button type="button" onPress={onRedo} disabled={!canRedo} aria-label="Redo" title="Redo">
-                <MaterialCommunityIcons key="redo" name="redo" size={iconSize} />
+                <KidFriendlyRedoIcon key="redo" size={iconSize} />
             </Button>
             <Button
                 type="button"
@@ -87,7 +88,7 @@ export function HistoryActions({
                 aria-label="Delete"
                 title="Delete"
             >
-                <MaterialCommunityIcons key="trash-can-outline" name="trash-can-outline" size={iconSize} />
+                <KidFriendlyEraserIcon key="delete" size={iconSize} />
             </Button>
             <Button type="button" onPress={onClear} aria-label="Clear canvas" title="Clear canvas">
                 <MaterialCommunityIcons key="eraser-variant" name="eraser-variant" size={iconSize} />

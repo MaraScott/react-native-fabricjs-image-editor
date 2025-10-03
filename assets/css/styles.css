@@ -238,24 +238,24 @@ body {
 
 /* Kid Theme - Bigger, More Playful Icons */
 svg {
-    transition: transform 0.25s ease;
+    transition: transform 0.2s ease;
 }
 
 .editor-header button svg,
 .editor-toolbar button svg {
-    width: 22px;
-    height: 22px;
-    stroke-width: 2.2;
+    width: 24px;
+    height: 24px;
+    stroke-width: 2.5;
 }
 
 .editor-header button:hover svg,
 .editor-toolbar button:hover svg {
-    transform: scale(1.15);
+    transform: scale(1.1);
 }
 
 .editor-header button.active svg,
 .editor-toolbar button.active svg {
-    /* animation: iconBounce 0.6s ease-in-out; */
+    transform: scale(1.05);
 }
 
 @keyframes iconBounce {

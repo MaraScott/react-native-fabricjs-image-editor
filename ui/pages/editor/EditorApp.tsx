@@ -112,7 +112,7 @@ const SNAP_THRESHOLD = 12;
 const STORAGE_KEY = 'konva-image-editor-design';
 
 const DEFAULT_DRAW = { color: '#2563eb', width: 5 };
-const TOOLBAR_ICON_SIZE = 12;
+const TOOLBAR_ICON_SIZE = 24;
 const MAX_ZOOM = 8;
 const DOUBLE_TAP_ZOOM = 2;
 const WHEEL_ZOOM_SENSITIVITY = 0.0015;

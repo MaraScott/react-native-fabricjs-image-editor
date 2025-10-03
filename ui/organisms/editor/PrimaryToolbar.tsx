@@ -1,6 +1,7 @@
 import { Button, Text, YStack } from 'tamagui';
 
 import { MaterialCommunityIcons } from '@atoms/icons/MaterialCommunityIcons';
+import { KidFriendlySelectIcon, KidFriendlyDrawIcon } from '@atoms/icons/EnhancedIcons';
 import type { Tool } from '@organisms/editor/types';
 
 export interface PrimaryToolbarProps {
@@ -34,7 +35,7 @@ export default function PrimaryToolbar({
                     aria-label="Select"
                     title="Select"
                 >
-                    <MaterialCommunityIcons key="cursor-default" name="cursor-default" size={iconSize} />
+                    <KidFriendlySelectIcon key="select" size={iconSize} />
                 </Button>
                 <Button
                     type="button"
@@ -52,7 +53,7 @@ export default function PrimaryToolbar({
                     aria-label="Draw"
                     title="Draw"
                 >
-                    <MaterialCommunityIcons key="pencil-outline" name="pencil-outline" size={iconSize} />
+                    <KidFriendlyDrawIcon key="pencil-outline" size={iconSize} />
                 </Button>
                 <Button
                     type="button"
