@@ -58,14 +58,7 @@ import {
 } from '@organisms/editor';
 import type { DragBoundFactory, SelectionRect, Tool } from '@organisms/editor/types';
 
-import {
-    SidebarContainer,
-    SidebarPanel,
-    SidebarScroll,
-    SidebarToggle,
-    SidebarToggleLabel,
-    SidebarContent,
-} from '@tinyartist/theme/ui/styles'
+import { EditorLayout, EditorHeader, EditorSidebar } from '@templates';
 
 type DrawingState = {
     id: string;
@@ -3207,66 +3200,45 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
     const sidebarThemeName = editorTheme === 'kid' ? 'emerald' : 'sapphire'
 
     return (
-        <YStack>
-            <Theme name={sidebarThemeName} key={`theme-${sidebarThemeName}`}>
-                <SidebarContainer left={0}>
-                    {leftOpen ? (
-                        <SidebarPanel width={sidebarWidth} padding="0">
-                            <SidebarScroll>
-                                <SidebarContent>
-                                    <YStack className="editor-header">
-                                        <HistoryActions
-                                            isCompact
-                                            canUndo={canUndo}
-                                            canRedo={canRedo}
-                                            hasSelection={hasSelection}
-                                            hasClipboard={hasClipboard}
-                                            onUndo={undo}
-                                            onRedo={redo}
-                                            onCopy={handleCopy}
-                                            onPaste={handlePaste}
-                                            onDuplicate={handleDuplicate}
-                                            onRemoveSelected={removeSelected}
-                                            onClear={handleClear}
-                                            iconSize={TOOLBAR_ICON_SIZE}
-                                        />
-                                        <ExportActions
-                                            isCompact
-                                            onSave={handleSave}
-                                            onLoad={handleLoadFromBrowser}
-                                            onExport={handleExport}
-                                            iconSize={TOOLBAR_ICON_SIZE}
-                                        />
-                                    </YStack>
-                                </SidebarContent>
-                            </SidebarScroll>
-                        </SidebarPanel>
-                    ) : null}
-                    {isSmall ? (
-                        <SidebarToggle
-                            onPress={() => setLeftOpen((prev) => !prev)}
-                            width={collapsedWidth}
-                            backgroundColor="$backgroundHover"
-                        >
-                            <SidebarToggleLabel color="$color10">{leftOpen ? '◀' : '▶'}</SidebarToggleLabel>
-                        </SidebarToggle>
-                    ) : null}
-                </SidebarContainer>
-            </Theme>
-            <YStack className="editor-shell">
-                <XStack className="editor-header" zIndex={1} overflow={'visible'}>
-                    <XStack className="logo">
-                        <Image
-                            src="https://raw.githubusercontent.com/Everduin94/react-native-vector-icons/master/assets/images/TinyArtist.png"
-                            alt="TinyArtist logo"
-                            width="40"
-                            height="40"
-                        />
-                        <Text>TinyArtist Editor</Text>
-                    </XStack>
-                    <ThemeSwitcher value={editorTheme} onChange={handleThemeChange} />
-                    {!isSmall && (
-                        <XStack>
+        <>
+        <EditorLayout
+            sidebarTheme={sidebarThemeName}
+            leftSidebar={
+                <EditorSidebar>
+                    <HistoryActions
+                        isCompact
+                        canUndo={canUndo}
+                        canRedo={canRedo}
+                        hasSelection={hasSelection}
+                        hasClipboard={hasClipboard}
+                        onUndo={undo}
+                        onRedo={redo}
+                        onCopy={handleCopy}
+                        onPaste={handlePaste}
+                        onDuplicate={handleDuplicate}
+                        onRemoveSelected={removeSelected}
+                        onClear={handleClear}
+                        iconSize={TOOLBAR_ICON_SIZE}
+                    />
+                    <ExportActions
+                        isCompact
+                        onSave={handleSave}
+                        onLoad={handleLoadFromBrowser}
+                        onExport={handleExport}
+                        iconSize={TOOLBAR_ICON_SIZE}
+                    />
+                </EditorSidebar>
+            }
+            leftSidebarOpen={leftOpen}
+            onLeftSidebarToggle={() => setLeftOpen((prev) => !prev)}
+            sidebarWidth={sidebarWidth}
+            collapsedWidth={collapsedWidth}
+            showSidebarToggle={isSmall}
+            header={
+                <EditorHeader
+                    themeSwitcher={<ThemeSwitcher value={editorTheme} onChange={handleThemeChange} />}
+                    leftActions={
+                        <>
                             <HistoryActions
                                 isCompact={false}
                                 canUndo={canUndo}
@@ -3289,12 +3261,13 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
                                 onExport={handleExport}
                                 iconSize={TOOLBAR_ICON_SIZE}
                             />
-                        </XStack>
-                    )}
-
-
-                </XStack>
-                <XStack width={mainLayoutWidth} className="editor-shell-layout" zIndex={0} >
+                        </>
+                    }
+                    showLeftActions={!isSmall}
+                />
+            }
+            mainLayoutWidth={mainLayoutWidth}
+        >
                     <PrimaryToolbar
                         activeTool={activeTool}
                         onSelectTool={handleSelectTool}
@@ -3367,72 +3340,71 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
                         rulerStep={rulerStep}
                         iconSize={TOOLBAR_ICON_SIZE}
                     />
-                </XStack>
+        </EditorLayout>
 
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={handleUploadFile}
-                />
-                {isMediaPickerOpen ? (
-                    <div className="ta-media-modal" role="presentation">
-                        <div className="ta-media-modal__backdrop" onClick={closeMediaPicker} />
-                        <div
-                            className="ta-media-modal__panel"
-                            role="dialog"
-                            aria-modal="true"
-                            aria-label="WordPress media library"
-                            onClick={(event) => event.stopPropagation()}
-                        >
-                            <XStack className="ta-media-modal__toolbar" alignItems="center" justifyContent="space-between">
-                                <Text className="ta-media-modal__title">My Media</Text>
-                                <XStack gap="$2">
-                                    <Button
-                                        size="$2"
-                                        onPress={handleMediaRefresh}
-                                        disabled={isMediaLoading}
-                                    >
-                                        Refresh
-                                    </Button>
-                                    <Button size="$2" onPress={handleModalUploadFromDevice}>
-                                        Upload
-                                    </Button>
-                                    <Button size="$2" onPress={closeMediaPicker}>
-                                        Close
-                                    </Button>
-                                </XStack>
-                            </XStack>
-                            {isSavingToWp ? (
-                                <Text className="ta-media-modal__status">Saving image to WordPress…</Text>
-                            ) : null}
-                            {mediaError ? (
-                                <Text className="ta-media-modal__error">{mediaError}</Text>
-                            ) : null}
-                            {isMediaLoading ? (
-                                <Text className="ta-media-modal__status">Loading media…</Text>
-                            ) : wpMedia.length === 0 ? (
-                                <Text className="ta-media-modal__status">No images found in your library yet.</Text>
-                            ) : (
-                                <div className="ta-media-grid">
-                                    {wpMedia.map((item) => (
-                                        <button
-                                            key={item.id}
-                                            type="button"
-                                            className="ta-media-card"
-                                            onClick={() => handleSelectMedia(item)}
-                                        >
-                                            <img src={item.previewUrl} alt={item.title} loading="lazy" />
-                                            <span className="ta-media-card__title">{item.title}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+        <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={handleUploadFile}
+        />
+        {isMediaPickerOpen ? (
+            <div className="ta-media-modal" role="presentation">
+                <div className="ta-media-modal__backdrop" onClick={closeMediaPicker} />
+                <div
+                    className="ta-media-modal__panel"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="WordPress media library"
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    <XStack className="ta-media-modal__toolbar" alignItems="center" justifyContent="space-between">
+                        <Text className="ta-media-modal__title">My Media</Text>
+                        <XStack gap="$2">
+                            <Button
+                                size="$2"
+                                onPress={handleMediaRefresh}
+                                disabled={isMediaLoading}
+                            >
+                                Refresh
+                            </Button>
+                            <Button size="$2" onPress={handleModalUploadFromDevice}>
+                                Upload
+                            </Button>
+                            <Button size="$2" onPress={closeMediaPicker}>
+                                Close
+                            </Button>
+                        </XStack>
+                    </XStack>
+                    {isSavingToWp ? (
+                        <Text className="ta-media-modal__status">Saving image to WordPress…</Text>
+                    ) : null}
+                    {mediaError ? (
+                        <Text className="ta-media-modal__error">{mediaError}</Text>
+                    ) : null}
+                    {isMediaLoading ? (
+                        <Text className="ta-media-modal__status">Loading media…</Text>
+                    ) : wpMedia.length === 0 ? (
+                        <Text className="ta-media-modal__status">No images found in your library yet.</Text>
+                    ) : (
+                        <div className="ta-media-grid">
+                            {wpMedia.map((item) => (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    className="ta-media-card"
+                                    onClick={() => handleSelectMedia(item)}
+                                >
+                                    <img src={item.previewUrl} alt={item.title} loading="lazy" />
+                                    <span className="ta-media-card__title">{item.title}</span>
+                                </button>
+                            ))}
                         </div>
-                    </div>
-                ) : null}
-            </YStack>
-        </YStack>
+                    )}
+                </div>
+            </div>
+        ) : null}
+        </>
     );
 }
