@@ -16,7 +16,7 @@ const aliasMap = {
   'react-konva': path.resolve(projectRoot, 'shims/reactKonva.tsx'),
   'react/jsx-runtime': path.resolve(projectRoot, 'shims/jsxRuntime.ts'),
   'its-fine': path.resolve(projectRoot, 'shims/itsFine.ts'),
-  konva: path.resolve(projectRoot, 'shims/konvaGlobal.ts'),
+  'konva': path.resolve(projectRoot, 'shims/konvaGlobal.ts'),
   '@atoms': path.resolve(projectRoot, 'ui/atoms'),
   '@molecules': path.resolve(projectRoot, 'ui/molecules'),
   '@organisms': path.resolve(projectRoot, 'ui/organisms'),
@@ -26,11 +26,10 @@ const aliasMap = {
   '@contexts': path.resolve(projectRoot, 'contexts'),
   '@utils': path.resolve(projectRoot, 'utils'),
   '@types': path.resolve(projectRoot, 'types'),
-  '@canvas': path.resolve(projectRoot, 'canvas'),
-  '@vendor': path.resolve(projectRoot, 'vendor'),
-  '@editor': path.resolve(projectRoot, '.'),
-  '@tinyartist': path.resolve(projectRoot, '..', '..', '..'),
   '@expo': path.resolve(projectRoot, '..', '..', '..', '..'),
+  '@tinyartist': path.resolve(projectRoot, '..', '..', '..'),
+  '@editor': path.resolve(projectRoot, '.'),
+  '@assets': path.resolve(projectRoot, 'assets'),
 };
 
 const emptyModules = new Set(['fs', 'path', 'module', 'os', 'child_process']);

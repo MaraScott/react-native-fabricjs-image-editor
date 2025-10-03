@@ -17,57 +17,22 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "react-konva": [
-        "./shims/reactKonva"
-      ],
-      "react/jsx-runtime": [
-        "./shims/jsxRuntime"
-      ],
-      "its-fine": [
-        "./shims/itsFine"
-      ],
-      "@atoms/*": [
-        "./ui/atoms/*"
-      ],
-      "@molecules/*": [
-        "./ui/molecules/*"
-      ],
-      "@organisms/*": [
-        "./ui/organisms/*"
-      ],
-      "@templates/*": [
-        "./ui/templates/*"
-      ],
-      "@pages/*": [
-        "./ui/pages/*"
-      ],
-      "@hooks/*": [
-        "./hooks/*"
-      ],
-      "@contexts/*": [
-        "./contexts/*"
-      ],
-      "@utils/*": [
-        "./utils/*"
-      ],
-      "@types/*": [
-        "./types/*"
-      ],
-      "@canvas/*": [
-        "./canvas/*"
-      ],
-      "@vendor/*": [
-        "./vendor/*"
-      ],
-      "@editor": [
-        "./*"
-      ],
-      "@expo": [
-        "../../../../*"
-      ],
-      "@tinyartist/*": [
-        "../../../*"
-      ]
+      "react-konva": [ "./shims/reactKonva" ],
+      "react/jsx-runtime": [ "./shims/jsxRuntime" ],
+      "its-fine": [ "./shims/itsFine" ],
+      "@atoms/*": [ "./ui/atoms/*" ],
+      "@molecules/*": [ "./ui/molecules/*" ],
+      "@organisms/*": [ "./ui/organisms/*" ],
+      "@templates/*": [ "./ui/templates/*" ],
+      "@pages/*": [ "./ui/pages/*" ],
+      "@hooks/*": [ "./hooks/*" ],
+      "@contexts/*": [ "./contexts/*" ],
+      "@utils/*": [ "./utils/*" ],
+      "@types/*": [ "./types/*" ],
+      "@expo": [ "../../../../*" ],
+      "@tinyartist/*": [ "../../../*" ],
+      "@editor": [ "./*" ],
+      "@assets": [ "./assets/*" ],
     }
   },
   "include": [
@@ -75,7 +40,7 @@
     "utils",
     "hooks",
     "ui",
-    "canvas",
+    "ui/organisms/canvas",
     "templates",
     "global.d.ts",
     "index.tsx"
