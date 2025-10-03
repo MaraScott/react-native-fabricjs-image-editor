@@ -1301,9 +1301,12 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
         const currentZoom = zoomPan.zoomRef.current;
         const shouldSnapToFit =
             !Number.isFinite(currentZoom) || Math.abs(currentZoom - previousFit) < 0.0001;
-        const clampedZoom = shouldSnapToFit
-            ? nextFit
-            : clampZoom(currentZoom, minScale, maxScale);
+
+        // When user hasn't interacted, keep zoom at 1 but use fitScale for display
+        const clampedZoom = hasUserInteracted
+            ? (shouldSnapToFit ? nextFit : clampZoom(currentZoom, minScale, maxScale))
+            : 1;
+
         if (clampedZoom !== currentZoom || shouldSnapToFit) {
             zoomPan.zoomRef.current = clampedZoom;
             setOptions((current) => (current.zoom === clampedZoom ? current : { ...current, zoom: clampedZoom }));
@@ -3219,6 +3222,27 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
         hasUserInteracted,
     ]);
 
+    // Compute effective zoom for the Stage component
+    const effectiveZoom = useMemo(() => {
+        if (hasUserInteracted) {
+            return options.zoom;
+        }
+        const containerWidth = zoomPan.workspaceSize.width;
+        const containerHeight = zoomPan.workspaceSize.height;
+        if (containerWidth <= 0 || containerHeight <= 0) {
+            return options.zoom;
+        }
+        const scaleX = containerWidth / stageWidth;
+        const scaleY = containerHeight / stageHeight;
+        return Math.min(scaleX, scaleY);
+    }, [hasUserInteracted, options.zoom, zoomPan.workspaceSize.width, zoomPan.workspaceSize.height, stageWidth, stageHeight]);
+
+    // Create options with effective zoom for the stage
+    const stageOptions = useMemo(() => ({
+        ...options,
+        zoom: effectiveZoom,
+    }), [options, effectiveZoom]);
+
     const displayWidth = Math.round(options.width)
     const displayHeight = Math.round(options.height)
     const hasSelection = selectedIds.length > 0
@@ -3311,7 +3335,7 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
                         stageWidth={stageWidth}
                         stageHeight={stageHeight}
                         stagePosition={zoomPan.stagePosition}
-                        options={options}
+                        options={stageOptions}
                         guides={guides}
                         contentElements={contentElements}
                         selectedIds={selectedIds}
