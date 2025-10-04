@@ -1,6 +1,6 @@
 import type { ChangeEvent, ReactNode } from 'react';
 import { Button, Heading, Label, Paragraph, Popover, Slider, Text, XStack, YStack } from 'tamagui';
-import { MaterialCommunityIcons } from '@atoms/icons/MaterialCommunityIcons';
+import { EnhancedIcon } from '@atoms/icons/EnhancedIcons';
 import type { Tool } from '@organisms/editor/types';
 
 export interface ToolSettingsPopoverProps {
@@ -42,7 +42,7 @@ export function ToolSettingsPopover({
         <Popover placement="bottom-start" open={toolSettingsOpen} onOpenChange={onToolSettingsOpenChange}>
             <Popover.Trigger position="absolute" top={0} left={0}>
                 <Button type="button" aria-label="tool" title="tool">
-                    <MaterialCommunityIcons key="tool" name="tool" size={iconLarge} />
+                    <EnhancedIcon key="tool" name="wrench" size={iconLarge} theme="kid" />
                 </Button>
             </Popover.Trigger>
             <Popover.Content top={0} left={0}>

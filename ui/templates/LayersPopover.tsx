@@ -1,5 +1,5 @@
 import { Button, Heading, Paragraph, Popover, YStack } from 'tamagui';
-import { MaterialCommunityIcons } from '@atoms/icons/MaterialCommunityIcons';
+import { EnhancedIcon } from '@atoms/icons/EnhancedIcons';
 import LayersPanel from '@organisms/editor/LayersPanel';
 import type { EditorElement, EditorLayer } from '@types/editor';
 
@@ -34,7 +34,7 @@ export function LayersPopover({
         <Popover placement="top-start">
             <Popover.Trigger position="absolute" bottom={0} left={0}>
                 <Button type="button" aria-label="Layers" title="Layers">
-                    <MaterialCommunityIcons key="layers" name="layers" size={iconLarge} />
+                    <EnhancedIcon key="layers" name="layers" size={iconLarge} theme="kid" />
                 </Button>
             </Popover.Trigger>
             <Popover.Content>

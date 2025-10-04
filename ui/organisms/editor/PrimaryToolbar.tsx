@@ -1,7 +1,6 @@
 import { Button, Text, YStack } from 'tamagui';
 
-import { MaterialCommunityIcons } from '@atoms/icons/MaterialCommunityIcons';
-import { KidFriendlySelectIcon, KidFriendlyDrawIcon } from '@atoms/icons/EnhancedIcons';
+import { EnhancedIcon } from '@atoms/icons/EnhancedIcons';
 import type { Tool } from '@organisms/editor/types';
 
 export interface PrimaryToolbarProps {
@@ -21,12 +20,16 @@ export default function PrimaryToolbar({
 }: PrimaryToolbarProps) {
     const activeToolLabel =
         activeTool === 'draw' ? 'Draw' :
+        activeTool === 'rubber' ? 'Rubber' :
         activeTool === 'pan' ? 'Pan' :
         activeTool === 'crop' ? 'Crop' :
         'Select';
 
     return (
         <YStack className="editor-toolbar">
+            <Text className="active-tool-status" aria-live="polite">
+                Active tool: {activeToolLabel}
+            </Text>
             <YStack className="toolbar-group">
                 <Button
                     type="button"
@@ -35,7 +38,7 @@ export default function PrimaryToolbar({
                     aria-label="Select"
                     title="Select"
                 >
-                    <KidFriendlySelectIcon key="select" size={iconSize} />
+                    <EnhancedIcon key="select" name="select" size={iconSize} theme="kid" />
                 </Button>
                 <Button
                     type="button"
@@ -44,16 +47,25 @@ export default function PrimaryToolbar({
                     aria-label="Pan"
                     title="Pan"
                 >
-                    <MaterialCommunityIcons key="hand-back-right-outline" name="hand-back-right-outline" size={iconSize} />
+                    <EnhancedIcon key="pan" name="pan" size={iconSize} theme="kid" />
                 </Button>
                 <Button
                     type="button"
                     className={activeTool === 'draw' ? 'active' : ''}
                     onPress={() => onSelectTool('draw')}
-                    aria-label="Draw"
-                    title="Draw"
+                    aria-label="draw"
+                    title="draw"
                 >
-                    <KidFriendlyDrawIcon key="pencil-outline" size={iconSize} />
+                    <EnhancedIcon key="paint" name="paint" size={iconSize} theme="kid" />
+                </Button>
+                <Button
+                    type="button"
+                    className={activeTool === 'rubber' ? 'active' : ''}
+                    onPress={() => onSelectTool('rubber')}
+                    aria-label="rubber"
+                    title="rubber"
+                >
+                    <EnhancedIcon key="rubber" name="rubber" size={iconSize} theme="kid" />
                 </Button>
                 <Button
                     type="button"
@@ -62,18 +74,13 @@ export default function PrimaryToolbar({
                     aria-label="Crop"
                     title="Crop"
                 >
-                    <MaterialCommunityIcons key="crop" name="crop" size={iconSize} />
+                    <EnhancedIcon key="crop" name="crop" size={iconSize} theme="kid" />
                 </Button>
-            </YStack>
-            <Text className="active-tool-status" aria-live="polite">
-                Active tool: {activeToolLabel}
-            </Text>
-            <YStack className="toolbar-group">
                 <Button type="button" onPress={onAddText} aria-label="Add text" title="Add text">
-                    <MaterialCommunityIcons key="format-text" name="format-text" size={iconSize} />
+                    <EnhancedIcon key="text" name="text" size={iconSize} theme="kid" />
                 </Button>
                 <Button type="button" onPress={onRequestImage} aria-label="Add image" title="Add image">
-                    <MaterialCommunityIcons key="image-outline" name="image-outline" size={iconSize} />
+                    <EnhancedIcon key="image" name="image" size={iconSize} theme="kid" />
                 </Button>
             </YStack>
         </YStack>

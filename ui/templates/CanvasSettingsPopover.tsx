@@ -1,5 +1,5 @@
 import { Button, Heading, Input, Label, Popover, XStack, YStack } from 'tamagui';
-import { MaterialCommunityIcons } from '@atoms/icons/MaterialCommunityIcons';
+import { EnhancedIcon } from '@atoms/icons/EnhancedIcons';
 
 export interface CanvasSettingsPopoverProps {
     displayWidth: number;
@@ -26,7 +26,7 @@ export function CanvasSettingsPopover({
         <Popover placement="bottom-end">
             <Popover.Trigger position="absolute" top={0} right={0}>
                 <Button type="button" aria-label="cog" title="cog">
-                    <MaterialCommunityIcons key="cog" name="cog" size={iconLarge} />
+                    <EnhancedIcon key="cog" name="cog" size={iconLarge} theme="kid" />
                 </Button>
             </Popover.Trigger>
             <Popover.Content top={0} right={0}>

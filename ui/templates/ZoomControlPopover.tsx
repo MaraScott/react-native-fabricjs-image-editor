@@ -1,5 +1,5 @@
 import { Button, Popover, Slider, Text, YStack } from 'tamagui';
-import { MaterialCommunityIcons } from '@atoms/icons/MaterialCommunityIcons';
+import { EnhancedIcon } from '@atoms/icons/EnhancedIcons';
 
 export interface ZoomControlPopoverProps {
     zoomPercentage: number;
@@ -28,7 +28,7 @@ export function ZoomControlPopover({
         <Popover placement="top-end">
             <Popover.Trigger position="absolute" bottom={0} right={0}>
                 <Button type="button" aria-label="Zoom" title="Zoom">
-                    <MaterialCommunityIcons key="zoom" name="zoom" size={iconLarge} />
+                    <EnhancedIcon key="zoom" name="zoom" size={iconLarge} theme="kid" />
                 </Button>
             </Popover.Trigger>
             <Popover.Content>
@@ -53,7 +53,7 @@ export function ZoomControlPopover({
                         title="Zoom in"
                         size="$2"
                     >
-                        <MaterialCommunityIcons key="plus" name="plus" size={iconSize - 4} />
+                        <EnhancedIcon key="plus" name="plus" size={iconSize - 4} theme="kid" />
                     </Button>
                     <Slider
                         value={sliderValue}
@@ -78,7 +78,7 @@ export function ZoomControlPopover({
                         title="Zoom out"
                         size="$2"
                     >
-                        <MaterialCommunityIcons key="minus" name="minus" size={iconSize - 4} />
+                        <EnhancedIcon key="minus" name="minus" size={iconSize - 4} theme="kid" />
                     </Button>
                 </YStack>
             </Popover.Content>

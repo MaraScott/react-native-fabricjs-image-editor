@@ -1,8 +1,6 @@
 import type { ReactNode } from 'react';
 import { Button, XStack, YStack } from 'tamagui';
-
-import { MaterialCommunityIcons } from '@atoms/icons/MaterialCommunityIcons';
-import { KidFriendlyEraserIcon, KidFriendlyUndoIcon, KidFriendlyRedoIcon } from '@atoms/icons/EnhancedIcons';
+import { EnhancedIcon } from '@atoms/icons/EnhancedIcons';
 
 interface ResponsiveStackProps {
     isCompact: boolean;
@@ -49,10 +47,10 @@ export function HistoryActions({
     return (
         <ResponsiveStack isCompact={isCompact} className="toolbar-group">
             <Button type="button" onPress={onUndo} disabled={!canUndo} aria-label="Undo" title="Undo">
-                <KidFriendlyUndoIcon key="undo" size={iconSize} />
+                <EnhancedIcon key="undo" name="undo" size={iconSize} theme="kid" />
             </Button>
             <Button type="button" onPress={onRedo} disabled={!canRedo} aria-label="Redo" title="Redo">
-                <KidFriendlyRedoIcon key="redo" size={iconSize} />
+                <EnhancedIcon key="redo" name="redo" size={iconSize} theme="kid" />
             </Button>
             <Button
                 type="button"
@@ -61,7 +59,7 @@ export function HistoryActions({
                 aria-label="Copy"
                 title="Copy"
             >
-                <MaterialCommunityIcons key="content-copy" name="content-copy" size={iconSize} />
+                <EnhancedIcon key="copy" name="copy" size={iconSize} theme="kid" />
             </Button>
             <Button
                 type="button"
@@ -70,7 +68,7 @@ export function HistoryActions({
                 aria-label="Paste"
                 title="Paste"
             >
-                <MaterialCommunityIcons key="content-paste" name="content-paste" size={iconSize} />
+                <EnhancedIcon key="paste" name="paste" size={iconSize} theme="kid" />
             </Button>
             <Button
                 type="button"
@@ -79,7 +77,7 @@ export function HistoryActions({
                 aria-label="Duplicate"
                 title="Duplicate"
             >
-                <MaterialCommunityIcons key="content-duplicate" name="content-duplicate" size={iconSize} />
+                <EnhancedIcon key="duplicate" name="duplicate" size={iconSize} theme="kid" />
             </Button>
             <Button
                 type="button"
@@ -88,10 +86,10 @@ export function HistoryActions({
                 aria-label="Delete"
                 title="Delete"
             >
-                <KidFriendlyEraserIcon key="delete" size={iconSize} />
+                <EnhancedIcon key="delete" name="delete" size={iconSize} theme="kid" />
             </Button>
             <Button type="button" onPress={onClear} aria-label="Clear canvas" title="Clear canvas">
-                <MaterialCommunityIcons key="eraser-variant" name="eraser-variant" size={iconSize} />
+                <EnhancedIcon key="clear" name="clear" size={iconSize} />
             </Button>
         </ResponsiveStack>
     );
@@ -109,23 +107,23 @@ export function ExportActions({ isCompact, onSave, onLoad, onExport, iconSize }:
     return (
         <ResponsiveStack isCompact={isCompact} className="toolbar-group">
             <Button type="button" onPress={onSave} aria-label="Save" title="Save">
-                <MaterialCommunityIcons key="content-save-outline" name="content-save-outline" size={iconSize} />
+                <EnhancedIcon key="save" name="save" size={iconSize} theme="kid" />
             </Button>
-            <Button type="button" onPress={onLoad} aria-label="Load" title="Load">
-                <MaterialCommunityIcons key="folder-open-outline" name="folder-open-outline" size={iconSize} />
+            <Button type="button" onPress={onLoad} aria-label="upload" title="upload">
+                <EnhancedIcon key="upload" name="upload" size={iconSize} theme="kid" />
             </Button>
-            <Button type="button" onPress={() => onExport('png')} aria-label="Export PNG" title="Export PNG">
-                <MaterialCommunityIcons key="file-image" name="file-image" size={iconSize} />
+            {/* <Button type="button" onPress={() => onExport('png')} aria-label="Export PNG" title="Export PNG">
+                <EnhancedIcon key="file-image" name="file-image" size={iconSize} theme="kid" />
             </Button>
             <Button type="button" onPress={() => onExport('jpeg')} aria-label="Export JPEG" title="Export JPEG">
-                <MaterialCommunityIcons key="file-jpg-box" name="file-jpg-box" size={iconSize} />
+                <EnhancedIcon key="file-jpg-box" name="file-jpg-box" size={iconSize} theme="kid" />
             </Button>
             <Button type="button" onPress={() => onExport('svg')} aria-label="Export SVG" title="Export SVG">
-                <MaterialCommunityIcons key="svg" name="svg" size={iconSize} />
+                <EnhancedIcon key="svg" name="svg" size={iconSize} theme="kid" />
             </Button>
             <Button type="button" onPress={() => onExport('json')} aria-label="Export JSON" title="Export JSON">
-                <MaterialCommunityIcons key="code-json" name="code-json" size={iconSize} />
-            </Button>
+                <EnhancedIcon key="code-json" name="code-json" size={iconSize} theme="kid" />
+            </Button> */}
         </ResponsiveStack>
     );
 }

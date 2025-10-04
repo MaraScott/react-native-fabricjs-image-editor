@@ -1,5 +1,5 @@
 import { Button, Input, Label, Popover, Slider, Stack, Text, XStack, YStack } from 'tamagui';
-import { MaterialCommunityIcons } from '@atoms/icons/MaterialCommunityIcons';
+import { EnhancedIcon } from '@atoms/icons/EnhancedIcons';
 
 export interface ZoomControlsProps {
     zoom: number;
@@ -33,7 +33,7 @@ export function ZoomControls({
             <Button
                 size="$2"
                 onPress={onZoomOut}
-                icon={<MaterialCommunityIcons name="minus" size={iconSize} />}
+                icon={<EnhancedIcon name="minus" size={iconSize} theme="kid" />}
                 aria-label="Zoom out"
             />
             <Popover size="$5" placement="top">
@@ -83,7 +83,7 @@ export function ZoomControls({
             <Button
                 size="$2"
                 onPress={onZoomIn}
-                icon={<MaterialCommunityIcons name="plus" size={iconSize} />}
+                icon={<EnhancedIcon name="plus" size={iconSize} theme="kid" />}
                 aria-label="Zoom in"
             />
         </XStack>

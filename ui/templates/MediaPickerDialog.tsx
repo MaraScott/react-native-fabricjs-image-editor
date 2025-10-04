@@ -1,5 +1,5 @@
 import { Button, Dialog, Image, Paragraph, ScrollView, Text, XStack, YStack } from 'tamagui';
-import { MaterialCommunityIcons } from '@atoms/icons/MaterialCommunityIcons';
+import { EnhancedIcon } from '@atoms/icons/EnhancedIcons';
 import type { NormalizedMediaItem } from '@hooks/editor/useWordPressIntegration';
 
 export interface MediaPickerDialogProps {
@@ -66,7 +66,7 @@ export function MediaPickerDialog({
                             size="$3"
                             onPress={onRefresh}
                             disabled={isLoading}
-                            icon={<MaterialCommunityIcons name="refresh" size={iconSize} />}
+                            icon={<EnhancedIcon name="refresh" size={iconSize} theme="kid" />}
                         >
                             Refresh
                         </Button>
