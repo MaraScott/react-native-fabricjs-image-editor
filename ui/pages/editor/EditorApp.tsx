@@ -45,6 +45,7 @@ import {
 } from '@utils/editorElements';
 import { createEmptyDesign, parseDesign, stringifyDesign } from '@utils/design';
 import { applyThemeToBody, persistTheme, resolveInitialTheme } from '@utils/theme';
+import { pickImageFile } from '@utils/fileUpload';
 import { useWordPressIntegration, resolveInitialWpConfig } from '@hooks/editor/useWordPressIntegration';
 import { useZoomPan } from '@hooks/editor/useZoomPan';
 import { useSelection } from '@hooks/editor/useSelection';
@@ -2132,13 +2133,26 @@ export default function EditorApp({ initialDesign, initialOptions, initialTheme 
         fileInputRef.current?.click();
     }, []);
 
-    const handleRequestImage = useCallback(() => {
+    const handleRequestImage = useCallback(async () => {
+        // Use platform-aware file picker for native apps (Expo)
+        try {
+            const imageFile = await pickImageFile();
+            if (imageFile) {
+                console.log('[EditorApp] Image selected:', imageFile.name);
+                handleAddImage(imageFile.uri);
+                return;
+            }
+        } catch (error) {
+            console.warn('[EditorApp] Error picking image with native picker:', error);
+        }
+
+        // Fallback for web or ReactNativeWebView
         if (window.ReactNativeWebView) {
             postMessage('requestImage', { options });
             return;
         }
         openMediaPicker();
-    }, [openMediaPicker, options, postMessage]);
+    }, [handleAddImage, openMediaPicker, options, postMessage]);
 
     const handleUploadFile = useCallback((event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
