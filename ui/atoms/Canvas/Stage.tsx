@@ -23,7 +23,7 @@ export interface StageProps extends Partial<StageConfig> {
 export const Stage = forwardRef<Konva.Stage, StageProps>(
   ({ children, width, height, style, ...props }, ref) => {
     return (
-      <div style={style}>
+      <div style={{ ...style, display: 'inline-block' }}>
         <KonvaStage
           ref={ref}
           width={width}
