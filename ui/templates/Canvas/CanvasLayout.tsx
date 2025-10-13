@@ -1,23 +1,27 @@
 /**
  * Atomic Design - Template: CanvasLayout
- * Layout template for the canvas application
+ * Layout template for the canvas application with three-zone header
  */
 
 import type { ReactNode } from 'react';
 
 export interface CanvasLayoutProps {
   children: ReactNode;
-  header?: ReactNode;
+  headerLeft?: ReactNode;
+  headerCenter?: ReactNode;
+  headerRight?: ReactNode;
   footer?: ReactNode;
 }
 
 /**
  * CanvasLayout Template - Defines the overall layout structure
- * Provides header, main content area, and optional footer
+ * Header has three zones: left, center (for zoom controls), and right
  */
 export const CanvasLayout = ({
   children,
-  header,
+  headerLeft,
+  headerCenter,
+  headerRight,
   footer,
 }: CanvasLayoutProps) => {
   return (
@@ -31,15 +35,31 @@ export const CanvasLayout = ({
         fontFamily: 'system-ui, -apple-system, sans-serif',
       }}
     >
-      {header && (
+      {(headerLeft || headerCenter || headerRight) && (
         <div
           style={{
             padding: '1rem',
             borderBottom: '1px solid #e0e0e0',
             backgroundColor: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
           }}
         >
-          {header}
+          {/* Left zone */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+            {headerLeft}
+          </div>
+
+          {/* Center zone - for zoom controls */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {headerCenter}
+          </div>
+
+          {/* Right zone */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+            {headerRight}
+          </div>
         </div>
       )}
 

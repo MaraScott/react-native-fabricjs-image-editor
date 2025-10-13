@@ -1,10 +1,12 @@
 /**
  * Atomic Design - Page: CanvasApp
- * Main application page for the simple canvas
+ * Main application page for the simple canvas with zoom controls
  */
 
+import { useState } from 'react';
 import { CanvasLayout } from '@templates/Canvas';
 import { CanvasContainer } from '@organisms/Canvas';
+import { ZoomControl } from '@molecules/Controls';
 import { Rect, Circle, Text } from 'react-konva';
 
 export interface CanvasAppProps {
@@ -12,12 +14,12 @@ export interface CanvasAppProps {
   height?: number;
   backgroundColor?: string;
   containerBackground?: string;
-  zoom?: number;
+  initialZoom?: number;
 }
 
 /**
  * CanvasApp Page - The complete canvas application
- * Demonstrates a simple canvas with basic shapes
+ * Demonstrates a simple canvas with basic shapes and zoom controls
  * Default size is 1024x1024 that fits container via zoom
  */
 export const CanvasApp = ({
@@ -25,11 +27,13 @@ export const CanvasApp = ({
   height = 1024,
   backgroundColor = '#ffffff',
   containerBackground = '#cccccc',
-  zoom = 0,
+  initialZoom = 0,
 }: CanvasAppProps) => {
+  const [zoom, setZoom] = useState(initialZoom);
+
   return (
     <CanvasLayout
-      header={
+      headerLeft={
         <div>
           <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>
             Simple Canvas Editor
@@ -39,9 +43,12 @@ export const CanvasApp = ({
           </p>
         </div>
       }
+      headerCenter={
+        <ZoomControl zoom={zoom} onZoomChange={setZoom} />
+      }
       footer={
         <div style={{ textAlign: 'center' }}>
-          Canvas ready for further development - Zoom: {zoom}%
+          Canvas ready for further development
         </div>
       }
     >
