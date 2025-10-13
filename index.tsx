@@ -1,67 +1,31 @@
+/**
+ * Simple Canvas Entry Point
+ * Uses Atomic Design Pattern with Konva
+ * React/React Native compatible
+ */
+
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { TamaguiProvider, Theme } from 'tamagui';
-import { tamaguiConfig } from '@expo/tamagui.config';
-import EditorApp from '@pages/editor/EditorApp';
-import type { EditorDocument, EditorOptions, EditorTheme } from '@types/editor';
-import { createEmptyDesign, parseDesign } from '@utils/design';
-import { applyThemeToBody, resolveInitialTheme } from '@utils/theme';
-import '@tinyartist/assets/tamagui/tamagui.css';
-import '@assets/css/styles.css';
+import { CanvasApp } from '@pages/Canvas';
 
-const DEFAULT_OPTIONS: EditorOptions = {
-  width: 1024,
-  height: 1024,
-  backgroundColor: '#ffffff',
-  showGrid: false,
-  gridSize: 32,
-  snapToGrid: false,
-  snapToGuides: false,
-  showGuides: true,
-  showRulers: false,
-  zoom: 1,
-  fixedCanvas: false,
-  canvasSizeLocked: false,
-};
+// Get configuration from bootstrap (if available)
+const bootstrap = (window as any).__EDITOR_BOOTSTRAP__ || {};
+const width = bootstrap.width || 800;
+const height = bootstrap.height || 600;
+const backgroundColor = bootstrap.backgroundColor || '#ffffff';
 
-function resolveInitialDesign(): EditorDocument {
-  const bootstrap = window.__EDITOR_BOOTSTRAP__;
-  if (!bootstrap || !bootstrap.initialDesign) {
-    return createEmptyDesign();
-  }
-  return parseDesign(bootstrap.initialDesign) ?? createEmptyDesign();
-}
-
-function resolveInitialOptions(): EditorOptions {
-  const bootstrap = window.__EDITOR_BOOTSTRAP__;
-  return { ...DEFAULT_OPTIONS, ...(bootstrap?.options ?? {}) };
-}
-
-function resolveInitialThemeName(): EditorTheme {
-  return resolveInitialTheme();
-}
-
+// Mount the application
 const container = document.getElementById('image-editor-root');
-
-const initialTheme = resolveInitialThemeName();
-applyThemeToBody(initialTheme);
-
-const rootThemeName = initialTheme === 'kid' ? 'gold' : 'sapphire';
 
 if (container) {
   const root = createRoot(container);
   root.render(
     <StrictMode>
-      <TamaguiProvider config={tamaguiConfig} defaultTheme="light">
-        <Theme name={rootThemeName} key={`theme-${rootThemeName}`}>
-          <EditorApp
-            initialDesign={resolveInitialDesign()}
-            initialOptions={resolveInitialOptions()}
-            initialTheme={initialTheme}
-            backgroundColor="#eeeeee"
-          />
-        </Theme>
-      </TamaguiProvider>
-    </StrictMode>,
+      <CanvasApp
+        width={width}
+        height={height}
+        backgroundColor={backgroundColor}
+      />
+    </StrictMode>
   );
 }
