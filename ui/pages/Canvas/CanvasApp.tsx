@@ -11,16 +11,21 @@ export interface CanvasAppProps {
   width?: number;
   height?: number;
   backgroundColor?: string;
+  containerBackground?: string;
+  zoom?: number;
 }
 
 /**
  * CanvasApp Page - The complete canvas application
  * Demonstrates a simple canvas with basic shapes
+ * Default size is 1024x1024 that fits container via zoom
  */
 export const CanvasApp = ({
-  width = 800,
-  height = 600,
+  width = 1024,
+  height = 1024,
   backgroundColor = '#ffffff',
+  containerBackground = '#cccccc',
+  zoom = 0,
 }: CanvasAppProps) => {
   return (
     <CanvasLayout
@@ -30,13 +35,13 @@ export const CanvasApp = ({
             Simple Canvas Editor
           </h1>
           <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: '#666' }}>
-            Built with Konva and Atomic Design Pattern
+            Built with Konva and Atomic Design Pattern - {width}x{height}px canvas
           </p>
         </div>
       }
       footer={
         <div style={{ textAlign: 'center' }}>
-          Canvas ready for further development
+          Canvas ready for further development - Zoom: {zoom}%
         </div>
       }
     >
@@ -44,27 +49,29 @@ export const CanvasApp = ({
         width={width}
         height={height}
         backgroundColor={backgroundColor}
+        containerBackground={containerBackground}
+        zoom={zoom}
       >
         {/* Example shapes to demonstrate the canvas */}
         <Rect
-          x={50}
-          y={50}
-          width={100}
-          height={100}
+          x={100}
+          y={100}
+          width={200}
+          height={200}
           fill="#4A90E2"
           cornerRadius={8}
         />
         <Circle
-          x={250}
-          y={100}
-          radius={50}
+          x={500}
+          y={200}
+          radius={100}
           fill="#E24A4A"
         />
         <Text
-          x={50}
-          y={200}
+          x={100}
+          y={400}
           text="Simple Canvas Ready!"
-          fontSize={24}
+          fontSize={48}
           fill="#333333"
           fontFamily="system-ui, sans-serif"
         />
