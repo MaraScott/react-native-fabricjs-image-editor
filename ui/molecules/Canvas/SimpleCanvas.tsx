@@ -7,6 +7,7 @@ import { useRef, useEffect, useState, useCallback, useLayoutEffect } from 'react
 import type { ReactNode, CSSProperties, DragEvent } from 'react';
 import { Stage, Layer } from '@atoms/Canvas';
 import type Konva from 'konva';
+import type { KonvaEventObject } from 'konva/lib/Node';
 
 type PanOffset = { x: number; y: number };
 type PointerPanState = {
@@ -26,6 +27,7 @@ export interface LayerDescriptor {
   id: string;
   name: string;
   visible: boolean;
+  position: { x: number; y: number };
   render: () => ReactNode;
 }
 
@@ -41,6 +43,7 @@ export interface LayerControlHandlers {
   toggleVisibility: (layerId: string) => void;
   reorderLayer: (sourceId: string, targetId: string, position: 'above' | 'below') => void;
   ensureAllVisible: () => void;
+  updateLayerPosition: (layerId: string, position: { x: number; y: number }) => void;
 }
 
 const MIN_ZOOM = -100;
@@ -67,6 +70,7 @@ export interface SimpleCanvasProps {
   panModeActive?: boolean;
   layerControls?: LayerControlHandlers;
   layersRevision?: number;
+  selectModeActive?: boolean;
 }
 
 /**
@@ -88,6 +92,7 @@ export const SimpleCanvas = ({
   panModeActive = false,
   layerControls,
   layersRevision = 0,
+  selectModeActive = false,
 }: SimpleCanvasProps) => {
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -121,7 +126,7 @@ export const SimpleCanvas = ({
     }
 
     stageRef.current.batchDraw();
-  }, [layerControls, layersRevision]);
+  }, [layerControls, layersRevision, selectModeActive]);
 
   useEffect(() => {
     if (zoom === 0 && (panOffsetRef.current.x !== 0 || panOffsetRef.current.y !== 0)) {
@@ -410,6 +415,10 @@ export const SimpleCanvas = ({
       return;
     }
 
+    if (selectModeActive) {
+      return;
+    }
+
     if (!(panModeActive || spacePressed)) {
       return;
     }
@@ -664,9 +673,18 @@ export const SimpleCanvas = ({
   const renderWidth = Math.max(1, width * scale);
   const renderHeight = Math.max(1, height * scale);
 
-  const cursorStyle = (isPointerPanning || isTouchPanning)
+  const baseCursor = (isPointerPanning || isTouchPanning)
     ? 'grabbing'
     : (panModeActive || spacePressed ? 'grab' : 'default');
+  const activeLayerId = layerControls?.activeLayerId ?? null;
+
+  useEffect(() => {
+    if (!stageRef.current) {
+      return;
+    }
+
+    stageRef.current.container().style.cursor = baseCursor;
+  }, [baseCursor, selectModeActive, activeLayerId]);
 
   const renderableLayers = layerControls ? [...layerControls.layers].reverse() : null;
   const bottomLayerId = layerControls?.layers[layerControls.layers.length - 1]?.id ?? null;
@@ -887,7 +905,7 @@ export const SimpleCanvas = ({
                         key={layer.id}
                         style={containerStyle}
                         draggable
-                        onDragStart={(event) => {
+                        onDragStart={(event: KonvaEventObject<DragEvent>) => {
                           event.stopPropagation();
                           setDraggingLayerId(layer.id);
                           setDragOverLayer(null);
@@ -896,7 +914,7 @@ export const SimpleCanvas = ({
                             event.dataTransfer.setData('text/plain', layer.id);
                           }
                         }}
-                        onDragEnd={(event) => {
+                        onDragEnd={(event: KonvaEventObject<DragEvent>) => {
                           event.stopPropagation();
                           setDraggingLayerId(null);
                           setDragOverLayer(null);
@@ -1087,47 +1105,47 @@ export const SimpleCanvas = ({
                 {layerControls.layers.length > 0 && (
                   <div
                     onDragOver={(event) => {
-                  if (!draggingLayerId || !bottomLayerId) return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  if (event.dataTransfer) {
-                    event.dataTransfer.dropEffect = 'move';
-                  }
-                  setDragOverLayer({ id: bottomLayerId, position: 'below' });
-                }}
-                onDrop={(event) => {
-                  if (!draggingLayerId || !bottomLayerId) return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  if (draggingLayerId !== bottomLayerId) {
-                    layerControls.reorderLayer(draggingLayerId, bottomLayerId, 'below');
-                  }
-                  setDragOverLayer(null);
-                  setDraggingLayerId(null);
-                  layerControls.ensureAllVisible();
-                }}
-                onDragLeave={(event) => {
-                  if (
-                    !event.currentTarget.contains(
-                      event.relatedTarget as Node | null
-                    )
-                  ) {
-                    setDragOverLayer((current) =>
-                      current?.id === bottomLayerId ? null : current
-                    );
-                  }
-                }}
-                style={{
-                  height: draggingLayerId ? '12px' : '0px',
-                  backgroundColor:
-                    dragOverLayer?.id === bottomLayerId && dragOverLayer?.position === 'below'
-                      ? '#e3f0ff'
-                      : 'transparent',
-                  transition: 'height 0.15s ease',
-                  pointerEvents: draggingLayerId ? 'auto' : 'none',
-                }}
-              />
-            )}
+                      if (!draggingLayerId || !bottomLayerId) return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (event.dataTransfer) {
+                        event.dataTransfer.dropEffect = 'move';
+                      }
+                      setDragOverLayer({ id: bottomLayerId, position: 'below' });
+                    }}
+                    onDrop={(event) => {
+                      if (!draggingLayerId || !bottomLayerId) return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (draggingLayerId !== bottomLayerId) {
+                        layerControls.reorderLayer(draggingLayerId, bottomLayerId, 'below');
+                      }
+                      setDragOverLayer(null);
+                      setDraggingLayerId(null);
+                      layerControls.ensureAllVisible();
+                    }}
+                    onDragLeave={(event) => {
+                      if (
+                        !event.currentTarget.contains(
+                          event.relatedTarget as Node | null
+                        )
+                      ) {
+                        setDragOverLayer((current) =>
+                          current?.id === bottomLayerId ? null : current
+                        );
+                      }
+                    }}
+                    style={{
+                      height: draggingLayerId ? '12px' : '0px',
+                      backgroundColor:
+                        dragOverLayer?.id === bottomLayerId && dragOverLayer?.position === 'below'
+                          ? '#e3f0ff'
+                          : 'transparent',
+                      transition: 'height 0.15s ease',
+                      pointerEvents: draggingLayerId ? 'auto' : 'none',
+                    }}
+                  />
+                )}
               </div>
             </div>
           )}
@@ -1138,19 +1156,67 @@ export const SimpleCanvas = ({
         ref={stageRef}
         width={renderWidth}
         height={renderHeight}
-      style={{
-        backgroundColor,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-        transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
-        cursor: cursorStyle,
-      }}
-    >
+        style={{
+          backgroundColor,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+          transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+          cursor: baseCursor,
+        }}
+      >
         {renderableLayers && renderableLayers.length > 0 ? (
-          renderableLayers.map((layer) => (
-            <Layer key={`${layer.id}-${layersRevision}`} visible={layer.visible}>
-              {layer.render()}
-            </Layer>
-          ))
+          renderableLayers.map((layer) => {
+            const layerIsDraggable = Boolean(
+              selectModeActive && layerControls && layerControls.activeLayerId === layer.id
+            );
+
+            return (
+              <Layer
+                key={`${layer.id}-${layersRevision}`}
+                visible={layer.visible}
+                x={layer.position.x}
+                y={layer.position.y}
+                draggable={layerIsDraggable}
+                onMouseEnter={(event: KonvaEventObject<MouseEvent>) => {
+                  const stage = event.target.getStage();
+                  if (!stage) return;
+                  stage.container().style.cursor = layerIsDraggable ? 'pointer' : baseCursor;
+                }}
+                onMouseLeave={(event: KonvaEventObject<MouseEvent>) => {
+                  const stage = event.target.getStage();
+                  if (!stage) return;
+                  stage.container().style.cursor = baseCursor;
+                }}
+                onDragStart={(event: KonvaEventObject<DragEvent>) => {
+                  if (!layerIsDraggable) return;
+                  event.cancelBubble = true;
+                  const stage = event.target.getStage();
+                  if (stage) {
+                    stage.container().style.cursor = 'grabbing';
+                  }
+                }}
+                onDragMove={(event: KonvaEventObject<DragEvent>) => {
+                  if (!layerIsDraggable) return;
+                  event.target.getStage()?.batchDraw();
+                }}
+                onDragEnd={(event: KonvaEventObject<DragEvent>) => {
+                  if (!layerIsDraggable || !layerControls) return;
+                  const position = event.target.position();
+                  layerControls.updateLayerPosition(layer.id, {
+                    x: position.x,
+                    y: position.y,
+                  });
+                  layerControls.ensureAllVisible();
+                  const stage = event.target.getStage();
+                  if (stage) {
+                    stage.container().style.cursor = 'pointer';
+                  }
+                  event.target.getStage()?.batchDraw();
+                }}
+              >
+                {layer.render()}
+              </Layer>
+            );
+          })
         ) : (
           <Layer>
             {children}

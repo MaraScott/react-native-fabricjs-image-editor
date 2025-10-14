@@ -16,6 +16,7 @@ export interface CanvasLayerDefinition {
   id?: string;
   name: string;
   visible?: boolean;
+  position?: { x: number; y: number };
   render: () => ReactNode;
 }
 
@@ -30,6 +31,7 @@ export interface CanvasContainerProps {
   onZoomChange?: (zoom: number) => void;
   panModeActive?: boolean;
   initialLayers?: CanvasLayerDefinition[];
+  selectModeActive?: boolean;
 }
 
 const generateLayerId = (): string => {
@@ -47,6 +49,7 @@ const normaliseLayerDefinitions = (
     id: definition.id ?? generateLayerId(),
     name: definition.name ?? `Layer ${index + 1}`,
     visible: definition.visible ?? true,
+    position: definition.position ?? { x: 0, y: 0 },
     render: definition.render,
   }));
 };
@@ -66,6 +69,7 @@ export const CanvasContainer = ({
   onZoomChange,
   panModeActive = false,
   initialLayers,
+  selectModeActive = false,
 }: CanvasContainerProps) => {
   const [, setStage] = useState<Konva.Stage | null>(null);
   const [layersRevision, setLayersRevision] = useState(0);
@@ -83,6 +87,7 @@ export const CanvasContainer = ({
       return normaliseLayerDefinitions([
         {
           name: 'Layer 1',
+          position: { x: 0, y: 0 },
           render: () => <>{children}</>,
         },
       ]);
@@ -101,6 +106,7 @@ export const CanvasContainer = ({
         id: generateLayerId(),
         name: 'Layer 1',
         visible: true,
+        position: { x: 0, y: 0 },
         render: () => null,
       },
     ];
@@ -132,6 +138,7 @@ export const CanvasContainer = ({
         id,
         name: `Layer ${previousLayers.length + 1}`,
         visible: true,
+        position: { x: 0, y: 0 },
         render: () => null,
       };
 
@@ -328,6 +335,17 @@ export const CanvasContainer = ({
     bumpLayersRevision();
   }, [bumpLayersRevision]);
 
+  const updateLayerPosition = useCallback<LayerControlHandlers['updateLayerPosition']>((layerId, position) => {
+    setLayers((previousLayers) =>
+      previousLayers.map((layer) =>
+        layer.id === layerId
+          ? { ...layer, position }
+          : layer
+      )
+    );
+    bumpLayersRevision();
+  }, [bumpLayersRevision]);
+
   const layerControls = useMemo<LayerControlHandlers>(() => ({
     layers,
     activeLayerId,
@@ -340,6 +358,7 @@ export const CanvasContainer = ({
     toggleVisibility,
     reorderLayer,
     ensureAllVisible,
+    updateLayerPosition,
   }), [
     layers,
     activeLayerId,
@@ -352,6 +371,7 @@ export const CanvasContainer = ({
     toggleVisibility,
     reorderLayer,
     ensureAllVisible,
+    updateLayerPosition,
   ]);
 
   const handleStageReady = (stageInstance: Konva.Stage) => {
@@ -383,6 +403,7 @@ export const CanvasContainer = ({
         panModeActive={panModeActive}
         layerControls={layerControls}
         layersRevision={layersRevision}
+        selectModeActive={selectModeActive}
       />
     </div>
   );

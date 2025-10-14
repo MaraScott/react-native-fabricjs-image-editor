@@ -32,11 +32,13 @@ export const CanvasApp = ({
 }: CanvasAppProps) => {
   const [zoom, setZoom] = useState(initialZoom);
   const [isPanToolActive, setIsPanToolActive] = useState(false);
+  const [isSelectToolActive, setIsSelectToolActive] = useState(false);
   const initialCanvasLayers = useMemo<CanvasLayerDefinition[]>(() => [
     {
       id: 'layer-text',
       name: 'Title',
       visible: true,
+      position: { x: 0, y: 0 },
       render: () => (
         <Text
           x={100}
@@ -52,6 +54,7 @@ export const CanvasApp = ({
       id: 'layer-circle',
       name: 'Circle',
       visible: true,
+      position: { x: 0, y: 0 },
       render: () => (
         <Circle
           x={500}
@@ -65,7 +68,9 @@ export const CanvasApp = ({
       id: 'layer-rectangle',
       name: 'Blue Rectangle',
       visible: true,
+      position: { x: 0, y: 0 },
       render: () => (
+        <>
         <Rect
           x={100}
           y={100}
@@ -74,12 +79,37 @@ export const CanvasApp = ({
           fill="#4A90E2"
           cornerRadius={8}
         />
+                <Text
+          x={100}
+          y={200}
+          text="I'm the rect!"
+          fontSize={48}
+          fill="#333333"
+          fontFamily="system-ui, sans-serif"
+        />
+        </>
       ),
     },
   ], []);
 
   const togglePanTool = () => {
-    setIsPanToolActive((previous) => !previous);
+    setIsPanToolActive((previous) => {
+      const next = !previous;
+      if (next) {
+        setIsSelectToolActive(false);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectTool = () => {
+    setIsSelectToolActive((previous) => {
+      const next = !previous;
+      if (next) {
+        setIsPanToolActive(false);
+      }
+      return next;
+    });
   };
 
   return (
@@ -98,36 +128,76 @@ export const CanvasApp = ({
         <ZoomControl zoom={zoom} onZoomChange={setZoom} />
       }
       sidebarLeft={
-        <button
-          type="button"
-          onClick={togglePanTool}
-          aria-pressed={isPanToolActive}
-          aria-label={isPanToolActive ? 'Disable pan tool' : 'Enable pan tool'}
-          title={isPanToolActive ? 'Pan tool active' : 'Enable pan tool'}
+        <div
           style={{
             width: '100%',
-            border: `1px solid ${isPanToolActive ? '#333333' : '#d0d0d0'}`,
-            backgroundColor: isPanToolActive ? '#333333' : '#f8f8f8',
-            color: isPanToolActive ? '#ffffff' : '#333333',
-            borderRadius: '8px',
-            padding: '0.75rem 0.5rem',
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.25rem',
-            cursor: 'pointer',
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            userSelect: 'none',
-            transition: 'background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease',
+            gap: '0.75rem',
           }}
         >
-          <span aria-hidden="true" style={{ fontSize: '1.5rem', lineHeight: 1 }}>
-            {'\u270B'}
-          </span>
-          <span>Pan</span>
-        </button>
+          <button
+            type="button"
+            onClick={togglePanTool}
+            aria-pressed={isPanToolActive}
+            aria-label={isPanToolActive ? 'Disable pan tool' : 'Enable pan tool'}
+            title={isPanToolActive ? 'Pan tool active' : 'Enable pan tool'}
+            style={{
+              width: '100%',
+              border: `1px solid ${isPanToolActive ? '#333333' : '#d0d0d0'}`,
+              backgroundColor: isPanToolActive ? '#333333' : '#f8f8f8',
+              color: isPanToolActive ? '#ffffff' : '#333333',
+              borderRadius: '8px',
+              padding: '0.75rem 0.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.25rem',
+              cursor: 'pointer',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              userSelect: 'none',
+              transition: 'background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease',
+            }}
+          >
+            <span aria-hidden="true" style={{ fontSize: '1.5rem', lineHeight: 1 }}>
+              {'\u270B'}
+            </span>
+            <span>Pan</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleSelectTool}
+            aria-pressed={isSelectToolActive}
+            aria-label={isSelectToolActive ? 'Disable select tool' : 'Enable select tool'}
+            title={isSelectToolActive ? 'Select tool active' : 'Enable select tool'}
+            style={{
+              width: '100%',
+              border: `1px solid ${isSelectToolActive ? '#333333' : '#d0d0d0'}`,
+              backgroundColor: isSelectToolActive ? '#333333' : '#f8f8f8',
+              color: isSelectToolActive ? '#ffffff' : '#333333',
+              borderRadius: '8px',
+              padding: '0.75rem 0.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.25rem',
+              cursor: 'pointer',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              userSelect: 'none',
+              transition: 'background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease',
+            }}
+          >
+            <span aria-hidden="true" style={{ fontSize: '1.5rem', lineHeight: 1 }}>
+              {'\u261D'}
+            </span>
+            <span>Select</span>
+          </button>
+        </div>
       }
       footer={
         <div style={{ textAlign: 'center' }}>
@@ -143,6 +213,7 @@ export const CanvasApp = ({
         zoom={zoom}
         onZoomChange={setZoom}
         panModeActive={isPanToolActive}
+        selectModeActive={isSelectToolActive}
         initialLayers={initialCanvasLayers}
       />
     </CanvasLayout>
