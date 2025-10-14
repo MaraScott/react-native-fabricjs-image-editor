@@ -17,6 +17,7 @@ type PointerPanState = {
 type TouchPanState = {
   center: { x: number; y: number };
   origin: PanOffset;
+  touchCount: number;
 };
 
 const MIN_ZOOM = -100;
@@ -207,7 +208,7 @@ export const SimpleCanvas = ({
 
     container.addEventListener('wheel', handleWheel, { passive: false });
     return () => container.removeEventListener('wheel', handleWheel);
-  }, [applyZoomDelta]);
+  }, [applyZoomDelta, panModeActive]);
 
   // Keyboard zoom controls and pan activation via space bar
   useEffect(() => {
@@ -401,35 +402,73 @@ export const SimpleCanvas = ({
     };
 
     const handleTouchStart = (event: TouchEvent) => {
-      if (event.touches.length === 3) {
+      const touches = event.touches;
+
+      if (panModeActive && touches.length === 1) {
         event.preventDefault();
         touchPanState.current = {
-          center: getTouchCenter(event.touches),
+          center: getTouchCenter(touches),
           origin: { ...panOffsetRef.current },
+          touchCount: 1,
         };
         setIsTouchPanning(true);
         lastTouchDistance.current = 0;
-      } else if (event.touches.length === 2) {
+        return;
+      }
+
+      if (touches.length === 3) {
+        event.preventDefault();
+        touchPanState.current = {
+          center: getTouchCenter(touches),
+          origin: { ...panOffsetRef.current },
+          touchCount: 3,
+        };
+        setIsTouchPanning(true);
+        lastTouchDistance.current = 0;
+      } else if (touches.length === 2) {
         event.preventDefault();
         clearTouchPan();
-        lastTouchDistance.current = getTouchDistance(event.touches);
+        lastTouchDistance.current = getTouchDistance(touches);
       }
     };
 
     const handleTouchMove = (event: TouchEvent) => {
-      if (event.touches.length === 3 && touchPanState.current) {
+      const touches = event.touches;
+      const panState = touchPanState.current;
+
+      if (panState && panState.touchCount === 1) {
+        if (!panModeActive) {
+          clearTouchPan();
+          return;
+        }
+
+        if (touches.length === 1) {
+          event.preventDefault();
+          const center = getTouchCenter(touches);
+
+          setPanOffset({
+            x: panState.origin.x + (center.x - panState.center.x),
+            y: panState.origin.y + (center.y - panState.center.y),
+          });
+          return;
+        }
+      }
+
+      if (panState && panState.touchCount === 3 && touches.length === 3) {
         event.preventDefault();
-        const center = getTouchCenter(event.touches);
-        const start = touchPanState.current;
+        const center = getTouchCenter(touches);
 
         setPanOffset({
-          x: start.origin.x + (center.x - start.center.x),
-          y: start.origin.y + (center.y - start.center.y),
+          x: panState.origin.x + (center.x - panState.center.x),
+          y: panState.origin.y + (center.y - panState.center.y),
         });
-      } else if (event.touches.length === 2) {
+        return;
+      }
+
+      if (touches.length === 2) {
         event.preventDefault();
 
-        const currentDistance = getTouchDistance(event.touches);
+        const currentDistance = getTouchDistance(touches);
         const previousDistance = lastTouchDistance.current;
 
         if (previousDistance > 0) {
@@ -444,10 +483,25 @@ export const SimpleCanvas = ({
     };
 
     const handleTouchEnd = (event: TouchEvent) => {
-      if (event.touches.length < 3) {
-        clearTouchPan();
+      if (touchPanState.current) {
+        const activeCount = touchPanState.current.touchCount;
+
+        if ((activeCount === 3 && event.touches.length < 3) || (activeCount === 1 && event.touches.length === 0)) {
+          clearTouchPan();
+        }
       }
+
       if (event.touches.length < 2) {
+        lastTouchDistance.current = 0;
+      }
+
+      if (panModeActive && event.touches.length === 1 && (!touchPanState.current || touchPanState.current.touchCount !== 1)) {
+        touchPanState.current = {
+          center: getTouchCenter(event.touches),
+          origin: { ...panOffsetRef.current },
+          touchCount: 1,
+        };
+        setIsTouchPanning(true);
         lastTouchDistance.current = 0;
       }
     };
@@ -468,7 +522,7 @@ export const SimpleCanvas = ({
       container.removeEventListener('touchend', handleTouchEnd);
       container.removeEventListener('touchcancel', handleTouchCancel);
     };
-  }, [applyZoomDelta]);
+  }, [applyZoomDelta, panModeActive]);
 
   const renderWidth = Math.max(1, width * scale);
   const renderHeight = Math.max(1, height * scale);
