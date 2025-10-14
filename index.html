@@ -11,6 +11,37 @@
     <script src="./assets/vendor/react.production.min.js" crossorigin="anonymous"></script>
     <script src="./assets/vendor/react-dom.production.min.js" crossorigin="anonymous"></script>
     <script src="./assets/vendor/konva.min.js" crossorigin="anonymous"></script>
-    <script src="./dist/editor.bundle.RJOKOGEU.js" crossorigin="anonymous"></script>
+    <script>
+  window.__EDITOR_BOOTSTRAP__ = {
+    width: 1024,
+    height: 1024,
+    backgroundColor: '#ffffff'
+  };
+</script>
+    <script src="./dist/editor.bundle.2I3OD6PZ.js" crossorigin="anonymous"></script>
+  
+    <script>
+      (function () {
+        var source;
+        function connect() {
+          source = new EventSource('/__livereload');
+          source.addEventListener('reload', function () {
+            window.location.reload();
+          });
+          source.addEventListener('open', function () {
+            console.log('[watch] Connected to live reload server.');
+          });
+          source.addEventListener('error', function () {
+            if (source) {
+              source.close();
+            }
+            setTimeout(connect, 1000);
+          });
+        }
+
+        connect();
+      })();
+    </script>
+  
   </body>
 </html>

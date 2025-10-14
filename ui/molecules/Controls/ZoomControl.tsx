@@ -18,8 +18,8 @@ export interface ZoomControlProps {
 export const ZoomControl = ({
   zoom,
   onZoomChange,
-  minZoom = -50,
-  maxZoom = 200,
+  minZoom = -100,
+  maxZoom = -1 * minZoom,
   step = 10,
 }: ZoomControlProps) => {
   const handleZoomIn = () => {

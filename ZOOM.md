@@ -307,8 +307,8 @@ function OptimizedCanvas() {
 ### Limit Zoom Range
 
 ```tsx
-const MIN_ZOOM = -50;  // Maximum zoom out
-const MAX_ZOOM = 200;  // Maximum zoom in
+const MIN_ZOOM = -100;  // Maximum zoom out
+const MAX_ZOOM = -1 * MIN_ZOOM;  // Maximum zoom in
 
 function BoundedZoom() {
   const [zoom, setZoom] = useState(0);

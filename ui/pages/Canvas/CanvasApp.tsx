@@ -30,6 +30,11 @@ export const CanvasApp = ({
   initialZoom = 0,
 }: CanvasAppProps) => {
   const [zoom, setZoom] = useState(initialZoom);
+  const [isPanToolActive, setIsPanToolActive] = useState(false);
+
+  const togglePanTool = () => {
+    setIsPanToolActive((previous) => !previous);
+  };
 
   return (
     <CanvasLayout
@@ -46,6 +51,38 @@ export const CanvasApp = ({
       headerCenter={
         <ZoomControl zoom={zoom} onZoomChange={setZoom} />
       }
+      sidebarLeft={
+        <button
+          type="button"
+          onClick={togglePanTool}
+          aria-pressed={isPanToolActive}
+          aria-label={isPanToolActive ? 'Disable pan tool' : 'Enable pan tool'}
+          title={isPanToolActive ? 'Pan tool active' : 'Enable pan tool'}
+          style={{
+            width: '100%',
+            border: `1px solid ${isPanToolActive ? '#333333' : '#d0d0d0'}`,
+            backgroundColor: isPanToolActive ? '#333333' : '#f8f8f8',
+            color: isPanToolActive ? '#ffffff' : '#333333',
+            borderRadius: '8px',
+            padding: '0.75rem 0.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.25rem',
+            cursor: 'pointer',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            userSelect: 'none',
+            transition: 'background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease',
+          }}
+        >
+          <span aria-hidden="true" style={{ fontSize: '1.5rem', lineHeight: 1 }}>
+            {'\u270B'}
+          </span>
+          <span>Pan</span>
+        </button>
+      }
       footer={
         <div style={{ textAlign: 'center' }}>
           Canvas ready for further development
@@ -58,6 +95,8 @@ export const CanvasApp = ({
         backgroundColor={backgroundColor}
         containerBackground={containerBackground}
         zoom={zoom}
+        onZoomChange={setZoom}
+        panModeActive={isPanToolActive}
       >
         {/* Example shapes to demonstrate the canvas */}
         <Rect

@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { SimpleCanvas } from '@molecules/Canvas';
 import type Konva from 'konva';
 
@@ -13,8 +14,10 @@ export interface CanvasContainerProps {
   backgroundColor?: string;
   containerBackground?: string;
   zoom?: number;
-  children?: React.ReactNode;
+  children?: ReactNode;
   onStageReady?: (stage: Konva.Stage) => void;
+  onZoomChange?: (zoom: number) => void;
+  panModeActive?: boolean;
 }
 
 /**
@@ -30,6 +33,8 @@ export const CanvasContainer = ({
   zoom = 0,
   children,
   onStageReady,
+  onZoomChange,
+  panModeActive = false,
 }: CanvasContainerProps) => {
   const [stage, setStage] = useState<Konva.Stage | null>(null);
 
@@ -58,6 +63,8 @@ export const CanvasContainer = ({
         containerBackground={containerBackground}
         zoom={zoom}
         onStageReady={handleStageReady}
+        onZoomChange={onZoomChange}
+        panModeActive={panModeActive}
       >
         {children}
       </SimpleCanvas>

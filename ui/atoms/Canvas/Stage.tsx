@@ -22,15 +22,17 @@ export interface StageProps extends Partial<StageConfig> {
  */
 export const Stage = forwardRef<Konva.Stage, StageProps>(
   ({ children, width, height, style, ...props }, ref) => {
+    const composedStyle: CSSProperties = {
+      display: 'inline-block',
+      width: `${width}px`,
+      height: `${height}px`,
+      flexShrink: 0,
+      flexGrow: 0,
+      ...style,
+    };
+
     return (
-      <div
-        style={{
-          ...style,
-          display: 'inline-block',
-          width: `${width}px`,
-          height: `${height}px`,
-        }}
-      >
+      <div style={composedStyle}>
         <KonvaStage
           ref={ref}
           width={width}

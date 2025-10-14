@@ -10,6 +10,7 @@ export interface CanvasLayoutProps {
   headerLeft?: ReactNode;
   headerCenter?: ReactNode;
   headerRight?: ReactNode;
+  sidebarLeft?: ReactNode;
   footer?: ReactNode;
 }
 
@@ -22,6 +23,7 @@ export const CanvasLayout = ({
   headerLeft,
   headerCenter,
   headerRight,
+  sidebarLeft,
   footer,
 }: CanvasLayoutProps) => {
   return (
@@ -68,11 +70,35 @@ export const CanvasLayout = ({
           flex: 1,
           overflow: 'hidden',
           display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
         }}
       >
-        {children}
+        {sidebarLeft && (
+          <aside
+            style={{
+              width: '64px',
+              borderRight: '1px solid #e0e0e0',
+              backgroundColor: '#ffffff',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              padding: '1rem 0.5rem',
+              gap: '0.75rem',
+            }}
+          >
+            {sidebarLeft}
+          </aside>
+        )}
+
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          {children}
+        </div>
       </div>
 
       {footer && (
