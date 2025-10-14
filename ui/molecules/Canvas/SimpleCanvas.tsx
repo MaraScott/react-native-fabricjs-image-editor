@@ -4,7 +4,7 @@
  */
 
 import { useRef, useEffect, useState, useCallback, useLayoutEffect } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, CSSProperties, DragEvent } from 'react';
 import { Stage, Layer } from '@atoms/Canvas';
 import type Konva from 'konva';
 
@@ -19,6 +19,29 @@ type TouchPanState = {
   origin: PanOffset;
   touchCount: number;
 };
+
+export type LayerMoveDirection = 'up' | 'down' | 'top' | 'bottom';
+
+export interface LayerDescriptor {
+  id: string;
+  name: string;
+  visible: boolean;
+  render: () => ReactNode;
+}
+
+export interface LayerControlHandlers {
+  layers: LayerDescriptor[];
+  activeLayerId: string | null;
+  selectLayer: (layerId: string) => void;
+  addLayer: () => void;
+  removeLayer: (layerId: string) => void;
+  duplicateLayer: (layerId: string) => void;
+  copyLayer: (layerId: string) => Promise<string | void> | string | void;
+  moveLayer: (layerId: string, direction: LayerMoveDirection) => void;
+  toggleVisibility: (layerId: string) => void;
+  reorderLayer: (sourceId: string, targetId: string, position: 'above' | 'below') => void;
+  ensureAllVisible: () => void;
+}
 
 const MIN_ZOOM = -100;
 const MAX_ZOOM = 200;
@@ -42,6 +65,8 @@ export interface SimpleCanvasProps {
   onStageReady?: (stage: Konva.Stage) => void;
   onZoomChange?: (zoom: number) => void;
   panModeActive?: boolean;
+  layerControls?: LayerControlHandlers;
+  layersRevision?: number;
 }
 
 /**
@@ -61,6 +86,8 @@ export const SimpleCanvas = ({
   onStageReady,
   onZoomChange,
   panModeActive = false,
+  layerControls,
+  layersRevision = 0,
 }: SimpleCanvasProps) => {
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -74,16 +101,46 @@ export const SimpleCanvas = ({
   const [spacePressed, setSpacePressed] = useState(false);
   const [isPointerPanning, setIsPointerPanning] = useState(false);
   const [isTouchPanning, setIsTouchPanning] = useState(false);
+  const layerButtonRef = useRef<HTMLButtonElement | null>(null);
+  const layerPanelRef = useRef<HTMLDivElement | null>(null);
+  const [isLayerPanelOpen, setIsLayerPanelOpen] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [draggingLayerId, setDraggingLayerId] = useState<string | null>(null);
+  const [dragOverLayer, setDragOverLayer] = useState<{
+    id: string;
+    position: 'above' | 'below';
+  } | null>(null);
 
   useEffect(() => {
     panOffsetRef.current = panOffset;
   }, [panOffset]);
 
   useEffect(() => {
+    if (!layerControls || !stageRef.current) {
+      return;
+    }
+
+    stageRef.current.batchDraw();
+  }, [layerControls, layersRevision]);
+
+  useEffect(() => {
     if (zoom === 0 && (panOffsetRef.current.x !== 0 || panOffsetRef.current.y !== 0)) {
       setPanOffset({ x: 0, y: 0 });
     }
   }, [zoom]);
+
+  useEffect(() => {
+    if (!copyFeedback) {
+      return;
+    }
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setCopyFeedback(null), 2000);
+    return () => window.clearTimeout(timeoutId);
+  }, [copyFeedback]);
 
   // Calculate scale based on zoom and container size
   useLayoutEffect(() => {
@@ -208,7 +265,7 @@ export const SimpleCanvas = ({
 
     container.addEventListener('wheel', handleWheel, { passive: false });
     return () => container.removeEventListener('wheel', handleWheel);
-  }, [applyZoomDelta, panModeActive]);
+  }, [applyZoomDelta]);
 
   // Keyboard zoom controls and pan activation via space bar
   useEffect(() => {
@@ -263,6 +320,65 @@ export const SimpleCanvas = ({
       window.removeEventListener('blur', handleWindowBlur);
     };
   }, [applyZoomDelta, updateZoom]);
+
+  useEffect(() => {
+    if (!isLayerPanelOpen) {
+      return;
+    }
+
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+
+      if (target) {
+        if (layerPanelRef.current?.contains(target)) {
+          return;
+        }
+        if (layerButtonRef.current?.contains(target)) {
+          return;
+        }
+      }
+
+      setIsLayerPanelOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsLayerPanelOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isLayerPanelOpen]);
+
+  useEffect(() => {
+    if (!layerControls && isLayerPanelOpen) {
+      setIsLayerPanelOpen(false);
+    }
+  }, [layerControls, isLayerPanelOpen]);
+
+  useEffect(() => {
+    if (!isLayerPanelOpen) {
+      if (copyFeedback) {
+        setCopyFeedback(null);
+      }
+      if (draggingLayerId) {
+        setDraggingLayerId(null);
+      }
+      if (dragOverLayer) {
+        setDragOverLayer(null);
+      }
+    }
+  }, [isLayerPanelOpen, copyFeedback, draggingLayerId, dragOverLayer]);
 
   const finishPointerPan = useCallback((event?: React.PointerEvent<HTMLDivElement>) => {
     if (!pointerPanState.current) {
@@ -341,6 +457,27 @@ export const SimpleCanvas = ({
     event.preventDefault();
     finishPointerPan(event);
   }, [finishPointerPan]);
+
+  const handleCopyLayer = useCallback(
+    async (layerId: string) => {
+      if (!layerControls) {
+        return;
+      }
+
+      try {
+        const result = await layerControls.copyLayer(layerId);
+        if (typeof result === 'string' && result.trim().length > 0) {
+          setCopyFeedback(result);
+        } else {
+          setCopyFeedback('Layer copied');
+        }
+      } catch (error) {
+        console.warn('Unable to copy layer', error);
+        setCopyFeedback('Unable to copy layer');
+      }
+    },
+    [layerControls]
+  );
 
   const handlePointerCancel = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const state = pointerPanState.current;
@@ -531,6 +668,30 @@ export const SimpleCanvas = ({
     ? 'grabbing'
     : (panModeActive || spacePressed ? 'grab' : 'default');
 
+  const renderableLayers = layerControls ? [...layerControls.layers].reverse() : null;
+  const bottomLayerId = layerControls?.layers[layerControls.layers.length - 1]?.id ?? null;
+  const smallActionButtonStyle: CSSProperties = {
+    border: '1px solid #d0d0d0',
+    background: '#ffffff',
+    color: '#333333',
+    borderRadius: '6px',
+    padding: '0.25rem 0.5rem',
+    fontSize: '0.75rem',
+    cursor: 'pointer',
+  };
+
+  const getActionButtonStyle = (disabled?: boolean): CSSProperties => ({
+    ...smallActionButtonStyle,
+    opacity: disabled ? 0.4 : 1,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+  });
+
+  const resolveDropPosition = (event: DragEvent<HTMLDivElement>): 'above' | 'below' => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const offsetY = event.clientY - bounds.top;
+    return offsetY < bounds.height / 2 ? 'above' : 'below';
+  };
+
   return (
     <div
       ref={containerRef}
@@ -548,22 +709,453 @@ export const SimpleCanvas = ({
         backgroundColor: containerBackground,
         overflow: 'hidden',
         touchAction: 'none',
+        position: 'relative',
       }}
     >
+      {layerControls && (
+        <>
+          <button
+            ref={layerButtonRef}
+            type="button"
+            aria-expanded={isLayerPanelOpen}
+            aria-label={isLayerPanelOpen ? 'Hide layer controls' : 'Show layer controls'}
+            title={isLayerPanelOpen ? 'Hide layer controls' : 'Show layer controls'}
+            onClick={() => setIsLayerPanelOpen((previous) => !previous)}
+            onPointerDown={(event) => event.stopPropagation()}
+            style={{
+              position: 'absolute',
+              left: '16px',
+              bottom: '16px',
+              width: '48px',
+              height: '48px',
+              borderRadius: '12px',
+              border: '1px solid #d0d0d0',
+              backgroundColor: isLayerPanelOpen ? '#333333' : '#ffffff',
+              color: isLayerPanelOpen ? '#ffffff' : '#333333',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.5rem',
+              cursor: 'pointer',
+              zIndex: 12,
+              transition: 'background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease',
+            }}
+          >
+            ☰
+          </button>
+
+          {isLayerPanelOpen && (
+            <div
+              ref={layerPanelRef}
+              onPointerDown={(event) => event.stopPropagation()}
+              onPointerUp={(event) => event.stopPropagation()}
+              onWheel={(event) => event.stopPropagation()}
+              style={{
+                position: 'absolute',
+                left: '16px',
+                bottom: '80px',
+                width: '280px',
+                maxHeight: '70%',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+                backgroundColor: '#ffffff',
+                border: '1px solid #d7d7d7',
+                borderRadius: '12px',
+                boxShadow: '0 16px 32px rgba(0,0,0,0.16)',
+                padding: '1rem',
+                zIndex: 12,
+                overflow: 'hidden',
+                touchAction: 'manipulation',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.5rem',
+                }}
+              >
+                <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                  Layers
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setIsLayerPanelOpen(false)}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  aria-label="Close layer panel"
+                  title="Close layer panel"
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    padding: '0.25rem',
+                    cursor: 'pointer',
+                    fontSize: '1.1rem',
+                    lineHeight: 1,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  layerControls.addLayer();
+                }}
+                onPointerDown={(event) => event.stopPropagation()}
+                style={{
+                  border: '1px solid #4a90e2',
+                  backgroundColor: '#4a90e2',
+                  color: '#ffffff',
+                  borderRadius: '8px',
+                  padding: '0.5rem 0.75rem',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s ease, border-color 0.2s ease',
+                }}
+              >
+                + Add Layer
+              </button>
+
+              {copyFeedback && (
+                <div
+                  style={{
+                    fontSize: '0.75rem',
+                    color: '#2d7a2d',
+                    backgroundColor: '#ecf7ec',
+                    padding: '0.35rem 0.5rem',
+                    borderRadius: '6px',
+                  }}
+                >
+                  {copyFeedback}
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                  overflowY: 'auto',
+                  paddingRight: '0.25rem',
+                }}
+              >
+                {layerControls.layers.length === 0 ? (
+                  <div
+                    style={{
+                      fontSize: '0.8125rem',
+                      color: '#555555',
+                      padding: '0.5rem 0.25rem',
+                    }}
+                  >
+                    No layers yet. Add one to get started.
+                  </div>
+                ) : (
+                  layerControls.layers.map((layer, index) => {
+                    const isActive = layerControls.activeLayerId === layer.id;
+                    const isTop = index === 0;
+                    const isBottom = index === layerControls.layers.length - 1;
+                    const dropPosition =
+                      dragOverLayer?.id === layer.id ? dragOverLayer.position : null;
+                    const isDragging = draggingLayerId === layer.id;
+                    const containerStyle: CSSProperties = {
+                      border: `1px solid ${isActive ? '#4a90e2' : '#e0e0e0'}`,
+                      borderRadius: '8px',
+                      padding: '0.5rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.5rem',
+                      backgroundColor: isActive ? '#f4f8ff' : '#ffffff',
+                      opacity: isDragging ? 0.6 : 1,
+                      position: 'relative',
+                      transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                    };
+
+                    if (dropPosition === 'above') {
+                      containerStyle.boxShadow = '0 -4px 0 0 #4a90e2';
+                    } else if (dropPosition === 'below') {
+                      containerStyle.boxShadow = '0 4px 0 0 #4a90e2';
+                    }
+
+                    return (
+                      <div
+                        key={layer.id}
+                        style={containerStyle}
+                        draggable
+                        onDragStart={(event) => {
+                          event.stopPropagation();
+                          setDraggingLayerId(layer.id);
+                          setDragOverLayer(null);
+                          if (event.dataTransfer) {
+                            event.dataTransfer.effectAllowed = 'move';
+                            event.dataTransfer.setData('text/plain', layer.id);
+                          }
+                        }}
+                        onDragEnd={(event) => {
+                          event.stopPropagation();
+                          setDraggingLayerId(null);
+                          setDragOverLayer(null);
+                          layerControls.ensureAllVisible();
+                        }}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          if (!draggingLayerId || draggingLayerId === layer.id) {
+                            return;
+                          }
+                          if (event.dataTransfer) {
+                            event.dataTransfer.dropEffect = 'move';
+                          }
+                          const position = resolveDropPosition(event);
+                          setDragOverLayer((current) => {
+                            if (
+                              current &&
+                              current.id === layer.id &&
+                              current.position === position
+                            ) {
+                              return current;
+                            }
+                            return { id: layer.id, position };
+                          });
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          const sourceId =
+                            draggingLayerId || event.dataTransfer?.getData('text/plain');
+                          if (!sourceId || sourceId === layer.id) {
+                            setDragOverLayer(null);
+                            setDraggingLayerId(null);
+                            return;
+                          }
+                          const position = resolveDropPosition(event);
+                          layerControls.reorderLayer(sourceId, layer.id, position);
+                          setDragOverLayer(null);
+                          setDraggingLayerId(null);
+                          layerControls.ensureAllVisible();
+                        }}
+                        onDragLeave={(event) => {
+                          event.stopPropagation();
+                          if (
+                            !event.currentTarget.contains(
+                              event.relatedTarget as Node | null
+                            )
+                          ) {
+                            setDragOverLayer((current) =>
+                              current?.id === layer.id ? null : current
+                            );
+                          }
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={() => layerControls.toggleVisibility(layer.id)}
+                            title={layer.visible ? 'Hide layer' : 'Show layer'}
+                            aria-label={layer.visible ? 'Hide layer' : 'Show layer'}
+                            style={{
+                              border: '1px solid #d0d0d0',
+                              backgroundColor: layer.visible ? '#ffffff' : '#f5f5f5',
+                              color: '#333333',
+                              borderRadius: '6px',
+                              padding: '0.25rem 0.5rem',
+                              cursor: 'pointer',
+                              fontSize: '0.75rem',
+                            }}
+                          >
+                            {layer.visible ? '👁' : '🙈'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={() => layerControls.selectLayer(layer.id)}
+                            style={{
+                              flex: 1,
+                              textAlign: 'left',
+                              border: 'none',
+                              background: 'transparent',
+                              fontSize: '0.875rem',
+                              fontWeight: isActive ? 700 : 500,
+                              color: '#333333',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {layer.name}
+                          </button>
+                        </div>
+
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '0.35rem',
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={() => handleCopyLayer(layer.id)}
+                            title="Copy layer details"
+                            aria-label="Copy layer details"
+                            style={getActionButtonStyle()}
+                          >
+                            ⧉
+                          </button>
+                          <button
+                            type="button"
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={() => layerControls.duplicateLayer(layer.id)}
+                            title="Duplicate layer"
+                            aria-label="Duplicate layer"
+                            style={getActionButtonStyle()}
+                          >
+                            ⧺
+                          </button>
+                          <button
+                            type="button"
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={() => layerControls.moveLayer(layer.id, 'up')}
+                            title="Move layer up"
+                            aria-label="Move layer up"
+                            style={getActionButtonStyle(isTop)}
+                            disabled={isTop}
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={() => layerControls.moveLayer(layer.id, 'down')}
+                            title="Move layer down"
+                            aria-label="Move layer down"
+                            style={getActionButtonStyle(isBottom)}
+                            disabled={isBottom}
+                          >
+                            ▼
+                          </button>
+                          <button
+                            type="button"
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={() => layerControls.moveLayer(layer.id, 'top')}
+                            title="Send layer to top"
+                            aria-label="Send layer to top"
+                            style={getActionButtonStyle(isTop)}
+                            disabled={isTop}
+                          >
+                            ⤒
+                          </button>
+                          <button
+                            type="button"
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={() => layerControls.moveLayer(layer.id, 'bottom')}
+                            title="Send layer to bottom"
+                            aria-label="Send layer to bottom"
+                            style={getActionButtonStyle(isBottom)}
+                            disabled={isBottom}
+                          >
+                            ⤓
+                          </button>
+                          <button
+                            type="button"
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={() => layerControls.removeLayer(layer.id)}
+                            title="Remove layer"
+                            aria-label="Remove layer"
+                            style={{ ...getActionButtonStyle(layerControls.layers.length <= 1), color: '#a11b1b' }}
+                            disabled={layerControls.layers.length <= 1}
+                          >
+                            🗑
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+                {layerControls.layers.length > 0 && (
+                  <div
+                    onDragOver={(event) => {
+                  if (!draggingLayerId || !bottomLayerId) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (event.dataTransfer) {
+                    event.dataTransfer.dropEffect = 'move';
+                  }
+                  setDragOverLayer({ id: bottomLayerId, position: 'below' });
+                }}
+                onDrop={(event) => {
+                  if (!draggingLayerId || !bottomLayerId) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (draggingLayerId !== bottomLayerId) {
+                    layerControls.reorderLayer(draggingLayerId, bottomLayerId, 'below');
+                  }
+                  setDragOverLayer(null);
+                  setDraggingLayerId(null);
+                  layerControls.ensureAllVisible();
+                }}
+                onDragLeave={(event) => {
+                  if (
+                    !event.currentTarget.contains(
+                      event.relatedTarget as Node | null
+                    )
+                  ) {
+                    setDragOverLayer((current) =>
+                      current?.id === bottomLayerId ? null : current
+                    );
+                  }
+                }}
+                style={{
+                  height: draggingLayerId ? '12px' : '0px',
+                  backgroundColor:
+                    dragOverLayer?.id === bottomLayerId && dragOverLayer?.position === 'below'
+                      ? '#e3f0ff'
+                      : 'transparent',
+                  transition: 'height 0.15s ease',
+                  pointerEvents: draggingLayerId ? 'auto' : 'none',
+                }}
+              />
+            )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       <Stage
         ref={stageRef}
         width={renderWidth}
         height={renderHeight}
-        style={{
-          backgroundColor,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-          transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
-          cursor: cursorStyle,
-        }}
-      >
-        <Layer>
-          {children}
-        </Layer>
+      style={{
+        backgroundColor,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+        cursor: cursorStyle,
+      }}
+    >
+        {renderableLayers && renderableLayers.length > 0 ? (
+          renderableLayers.map((layer) => (
+            <Layer key={`${layer.id}-${layersRevision}`} visible={layer.visible}>
+              {layer.render()}
+            </Layer>
+          ))
+        ) : (
+          <Layer>
+            {children}
+          </Layer>
+        )}
       </Stage>
     </div>
   );

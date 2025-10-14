@@ -3,9 +3,10 @@
  * Main application page for the simple canvas with zoom controls
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { CanvasLayout } from '@templates/Canvas';
 import { CanvasContainer } from '@organisms/Canvas';
+import type { CanvasLayerDefinition } from '@organisms/Canvas';
 import { ZoomControl } from '@molecules/Controls';
 import { Rect, Circle, Text } from 'react-konva';
 
@@ -31,6 +32,51 @@ export const CanvasApp = ({
 }: CanvasAppProps) => {
   const [zoom, setZoom] = useState(initialZoom);
   const [isPanToolActive, setIsPanToolActive] = useState(false);
+  const initialCanvasLayers = useMemo<CanvasLayerDefinition[]>(() => [
+    {
+      id: 'layer-text',
+      name: 'Title',
+      visible: true,
+      render: () => (
+        <Text
+          x={100}
+          y={400}
+          text="Simple Canvas Ready!"
+          fontSize={48}
+          fill="#333333"
+          fontFamily="system-ui, sans-serif"
+        />
+      ),
+    },
+    {
+      id: 'layer-circle',
+      name: 'Circle',
+      visible: true,
+      render: () => (
+        <Circle
+          x={500}
+          y={200}
+          radius={100}
+          fill="#E24A4A"
+        />
+      ),
+    },
+    {
+      id: 'layer-rectangle',
+      name: 'Blue Rectangle',
+      visible: true,
+      render: () => (
+        <Rect
+          x={100}
+          y={100}
+          width={200}
+          height={200}
+          fill="#4A90E2"
+          cornerRadius={8}
+        />
+      ),
+    },
+  ], []);
 
   const togglePanTool = () => {
     setIsPanToolActive((previous) => !previous);
@@ -97,31 +143,8 @@ export const CanvasApp = ({
         zoom={zoom}
         onZoomChange={setZoom}
         panModeActive={isPanToolActive}
-      >
-        {/* Example shapes to demonstrate the canvas */}
-        <Rect
-          x={100}
-          y={100}
-          width={200}
-          height={200}
-          fill="#4A90E2"
-          cornerRadius={8}
-        />
-        <Circle
-          x={500}
-          y={200}
-          radius={100}
-          fill="#E24A4A"
-        />
-        <Text
-          x={100}
-          y={400}
-          text="Simple Canvas Ready!"
-          fontSize={48}
-          fill="#333333"
-          fontFamily="system-ui, sans-serif"
-        />
-      </CanvasContainer>
+        initialLayers={initialCanvasLayers}
+      />
     </CanvasLayout>
   );
 };
