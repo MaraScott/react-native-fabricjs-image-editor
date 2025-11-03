@@ -3,7 +3,7 @@
  * Combines Stage and Layer atoms into a basic canvas with zoom support
  */
 
-import { useRef, useEffect, useState, useCallback, useLayoutEffect } from 'react';
+import { useRef, useEffect, useState, useCallback, useLayoutEffect, useMemo } from 'react';
 import type { ReactNode, CSSProperties, DragEvent } from 'react';
 import { Stage, Layer } from '@atoms/Canvas';
 import { Rect } from 'react-konva';
@@ -22,6 +22,11 @@ type TouchPanState = {
   touchCount: number;
 };
 
+type SelectionDragState = {
+  anchorLayerId: string;
+  initialPositions: Map<string, PanOffset>;
+};
+
 export type LayerMoveDirection = 'up' | 'down' | 'top' | 'bottom';
 
 export interface LayerDescriptor {
@@ -32,10 +37,17 @@ export interface LayerDescriptor {
   render: () => ReactNode;
 }
 
+export type LayerSelectionMode = 'replace' | 'append' | 'toggle' | 'range';
+
+export interface LayerSelectionOptions {
+  mode?: LayerSelectionMode;
+}
+
 export interface LayerControlHandlers {
   layers: LayerDescriptor[];
-  activeLayerId: string | null;
-  selectLayer: (layerId: string) => void;
+  selectedLayerIds: string[];
+  primaryLayerId: string | null;
+  selectLayer: (layerId: string, options?: LayerSelectionOptions) => string[];
   addLayer: () => void;
   removeLayer: (layerId: string) => void;
   duplicateLayer: (layerId: string) => void;
@@ -154,6 +166,8 @@ export const SimpleCanvas = ({
   const lastTouchDistance = useRef(0);
   const pointerPanState = useRef<PointerPanState | null>(null);
   const touchPanState = useRef<TouchPanState | null>(null);
+  const selectionDragStateRef = useRef<SelectionDragState | null>(null);
+  const pendingSelectionRef = useRef<string[] | null>(null);
   const [scale, setScale] = useState(1);
   const [internalZoom, setInternalZoom] = useState<number>(zoom);
   const [panOffset, setPanOffset] = useState<PanOffset>({ x: 0, y: 0 });
@@ -204,49 +218,72 @@ export const SimpleCanvas = ({
     return () => window.clearTimeout(timeoutId);
   }, [copyFeedback]);
 
-  const updateBoundsFromLayerId = useCallback(
-    (layerId: string | null | undefined, attempt: number = 0) => {
+  const updateBoundsFromLayerIds = useCallback(
+    (layerIds: string[] | null | undefined, attempt: number = 0) => {
       if (!selectModeActive) {
         setSelectedLayerBounds(null);
         return;
       }
 
-      if (!layerId) {
+      if (!layerIds || layerIds.length === 0) {
+        setSelectedLayerBounds(null);
         return;
       }
 
-      const cachedNode = layerNodeRefs.current.get(layerId);
       const stage = stageRef.current;
-      const layerNode = cachedNode ?? stage?.findOne(`#layer-${layerId}`) ?? null;
+      const nodes = layerIds
+        .map((layerId) => {
+          const cachedNode = layerNodeRefs.current.get(layerId);
+          return cachedNode ?? stage?.findOne(`#layer-${layerId}`) ?? null;
+        })
+        .filter((node): node is Konva.Layer => Boolean(node));
 
-      if (!layerNode) {
+      if (nodes.length !== layerIds.length) {
         if (attempt < BOUNDS_RETRY_LIMIT && typeof window !== 'undefined') {
-          window.requestAnimationFrame(() => updateBoundsFromLayerId(layerId, attempt + 1));
+          window.requestAnimationFrame(() => updateBoundsFromLayerIds(layerIds, attempt + 1));
         }
         return;
       }
 
-      const bounds = computeNodeBounds(layerNode);
-      if (!bounds) {
+      const boundsList = nodes
+        .map((node) => computeNodeBounds(node))
+        .filter((bounds): bounds is Bounds => Boolean(bounds));
+
+      if (boundsList.length === 0) {
         if (attempt < BOUNDS_RETRY_LIMIT && typeof window !== 'undefined') {
-          window.requestAnimationFrame(() => updateBoundsFromLayerId(layerId, attempt + 1));
+          window.requestAnimationFrame(() => updateBoundsFromLayerIds(layerIds, attempt + 1));
         }
         return;
       }
 
-      setSelectedLayerBounds((previous) => (areBoundsEqual(previous, bounds) ? previous : bounds));
-      layerNode.getStage()?.batchDraw();
+      const unifiedBounds = boundsList.reduce<Bounds>((accumulator, bounds) => {
+        const minX = Math.min(accumulator.x, bounds.x);
+        const minY = Math.min(accumulator.y, bounds.y);
+        const maxX = Math.max(accumulator.x + accumulator.width, bounds.x + bounds.width);
+        const maxY = Math.max(accumulator.y + accumulator.height, bounds.y + bounds.height);
+
+        return {
+          x: minX,
+          y: minY,
+          width: Math.max(0, maxX - minX),
+          height: Math.max(0, maxY - minY),
+        };
+      }, boundsList[0]);
+
+      setSelectedLayerBounds((previous) => (areBoundsEqual(previous, unifiedBounds) ? previous : unifiedBounds));
+      nodes[0]?.getStage()?.batchDraw();
     },
     [selectModeActive]
   );
 
-  const refreshBoundsFromActiveLayer = useCallback(() => {
-    updateBoundsFromLayerId(layerControls?.activeLayerId ?? null);
-  }, [layerControls?.activeLayerId, updateBoundsFromLayerId]);
+  const refreshBoundsFromSelection = useCallback(() => {
+    const targetIds = pendingSelectionRef.current ?? layerControls?.selectedLayerIds ?? null;
+    updateBoundsFromLayerIds(targetIds);
+  }, [layerControls?.selectedLayerIds, updateBoundsFromLayerIds]);
 
   useEffect(() => {
-    refreshBoundsFromActiveLayer();
-  }, [refreshBoundsFromActiveLayer, layersRevision, scale]);
+    refreshBoundsFromSelection();
+  }, [refreshBoundsFromSelection, layersRevision, scale]);
 
   useEffect(() => {
     if (!selectModeActive) {
@@ -254,8 +291,8 @@ export const SimpleCanvas = ({
       return;
     }
 
-    refreshBoundsFromActiveLayer();
-  }, [selectModeActive, refreshBoundsFromActiveLayer]);
+    refreshBoundsFromSelection();
+  }, [selectModeActive, refreshBoundsFromSelection]);
 
   // Calculate scale based on zoom and container size
   useLayoutEffect(() => {
@@ -799,6 +836,25 @@ export const SimpleCanvas = ({
   }, [baseCursor, selectModeActive]);
 
   const renderableLayers = layerControls ? [...layerControls.layers].reverse() : null;
+  const selectedLayerIds = layerControls?.selectedLayerIds ?? [];
+  const selectedLayerSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds]);
+  const primaryLayerId = layerControls?.primaryLayerId ?? null;
+
+  useEffect(() => {
+    if (!pendingSelectionRef.current) {
+      return;
+    }
+
+    const pending = pendingSelectionRef.current;
+    if (pending.length !== selectedLayerIds.length) {
+      return;
+    }
+
+    const matches = pending.every((id, index) => id === selectedLayerIds[index]);
+    if (matches) {
+      pendingSelectionRef.current = null;
+    }
+  }, [selectedLayerIds]);
   const bottomLayerId = layerControls?.layers[layerControls.layers.length - 1]?.id ?? null;
   const smallActionButtonStyle: CSSProperties = {
     border: '1px solid #d0d0d0',
@@ -987,23 +1043,25 @@ export const SimpleCanvas = ({
                   </div>
                 ) : (
                   layerControls.layers.map((layer, index) => {
-                    const isActive = layerControls.activeLayerId === layer.id;
+                    const isSelected = selectedLayerSet.has(layer.id);
+                    const isPrimary = primaryLayerId === layer.id;
                     const isTop = index === 0;
                     const isBottom = index === layerControls.layers.length - 1;
                     const dropPosition =
                       dragOverLayer?.id === layer.id ? dragOverLayer.position : null;
                     const isDragging = draggingLayerId === layer.id;
                     const containerStyle: CSSProperties = {
-                      border: `1px solid ${isActive ? '#4a90e2' : '#e0e0e0'}`,
+                      border: `1px solid ${isSelected ? '#4a90e2' : '#e0e0e0'}`,
                       borderRadius: '8px',
                       padding: '0.5rem',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '0.5rem',
-                      backgroundColor: isActive ? '#f4f8ff' : '#ffffff',
+                      backgroundColor: isSelected ? '#f4f8ff' : '#ffffff',
                       opacity: isDragging ? 0.6 : 1,
                       position: 'relative',
                       transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                      boxShadow: isPrimary ? '0 0 0 2px rgba(74,144,226,0.25)' : undefined,
                     };
 
                     if (dropPosition === 'above') {
@@ -1111,17 +1169,25 @@ export const SimpleCanvas = ({
                           <button
                             type="button"
                             onPointerDown={(event) => event.stopPropagation()}
-                            onClick={() => layerControls.selectLayer(layer.id)}
+                            onClick={(event) => {
+                              const mode: LayerSelectionMode = event.shiftKey
+                                ? 'range'
+                                : event.metaKey || event.ctrlKey
+                                  ? 'toggle'
+                                  : 'replace';
+                              pendingSelectionRef.current = layerControls.selectLayer(layer.id, { mode });
+                            }}
                             style={{
                               flex: 1,
                               textAlign: 'left',
                               border: 'none',
                               background: 'transparent',
                               fontSize: '0.875rem',
-                              fontWeight: isActive ? 700 : 500,
+                              fontWeight: isSelected ? 700 : 500,
                               color: '#333333',
                               cursor: 'pointer',
                             }}
+                            aria-pressed={isSelected}
                           >
                             {layer.name}
                           </button>
@@ -1277,15 +1343,15 @@ export const SimpleCanvas = ({
       >
         {renderableLayers && renderableLayers.length > 0 ? (
           renderableLayers.map((layer) => {
-            const layerIsActive = Boolean(layerControls && layerControls.activeLayerId === layer.id);
+            const layerIsSelected = selectedLayerSet.has(layer.id);
 
             return (
               <Layer
                 ref={(node) => {
                   if (node) {
                     layerNodeRefs.current.set(layer.id, node);
-                    if (selectModeActive && layerControls?.activeLayerId === layer.id) {
-                      updateBoundsFromLayerId(layer.id);
+                    if (selectModeActive && layerIsSelected) {
+                      updateBoundsFromLayerIds(pendingSelectionRef.current ?? selectedLayerIds);
                     }
                   } else {
                     layerNodeRefs.current.delete(layer.id);
@@ -1301,43 +1367,46 @@ export const SimpleCanvas = ({
                   if (!selectModeActive || !layerControls) {
                     return;
                   }
-                  if (!layerIsActive) {
-                    layerControls.selectLayer(layer.id);
-                  }
-                  updateBoundsFromLayerId(layer.id);
-                  const stage = event.target.getStage();
-                  if (stage) {
-                    stage.container().style.cursor = 'pointer';
-                  }
+
+                  event.cancelBubble = true;
+
+                  const nativeEvent = event.evt as MouseEvent;
+                  const mode: LayerSelectionMode = nativeEvent.shiftKey
+                    ? 'append'
+                    : nativeEvent.metaKey || nativeEvent.ctrlKey
+                      ? 'toggle'
+                      : 'replace';
+
+                  pendingSelectionRef.current = layerControls.selectLayer(layer.id, { mode });
                 }}
                 onTap={(event: KonvaEventObject<TouchEvent>) => {
                   if (!selectModeActive || !layerControls) {
                     return;
                   }
-                  if (!layerIsActive) {
-                    layerControls.selectLayer(layer.id);
-                  }
-                  updateBoundsFromLayerId(layer.id);
-                  const stage = event.target.getStage();
-                  if (stage) {
-                    stage.container().style.cursor = 'pointer';
-                  }
+
+                  event.cancelBubble = true;
+                  pendingSelectionRef.current = layerControls.selectLayer(layer.id, { mode: 'replace' });
                 }}
                 onPointerDown={(event: KonvaEventObject<PointerEvent>) => {
                   if (!selectModeActive || !layerControls) {
                     return;
                   }
 
-                  if (!layerIsActive) {
-                    layerControls.selectLayer(layer.id);
-                  }
+                  const nativeEvent = event.evt as PointerEvent;
+                  const mode: LayerSelectionMode = nativeEvent.shiftKey
+                    ? 'append'
+                    : nativeEvent.metaKey || nativeEvent.ctrlKey
+                      ? 'toggle'
+                      : 'replace';
 
-                  updateBoundsFromLayerId(layer.id);
+                  pendingSelectionRef.current = layerControls.selectLayer(layer.id, { mode });
 
                   const stage = event.target.getStage();
                   if (stage) {
                     stage.container().style.cursor = 'pointer';
                   }
+
+                  event.cancelBubble = true;
                 }}
                 onPointerEnter={(event: KonvaEventObject<PointerEvent>) => {
                   const stage = event.target.getStage();
@@ -1350,10 +1419,11 @@ export const SimpleCanvas = ({
                   stage.container().style.cursor = baseCursor;
                 }}
                 onPointerUp={(event: KonvaEventObject<PointerEvent>) => {
-                  if (!selectModeActive) {
+                  if (!selectModeActive || !layerControls) {
                     return;
                   }
-                  updateBoundsFromLayerId(layer.id);
+
+                  updateBoundsFromLayerIds(pendingSelectionRef.current ?? layerControls.selectedLayerIds);
                   const stage = event.target.getStage();
                   if (stage) {
                     stage.container().style.cursor = 'pointer';
@@ -1361,30 +1431,99 @@ export const SimpleCanvas = ({
                 }}
                 onDragStart={(event: KonvaEventObject<DragEvent>) => {
                   if (!selectModeActive || !layerControls) return;
+
                   event.cancelBubble = true;
-                  const stage = event.target.getStage();
-                  if (!layerIsActive) {
-                    layerControls.selectLayer(layer.id);
+
+                  const activeSelection = pendingSelectionRef.current ?? layerControls.selectedLayerIds;
+                  const selection = activeSelection.includes(layer.id) ? activeSelection : [layer.id];
+
+                  const initialPositions = new Map<string, PanOffset>();
+                  selection.forEach((id) => {
+                    const descriptor = layerControls.layers.find((entry) => entry.id === id);
+                    if (descriptor) {
+                      initialPositions.set(id, { ...descriptor.position });
+                    }
+                  });
+
+                  if (!initialPositions.has(layer.id)) {
+                    initialPositions.set(layer.id, { ...layer.position });
                   }
-                  updateBoundsFromLayerId(layer.id);
+
+                  selectionDragStateRef.current = {
+                    anchorLayerId: layer.id,
+                    initialPositions,
+                  };
+
+                  const stage = event.target.getStage();
                   if (stage) {
                     stage.container().style.cursor = 'grabbing';
                   }
                 }}
                 onDragMove={(event: KonvaEventObject<DragEvent>) => {
-                  if (!selectModeActive) return;
-                  updateBoundsFromLayerId(layer.id);
+                  if (!selectModeActive || !layerControls) return;
+
+                  const dragState = selectionDragStateRef.current;
+                  const activeSelection = pendingSelectionRef.current ?? layerControls.selectedLayerIds;
+
+                  if (!dragState) {
+                    updateBoundsFromLayerIds(activeSelection);
+                    event.target.getStage()?.batchDraw();
+                    return;
+                  }
+
+                  const anchorInitial = dragState.initialPositions.get(layer.id);
+                  if (!anchorInitial) {
+                    return;
+                  }
+
+                  const currentPosition = event.target.position();
+                  const deltaX = currentPosition.x - anchorInitial.x;
+                  const deltaY = currentPosition.y - anchorInitial.y;
+
+                  activeSelection.forEach((id) => {
+                    if (id === layer.id) {
+                      return;
+                    }
+                    const original = dragState.initialPositions.get(id);
+                    const node = layerNodeRefs.current.get(id);
+                    if (!original || !node) {
+                      return;
+                    }
+                    node.position({
+                      x: original.x + deltaX,
+                      y: original.y + deltaY,
+                    });
+                  });
+
+                  updateBoundsFromLayerIds(activeSelection);
                   event.target.getStage()?.batchDraw();
                 }}
                 onDragEnd={(event: KonvaEventObject<DragEvent>) => {
                   if (!selectModeActive || !layerControls) return;
-                  const position = event.target.position();
-                  layerControls.updateLayerPosition(layer.id, {
-                    x: position.x,
-                    y: position.y,
+
+                  const dragState = selectionDragStateRef.current;
+                  selectionDragStateRef.current = null;
+
+                  const activeSelection = (pendingSelectionRef.current ?? layerControls.selectedLayerIds).slice();
+                  pendingSelectionRef.current = null;
+
+                  const idsToUpdate = dragState?.initialPositions ? activeSelection : [layer.id];
+
+                  idsToUpdate.forEach((id) => {
+                    const node = id === layer.id ? event.target : layerNodeRefs.current.get(id);
+                    if (!node) {
+                      return;
+                    }
+                    const position = node.position();
+                    layerControls.updateLayerPosition(id, {
+                      x: position.x,
+                      y: position.y,
+                    });
                   });
+
                   layerControls.ensureAllVisible();
-                  updateBoundsFromLayerId(layer.id);
+                  updateBoundsFromLayerIds(layerControls.selectedLayerIds);
+
                   const stage = event.target.getStage();
                   if (stage) {
                     stage.container().style.cursor = 'pointer';

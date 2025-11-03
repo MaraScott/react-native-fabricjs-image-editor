@@ -54,6 +54,24 @@ const normaliseLayerDefinitions = (
   }));
 };
 
+const areSelectionsEqual = (first: string[], second: string[]): boolean => {
+  if (first === second) {
+    return true;
+  }
+
+  if (first.length !== second.length) {
+    return false;
+  }
+
+  for (let index = 0; index < first.length; index += 1) {
+    if (first[index] !== second[index]) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 /**
  * CanvasContainer Organism - Main canvas component with full functionality
  * Manages canvas state, zoom, and high-level layer operations for the canvas
@@ -112,20 +130,132 @@ export const CanvasContainer = ({
     ];
   });
 
-  const [activeLayerId, setActiveLayerId] = useState<string | null>(() => {
+  const [selectedLayerIds, setSelectedLayerIds] = useState<string[]>(() => {
+    const firstLayer = initialLayerState[0];
+    return firstLayer ? [firstLayer.id] : [];
+  });
+  const [primaryLayerId, setPrimaryLayerId] = useState<string | null>(() => {
     const firstLayer = initialLayerState[0];
     return firstLayer?.id ?? null;
   });
 
-  useEffect(() => {
-    if (!activeLayerId && layers.length > 0) {
-      setActiveLayerId(layers[0].id);
-    }
-  }, [activeLayerId, layers]);
+  const layerIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    layers.forEach((layer, index) => {
+      map.set(layer.id, index);
+    });
+    return map;
+  }, [layers]);
 
-  const selectLayer = useCallback<LayerControlHandlers['selectLayer']>((layerId) => {
-    setActiveLayerId(layerId);
-  }, []);
+  useEffect(() => {
+    if (layers.length === 0) {
+      if (selectedLayerIds.length > 0) {
+        setSelectedLayerIds([]);
+      }
+      if (primaryLayerId !== null) {
+        setPrimaryLayerId(null);
+      }
+      return;
+    }
+
+    const validSelected = selectedLayerIds.filter((id) => layerIndexMap.has(id));
+    const sortedSelection = validSelected.length > 0
+      ? [...validSelected].sort(
+        (a, b) => (layerIndexMap.get(a) ?? 0) - (layerIndexMap.get(b) ?? 0)
+      )
+      : [layers[0].id];
+
+    if (!areSelectionsEqual(selectedLayerIds, sortedSelection)) {
+      setSelectedLayerIds(sortedSelection);
+    }
+
+    const primaryCandidate = sortedSelection.includes(primaryLayerId ?? '')
+      ? (primaryLayerId ?? sortedSelection[sortedSelection.length - 1])
+      : sortedSelection[sortedSelection.length - 1];
+
+    if (primaryCandidate !== primaryLayerId) {
+      setPrimaryLayerId(primaryCandidate);
+    }
+  }, [layers, layerIndexMap, primaryLayerId, selectedLayerIds]);
+
+  const selectLayer = useCallback<LayerControlHandlers['selectLayer']>((layerId, options) => {
+    const mode = options?.mode ?? 'replace';
+
+    if (!layerIndexMap.has(layerId)) {
+      return selectedLayerIds;
+    }
+
+    const uniqueAndSorted = (ids: string[]): string[] => {
+      const seen = new Set<string>();
+      const filtered: string[] = [];
+      ids.forEach((id) => {
+        if (layerIndexMap.has(id) && !seen.has(id)) {
+          seen.add(id);
+          filtered.push(id);
+        }
+      });
+      filtered.sort((a, b) => (layerIndexMap.get(a) ?? 0) - (layerIndexMap.get(b) ?? 0));
+      return filtered;
+    };
+
+    const currentSelection = selectedLayerIds.filter((id) => layerIndexMap.has(id));
+    const isSelected = currentSelection.includes(layerId);
+    let nextSelection: string[] = [];
+
+    switch (mode) {
+      case 'append': {
+        nextSelection = isSelected
+          ? currentSelection
+          : uniqueAndSorted([...currentSelection, layerId]);
+        break;
+      }
+      case 'toggle': {
+        if (isSelected) {
+          const remaining = currentSelection.filter((id) => id !== layerId);
+          nextSelection = remaining.length > 0 ? remaining : currentSelection;
+        } else {
+          nextSelection = uniqueAndSorted([...currentSelection, layerId]);
+        }
+        break;
+      }
+      case 'range': {
+        const anchorId =
+          (primaryLayerId && layerIndexMap.has(primaryLayerId))
+            ? primaryLayerId
+            : currentSelection[currentSelection.length - 1] ?? layerId;
+        const anchorIndex = layerIndexMap.get(anchorId) ?? 0;
+        const targetIndex = layerIndexMap.get(layerId) ?? anchorIndex;
+        const [start, end] =
+          anchorIndex <= targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex];
+        const rangeSelection = layers.slice(start, end + 1).map((layer) => layer.id);
+        nextSelection = uniqueAndSorted([...currentSelection, ...rangeSelection]);
+        break;
+      }
+      case 'replace':
+      default:
+        nextSelection = [layerId];
+        break;
+    }
+
+    if (nextSelection.length === 0) {
+      nextSelection = [layerId];
+    }
+
+    if (!areSelectionsEqual(selectedLayerIds, nextSelection)) {
+      setSelectedLayerIds(nextSelection);
+    }
+
+    const nextPrimary =
+      mode === 'toggle' && isSelected && nextSelection.length > 0
+        ? nextSelection[nextSelection.length - 1]
+        : layerId;
+
+    if (nextPrimary !== primaryLayerId) {
+      setPrimaryLayerId(nextPrimary);
+    }
+
+    return nextSelection;
+  }, [layerIndexMap, layers, primaryLayerId, selectedLayerIds]);
 
   const addLayer = useCallback<LayerControlHandlers['addLayer']>(() => {
     let newLayerId: string | null = null;
@@ -148,11 +278,14 @@ export const CanvasContainer = ({
     bumpLayersRevision();
 
     if (newLayerId) {
-      setActiveLayerId(newLayerId);
+      setSelectedLayerIds([newLayerId]);
+      setPrimaryLayerId(newLayerId);
     }
   }, [bumpLayersRevision]);
 
   const removeLayer = useCallback<LayerControlHandlers['removeLayer']>((layerId) => {
+    let fallbackLayerId: string | null = null;
+
     setLayers((previousLayers) => {
       if (previousLayers.length <= 1) {
         return previousLayers;
@@ -168,15 +301,34 @@ export const CanvasContainer = ({
         ...previousLayers.slice(index + 1),
       ];
 
-      setActiveLayerId((current) => {
-        if (current === layerId) {
-          return updatedLayers[Math.min(index, updatedLayers.length - 1)]?.id ?? null;
-        }
-        return current;
-      });
+      fallbackLayerId = updatedLayers[Math.min(index, updatedLayers.length - 1)]?.id ?? null;
 
       return updatedLayers;
     });
+
+    setSelectedLayerIds((currentSelection) => {
+      if (!currentSelection.includes(layerId)) {
+        return currentSelection;
+      }
+
+      const filtered = currentSelection.filter((id) => id !== layerId);
+      if (filtered.length > 0) {
+        return filtered;
+      }
+
+      return fallbackLayerId ? [fallbackLayerId] : [];
+    });
+
+    setPrimaryLayerId((currentPrimary) => {
+      if (currentPrimary === layerId) {
+        return fallbackLayerId;
+      }
+      if (currentPrimary && currentPrimary !== layerId) {
+        return currentPrimary;
+      }
+      return fallbackLayerId;
+    });
+
     bumpLayersRevision();
   }, [bumpLayersRevision]);
 
@@ -206,7 +358,8 @@ export const CanvasContainer = ({
     bumpLayersRevision();
 
     if (newLayerId) {
-      setActiveLayerId(newLayerId);
+      setSelectedLayerIds([newLayerId]);
+      setPrimaryLayerId(newLayerId);
     }
   }, [bumpLayersRevision]);
 
@@ -347,7 +500,8 @@ export const CanvasContainer = ({
 
   const layerControls = useMemo<LayerControlHandlers>(() => ({
     layers,
-    activeLayerId,
+    selectedLayerIds,
+    primaryLayerId,
     selectLayer,
     addLayer,
     removeLayer,
@@ -360,7 +514,8 @@ export const CanvasContainer = ({
     updateLayerPosition,
   }), [
     layers,
-    activeLayerId,
+    selectedLayerIds,
+    primaryLayerId,
     selectLayer,
     addLayer,
     removeLayer,
