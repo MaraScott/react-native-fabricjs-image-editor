@@ -1164,45 +1164,81 @@ export const SimpleCanvas = ({
       >
         {renderableLayers && renderableLayers.length > 0 ? (
           renderableLayers.map((layer) => {
-            const layerIsDraggable = Boolean(
-              selectModeActive && layerControls && layerControls.activeLayerId === layer.id
-            );
+            const layerIsActive = Boolean(layerControls && layerControls.activeLayerId === layer.id);
 
             return (
               <Layer
                 key={`${layer.id}-${layersRevision}`}
+                id={`layer-${layer.id}`}
                 visible={layer.visible}
                 x={layer.position.x}
                 y={layer.position.y}
-                draggable={layerIsDraggable}
-                onMouseEnter={(event: KonvaEventObject<MouseEvent>) => {
+                draggable={Boolean(selectModeActive)}
+                onPointerDown={(event: KonvaEventObject<PointerEvent>) => {
+                  if (!selectModeActive || !layerControls) {
+                    return;
+                  }
+
                   const stage = event.target.getStage();
-                  if (selectModeActive && layerControls) {
+                  const targetLayer = event.currentTarget;
+
+                  if (!layerIsActive) {
                     layerControls.selectLayer(layer.id);
                   }
-                  if (!stage) return;
-                  const shouldShowPointer = Boolean(selectModeActive && layerControls);
-                  stage.container().style.cursor = shouldShowPointer ? 'pointer' : baseCursor;
+
+                  if (stage && targetLayer) {
+                    const rect = targetLayer.getClientRect({ skipTransform: false });
+                    const scaleX = stage.scaleX() || 1;
+                    const scaleY = stage.scaleY() || 1;
+                    const stagePosition = stage.position();
+
+                    setSelectedLayerBounds({
+                      x: (rect.x - stagePosition.x) / scaleX,
+                      y: (rect.y - stagePosition.y) / scaleY,
+                      width: rect.width / scaleX,
+                      height: rect.height / scaleY,
+                    });
+                  }
+
+                  if (stage) {
+                    stage.container().style.cursor = 'pointer';
+                  }
                 }}
-                onMouseLeave={(event: KonvaEventObject<MouseEvent>) => {
+                onPointerEnter={(event: KonvaEventObject<PointerEvent>) => {
+                  const stage = event.target.getStage();
+                  if (!stage) return;
+                  stage.container().style.cursor = selectModeActive ? 'pointer' : baseCursor;
+                }}
+                onPointerLeave={(event: KonvaEventObject<PointerEvent>) => {
                   const stage = event.target.getStage();
                   if (!stage) return;
                   stage.container().style.cursor = baseCursor;
                 }}
                 onDragStart={(event: KonvaEventObject<DragEvent>) => {
-                  if (!layerIsDraggable) return;
+                  if (!selectModeActive || !layerControls) return;
                   event.cancelBubble = true;
                   const stage = event.target.getStage();
+                  layerControls.selectLayer(layer.id);
                   if (stage) {
+                    const rect = event.target.getClientRect({ skipTransform: false });
+                    const scaleX = stage.scaleX() || 1;
+                    const scaleY = stage.scaleY() || 1;
+                    const stagePosition = stage.position();
+                    setSelectedLayerBounds({
+                      x: (rect.x - stagePosition.x) / scaleX,
+                      y: (rect.y - stagePosition.y) / scaleY,
+                      width: rect.width / scaleX,
+                      height: rect.height / scaleY,
+                    });
                     stage.container().style.cursor = 'grabbing';
                   }
                 }}
                 onDragMove={(event: KonvaEventObject<DragEvent>) => {
-                  if (!layerIsDraggable) return;
+                  if (!selectModeActive) return;
                   event.target.getStage()?.batchDraw();
                 }}
                 onDragEnd={(event: KonvaEventObject<DragEvent>) => {
-                  if (!layerIsDraggable || !layerControls) return;
+                  if (!selectModeActive || !layerControls) return;
                   const position = event.target.position();
                   layerControls.updateLayerPosition(layer.id, {
                     x: position.x,
@@ -1211,6 +1247,16 @@ export const SimpleCanvas = ({
                   layerControls.ensureAllVisible();
                   const stage = event.target.getStage();
                   if (stage) {
+                    const rect = event.target.getClientRect({ skipTransform: false });
+                    const scaleX = stage.scaleX() || 1;
+                    const scaleY = stage.scaleY() || 1;
+                    const stagePosition = stage.position();
+                    setSelectedLayerBounds({
+                      x: (rect.x - stagePosition.x) / scaleX,
+                      y: (rect.y - stagePosition.y) / scaleY,
+                      width: rect.width / scaleX,
+                      height: rect.height / scaleY,
+                    });
                     stage.container().style.cursor = 'pointer';
                   }
                   event.target.getStage()?.batchDraw();
