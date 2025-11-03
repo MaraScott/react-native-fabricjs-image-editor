@@ -32,7 +32,7 @@ export const CanvasApp = ({
 }: CanvasAppProps) => {
   const [zoom, setZoom] = useState(initialZoom);
   const [isPanToolActive, setIsPanToolActive] = useState(false);
-  const [isSelectToolActive, setIsSelectToolActive] = useState(false);
+  const [isSelectToolActive, setIsSelectToolActive] = useState(true);
   const initialCanvasLayers = useMemo<CanvasLayerDefinition[]>(() => [
     {
       id: 'layer-text',

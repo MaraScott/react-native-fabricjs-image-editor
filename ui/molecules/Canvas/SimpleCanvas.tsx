@@ -676,7 +676,6 @@ export const SimpleCanvas = ({
   const baseCursor = (isPointerPanning || isTouchPanning)
     ? 'grabbing'
     : (panModeActive || spacePressed ? 'grab' : 'default');
-  const activeLayerId = layerControls?.activeLayerId ?? null;
 
   useEffect(() => {
     if (!stageRef.current) {
@@ -684,7 +683,7 @@ export const SimpleCanvas = ({
     }
 
     stageRef.current.container().style.cursor = baseCursor;
-  }, [baseCursor, selectModeActive, activeLayerId]);
+  }, [baseCursor, selectModeActive]);
 
   const renderableLayers = layerControls ? [...layerControls.layers].reverse() : null;
   const bottomLayerId = layerControls?.layers[layerControls.layers.length - 1]?.id ?? null;
@@ -1178,8 +1177,12 @@ export const SimpleCanvas = ({
                 draggable={layerIsDraggable}
                 onMouseEnter={(event: KonvaEventObject<MouseEvent>) => {
                   const stage = event.target.getStage();
+                  if (selectModeActive && layerControls) {
+                    layerControls.selectLayer(layer.id);
+                  }
                   if (!stage) return;
-                  stage.container().style.cursor = layerIsDraggable ? 'pointer' : baseCursor;
+                  const shouldShowPointer = Boolean(selectModeActive && layerControls);
+                  stage.container().style.cursor = shouldShowPointer ? 'pointer' : baseCursor;
                 }}
                 onMouseLeave={(event: KonvaEventObject<MouseEvent>) => {
                   const stage = event.target.getStage();
