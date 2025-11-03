@@ -6,6 +6,7 @@
 import { useRef, useEffect, useState, useCallback, useLayoutEffect } from 'react';
 import type { ReactNode, CSSProperties, DragEvent } from 'react';
 import { Stage, Layer } from '@atoms/Canvas';
+import { Rect } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 
@@ -53,9 +54,63 @@ const KEYBOARD_ZOOM_STEP = 10;
 const PINCH_ZOOM_SENSITIVITY = 50;
 const TOUCH_DELTA_THRESHOLD = 0.5;
 const MIN_EFFECTIVE_SCALE = 0.05;
+const BOUNDS_RETRY_LIMIT = 4;
 
 const clampZoomValue = (value: number): number => {
   return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
+};
+
+type Bounds = { x: number; y: number; width: number; height: number };
+
+const isFiniteNumber = (value: number): boolean => Number.isFinite(value);
+
+const normaliseBounds = (rect: Bounds | null | undefined): Bounds | null => {
+  if (!rect) {
+    return null;
+  }
+
+  const { x, y, width, height } = rect;
+
+  if (![x, y, width, height].every(isFiniteNumber)) {
+    return null;
+  }
+
+  return {
+    x,
+    y,
+    width: Math.max(0, width),
+    height: Math.max(0, height),
+  };
+};
+
+const computeNodeBounds = (node: Konva.Node | null): Bounds | null => {
+  if (!node) {
+    return null;
+  }
+
+  const rect = node.getClientRect({
+    skipTransform: false,
+    relativeTo: node.getStage() ?? undefined,
+  });
+
+  return normaliseBounds(rect);
+};
+
+const areBoundsEqual = (first: Bounds | null, second: Bounds | null): boolean => {
+  if (first === second) {
+    return true;
+  }
+
+  if (!first || !second) {
+    return false;
+  }
+
+  return (
+    first.x === second.x &&
+    first.y === second.y &&
+    first.width === second.width &&
+    first.height === second.height
+  );
 };
 
 export interface SimpleCanvasProps {
@@ -115,6 +170,8 @@ export const SimpleCanvas = ({
     id: string;
     position: 'above' | 'below';
   } | null>(null);
+  const [selectedLayerBounds, setSelectedLayerBounds] = useState<Bounds | null>(null);
+  const layerNodeRefs = useRef<Map<string, Konva.Layer>>(new Map());
 
   useEffect(() => {
     panOffsetRef.current = panOffset;
@@ -146,6 +203,59 @@ export const SimpleCanvas = ({
     const timeoutId = window.setTimeout(() => setCopyFeedback(null), 2000);
     return () => window.clearTimeout(timeoutId);
   }, [copyFeedback]);
+
+  const updateBoundsFromLayerId = useCallback(
+    (layerId: string | null | undefined, attempt: number = 0) => {
+      if (!selectModeActive) {
+        setSelectedLayerBounds(null);
+        return;
+      }
+
+      if (!layerId) {
+        return;
+      }
+
+      const cachedNode = layerNodeRefs.current.get(layerId);
+      const stage = stageRef.current;
+      const layerNode = cachedNode ?? stage?.findOne(`#layer-${layerId}`) ?? null;
+
+      if (!layerNode) {
+        if (attempt < BOUNDS_RETRY_LIMIT && typeof window !== 'undefined') {
+          window.requestAnimationFrame(() => updateBoundsFromLayerId(layerId, attempt + 1));
+        }
+        return;
+      }
+
+      const bounds = computeNodeBounds(layerNode);
+      if (!bounds) {
+        if (attempt < BOUNDS_RETRY_LIMIT && typeof window !== 'undefined') {
+          window.requestAnimationFrame(() => updateBoundsFromLayerId(layerId, attempt + 1));
+        }
+        return;
+      }
+
+      setSelectedLayerBounds((previous) => (areBoundsEqual(previous, bounds) ? previous : bounds));
+      layerNode.getStage()?.batchDraw();
+    },
+    [selectModeActive]
+  );
+
+  const refreshBoundsFromActiveLayer = useCallback(() => {
+    updateBoundsFromLayerId(layerControls?.activeLayerId ?? null);
+  }, [layerControls?.activeLayerId, updateBoundsFromLayerId]);
+
+  useEffect(() => {
+    refreshBoundsFromActiveLayer();
+  }, [refreshBoundsFromActiveLayer, layersRevision, scale]);
+
+  useEffect(() => {
+    if (!selectModeActive) {
+      setSelectedLayerBounds(null);
+      return;
+    }
+
+    refreshBoundsFromActiveLayer();
+  }, [selectModeActive, refreshBoundsFromActiveLayer]);
 
   // Calculate scale based on zoom and container size
   useLayoutEffect(() => {
@@ -672,6 +782,9 @@ export const SimpleCanvas = ({
 
   const renderWidth = Math.max(1, width * scale);
   const renderHeight = Math.max(1, height * scale);
+  const safeScale = Math.max(scale, 0.0001);
+  const outlineStrokeWidth = Math.max(1 / safeScale, 0.75);
+  const outlineDash: [number, number] = [8 / safeScale, 4 / safeScale];
 
   const baseCursor = (isPointerPanning || isTouchPanning)
     ? 'grabbing'
@@ -1168,38 +1281,60 @@ export const SimpleCanvas = ({
 
             return (
               <Layer
-                key={`${layer.id}-${layersRevision}`}
+                ref={(node) => {
+                  if (node) {
+                    layerNodeRefs.current.set(layer.id, node);
+                    if (selectModeActive && layerControls?.activeLayerId === layer.id) {
+                      updateBoundsFromLayerId(layer.id);
+                    }
+                  } else {
+                    layerNodeRefs.current.delete(layer.id);
+                  }
+                }}
+                key={layer.id}
                 id={`layer-${layer.id}`}
                 visible={layer.visible}
                 x={layer.position.x}
                 y={layer.position.y}
                 draggable={Boolean(selectModeActive)}
+                onClick={(event: KonvaEventObject<MouseEvent>) => {
+                  if (!selectModeActive || !layerControls) {
+                    return;
+                  }
+                  if (!layerIsActive) {
+                    layerControls.selectLayer(layer.id);
+                  }
+                  updateBoundsFromLayerId(layer.id);
+                  const stage = event.target.getStage();
+                  if (stage) {
+                    stage.container().style.cursor = 'pointer';
+                  }
+                }}
+                onTap={(event: KonvaEventObject<TouchEvent>) => {
+                  if (!selectModeActive || !layerControls) {
+                    return;
+                  }
+                  if (!layerIsActive) {
+                    layerControls.selectLayer(layer.id);
+                  }
+                  updateBoundsFromLayerId(layer.id);
+                  const stage = event.target.getStage();
+                  if (stage) {
+                    stage.container().style.cursor = 'pointer';
+                  }
+                }}
                 onPointerDown={(event: KonvaEventObject<PointerEvent>) => {
                   if (!selectModeActive || !layerControls) {
                     return;
                   }
 
-                  const stage = event.target.getStage();
-                  const targetLayer = event.currentTarget;
-
                   if (!layerIsActive) {
                     layerControls.selectLayer(layer.id);
                   }
 
-                  if (stage && targetLayer) {
-                    const rect = targetLayer.getClientRect({ skipTransform: false });
-                    const scaleX = stage.scaleX() || 1;
-                    const scaleY = stage.scaleY() || 1;
-                    const stagePosition = stage.position();
+                  updateBoundsFromLayerId(layer.id);
 
-                    setSelectedLayerBounds({
-                      x: (rect.x - stagePosition.x) / scaleX,
-                      y: (rect.y - stagePosition.y) / scaleY,
-                      width: rect.width / scaleX,
-                      height: rect.height / scaleY,
-                    });
-                  }
-
+                  const stage = event.target.getStage();
                   if (stage) {
                     stage.container().style.cursor = 'pointer';
                   }
@@ -1214,27 +1349,31 @@ export const SimpleCanvas = ({
                   if (!stage) return;
                   stage.container().style.cursor = baseCursor;
                 }}
+                onPointerUp={(event: KonvaEventObject<PointerEvent>) => {
+                  if (!selectModeActive) {
+                    return;
+                  }
+                  updateBoundsFromLayerId(layer.id);
+                  const stage = event.target.getStage();
+                  if (stage) {
+                    stage.container().style.cursor = 'pointer';
+                  }
+                }}
                 onDragStart={(event: KonvaEventObject<DragEvent>) => {
                   if (!selectModeActive || !layerControls) return;
                   event.cancelBubble = true;
                   const stage = event.target.getStage();
-                  layerControls.selectLayer(layer.id);
+                  if (!layerIsActive) {
+                    layerControls.selectLayer(layer.id);
+                  }
+                  updateBoundsFromLayerId(layer.id);
                   if (stage) {
-                    const rect = event.target.getClientRect({ skipTransform: false });
-                    const scaleX = stage.scaleX() || 1;
-                    const scaleY = stage.scaleY() || 1;
-                    const stagePosition = stage.position();
-                    setSelectedLayerBounds({
-                      x: (rect.x - stagePosition.x) / scaleX,
-                      y: (rect.y - stagePosition.y) / scaleY,
-                      width: rect.width / scaleX,
-                      height: rect.height / scaleY,
-                    });
                     stage.container().style.cursor = 'grabbing';
                   }
                 }}
                 onDragMove={(event: KonvaEventObject<DragEvent>) => {
                   if (!selectModeActive) return;
+                  updateBoundsFromLayerId(layer.id);
                   event.target.getStage()?.batchDraw();
                 }}
                 onDragEnd={(event: KonvaEventObject<DragEvent>) => {
@@ -1245,18 +1384,9 @@ export const SimpleCanvas = ({
                     y: position.y,
                   });
                   layerControls.ensureAllVisible();
+                  updateBoundsFromLayerId(layer.id);
                   const stage = event.target.getStage();
                   if (stage) {
-                    const rect = event.target.getClientRect({ skipTransform: false });
-                    const scaleX = stage.scaleX() || 1;
-                    const scaleY = stage.scaleY() || 1;
-                    const stagePosition = stage.position();
-                    setSelectedLayerBounds({
-                      x: (rect.x - stagePosition.x) / scaleX,
-                      y: (rect.y - stagePosition.y) / scaleY,
-                      width: rect.width / scaleX,
-                      height: rect.height / scaleY,
-                    });
                     stage.container().style.cursor = 'pointer';
                   }
                   event.target.getStage()?.batchDraw();
@@ -1269,6 +1399,20 @@ export const SimpleCanvas = ({
         ) : (
           <Layer>
             {children}
+          </Layer>
+        )}
+        {selectModeActive && selectedLayerBounds && (
+          <Layer listening={false}>
+            <Rect
+              x={selectedLayerBounds.x}
+              y={selectedLayerBounds.y}
+              width={selectedLayerBounds.width}
+              height={selectedLayerBounds.height}
+              stroke="#00f6ff"
+              strokeWidth={outlineStrokeWidth}
+              dash={outlineDash}
+              listening={false}
+            />
           </Layer>
         )}
       </Stage>

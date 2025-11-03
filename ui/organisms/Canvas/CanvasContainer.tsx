@@ -343,8 +343,7 @@ export const CanvasContainer = ({
           : layer
       )
     );
-    bumpLayersRevision();
-  }, [bumpLayersRevision]);
+  }, []);
 
   const layerControls = useMemo<LayerControlHandlers>(() => ({
     layers,
