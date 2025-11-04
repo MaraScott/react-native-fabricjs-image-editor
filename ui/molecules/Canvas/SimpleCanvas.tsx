@@ -28,6 +28,17 @@ type SelectionDragState = {
   initialPositions: Map<string, PanOffset>;
 };
 
+type SelectionNodeSnapshot = {
+  id: string;
+  node: Konva.Layer;
+  transform: Konva.Transform;
+};
+
+type SelectionTransformSnapshot = {
+  proxyTransform: Konva.Transform;
+  nodes: SelectionNodeSnapshot[];
+};
+
 export type LayerMoveDirection = 'up' | 'down' | 'top' | 'bottom';
 
 export interface LayerDescriptor {
@@ -180,6 +191,8 @@ export const SimpleCanvas = ({
   const selectionDragStateRef = useRef<SelectionDragState | null>(null);
   const pendingSelectionRef = useRef<string[] | null>(null);
   const selectionTransformerRef = useRef<Konva.Transformer | null>(null);
+  const selectionProxyRef = useRef<Konva.Rect | null>(null);
+  const selectionTransformStateRef = useRef<SelectionTransformSnapshot | null>(null);
   const transformAnimationFrameRef = useRef<number | null>(null);
   const isSelectionTransformingRef = useRef(false);
   const [scale, setScale] = useState(1);
@@ -200,6 +213,10 @@ export const SimpleCanvas = ({
   } | null>(null);
   const [selectedLayerBounds, setSelectedLayerBounds] = useState<Bounds | null>(null);
   const layerNodeRefs = useRef<Map<string, Konva.Layer>>(new Map());
+  const renderableLayers = layerControls ? [...layerControls.layers].reverse() : null;
+  const selectedLayerIds = layerControls?.selectedLayerIds ?? [];
+  const selectedLayerSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds]);
+  const primaryLayerId = layerControls?.primaryLayerId ?? null;
 
   useEffect(() => {
     panOffsetRef.current = panOffset;
@@ -323,6 +340,152 @@ export const SimpleCanvas = ({
     });
   }, [refreshBoundsFromSelection, selectModeActive]);
 
+  const captureSelectionTransformState = useCallback(() => {
+    const proxy = selectionProxyRef.current;
+    if (!proxy) {
+      selectionTransformStateRef.current = null;
+      return;
+    }
+
+    const nodeSnapshots = selectedLayerIds
+      .map((layerId) => {
+        const node = layerNodeRefs.current.get(layerId);
+        if (!node) {
+          return null;
+        }
+
+        return {
+          id: layerId,
+          node,
+          transform: node.getAbsoluteTransform().copy(),
+        };
+      })
+      .filter((snapshot): snapshot is SelectionNodeSnapshot => Boolean(snapshot));
+
+    if (nodeSnapshots.length === 0) {
+      selectionTransformStateRef.current = null;
+      return;
+    }
+
+    selectionTransformStateRef.current = {
+      proxyTransform: proxy.getAbsoluteTransform().copy(),
+      nodes: nodeSnapshots,
+    };
+  }, [selectedLayerIds]);
+
+  const applySelectionTransformDelta = useCallback(() => {
+    const snapshot = selectionTransformStateRef.current;
+    const proxy = selectionProxyRef.current;
+
+    if (!snapshot || !proxy) {
+      return;
+    }
+
+    const currentProxyTransform = proxy.getAbsoluteTransform();
+    const initialProxyTransform = snapshot.proxyTransform;
+
+    const initialInverse = initialProxyTransform.copy().invert();
+    const delta = currentProxyTransform.copy();
+    delta.multiply(initialInverse);
+
+    snapshot.nodes.forEach(({ node, transform }) => {
+      const absoluteTransform = delta.copy().multiply(transform);
+
+      const parent = node.getParent();
+      const localTransform = parent
+        ? parent.getAbsoluteTransform().copy().invert().multiply(absoluteTransform)
+        : absoluteTransform;
+
+      const decomposition = localTransform.decompose();
+
+      if (Number.isFinite(decomposition.x) && Number.isFinite(decomposition.y)) {
+        node.position({
+          x: decomposition.x,
+          y: decomposition.y,
+        });
+      }
+
+      if (Number.isFinite(decomposition.rotation)) {
+        node.rotation(decomposition.rotation);
+      }
+
+      if (Number.isFinite(decomposition.scaleX)) {
+        node.scaleX(decomposition.scaleX);
+      }
+
+      if (Number.isFinite(decomposition.scaleY)) {
+        node.scaleY(decomposition.scaleY);
+      }
+
+      if (Number.isFinite(decomposition.skewX)) {
+        node.skewX(decomposition.skewX);
+      }
+
+      if (Number.isFinite(decomposition.skewY)) {
+        node.skewY(decomposition.skewY);
+      }
+
+      if (Number.isFinite(decomposition.offsetX)) {
+        node.offsetX(decomposition.offsetX);
+      }
+
+      if (Number.isFinite(decomposition.offsetY)) {
+        node.offsetY(decomposition.offsetY);
+      }
+
+      if (typeof node.batchDraw === 'function') {
+        node.batchDraw();
+      }
+    });
+
+    proxy.getStage()?.batchDraw();
+  }, []);
+
+  const finalizeSelectionTransform = useCallback(() => {
+    const proxy = selectionProxyRef.current;
+
+    if (layerControls) {
+      selectedLayerIds.forEach((layerId) => {
+        const node = layerNodeRefs.current.get(layerId);
+        if (!node) {
+          return;
+        }
+
+        const position = node.position();
+        layerControls.updateLayerPosition(layerId, {
+          x: position.x,
+          y: position.y,
+        });
+
+        const rotation = node.rotation();
+        const scaleX = node.scaleX();
+        const scaleY = node.scaleY();
+
+        if (typeof layerControls.updateLayerTransform === 'function') {
+          layerControls.updateLayerTransform(layerId, {
+            position: { x: position.x, y: position.y },
+            rotation,
+            scale: { x: scaleX, y: scaleY },
+          });
+        } else {
+          if (typeof layerControls.updateLayerRotation === 'function') {
+            layerControls.updateLayerRotation(layerId, rotation);
+          }
+          if (typeof layerControls.updateLayerScale === 'function') {
+            layerControls.updateLayerScale(layerId, { x: scaleX, y: scaleY });
+          }
+        }
+      });
+
+      layerControls.ensureAllVisible();
+    }
+
+    selectionTransformStateRef.current = null;
+    isSelectionTransformingRef.current = false;
+    scheduleBoundsRefresh();
+    proxy?.getLayer()?.batchDraw();
+  }, [layerControls, scheduleBoundsRefresh, selectedLayerIds]);
+
   useEffect(() => {
     refreshBoundsFromSelection();
   }, [refreshBoundsFromSelection, layersRevision, scale]);
@@ -445,67 +608,50 @@ export const SimpleCanvas = ({
 
   const handleTransformerTransformStart = useCallback(() => {
     isSelectionTransformingRef.current = true;
-  }, []);
+    captureSelectionTransformState();
+  }, [captureSelectionTransformState]);
 
   const handleTransformerTransform = useCallback(() => {
+    applySelectionTransformDelta();
     scheduleBoundsRefresh();
-  }, [scheduleBoundsRefresh]);
+  }, [applySelectionTransformDelta, scheduleBoundsRefresh]);
 
   const handleTransformerTransformEnd = useCallback(() => {
-    isSelectionTransformingRef.current = false;
+    applySelectionTransformDelta();
+    finalizeSelectionTransform();
+  }, [applySelectionTransformDelta, finalizeSelectionTransform]);
 
-    const transformer = selectionTransformerRef.current;
-    if (!transformer) {
-      scheduleBoundsRefresh();
+  const handleSelectionProxyDragStart = useCallback(() => {
+    if (!selectModeActive) {
       return;
     }
-
-    const nodes = transformer.nodes();
-
-    if (layerControls) {
-      nodes.forEach((node) => {
-        const identifier = node.id();
-        if (!identifier) {
-          return;
-        }
-
-        const layerId = identifier.startsWith('layer-') ? identifier.slice(6) : identifier;
-        if (!layerId) {
-          return;
-        }
-
-        const position = node.position();
-        layerControls.updateLayerPosition(layerId, {
-          x: position.x,
-          y: position.y,
-        });
-
-        const rotation = node.rotation();
-        const scaleX = node.scaleX();
-        const scaleY = node.scaleY();
-
-        if (typeof layerControls.updateLayerTransform === 'function') {
-          layerControls.updateLayerTransform(layerId, {
-            position: { x: position.x, y: position.y },
-            rotation,
-            scale: { x: scaleX, y: scaleY },
-          });
-        } else {
-          if (typeof layerControls.updateLayerRotation === 'function') {
-            layerControls.updateLayerRotation(layerId, rotation);
-          }
-          if (typeof layerControls.updateLayerScale === 'function') {
-            layerControls.updateLayerScale(layerId, { x: scaleX, y: scaleY });
-          }
-        }
-      });
-
-      layerControls.ensureAllVisible();
+    isSelectionTransformingRef.current = true;
+    captureSelectionTransformState();
+    const stage = stageRef.current;
+    if (stage) {
+      stage.container().style.cursor = 'grabbing';
     }
+  }, [captureSelectionTransformState, selectModeActive]);
 
+  const handleSelectionProxyDragMove = useCallback(() => {
+    if (!selectModeActive) {
+      return;
+    }
+    applySelectionTransformDelta();
     scheduleBoundsRefresh();
-    transformer.getLayer()?.batchDraw();
-  }, [layerControls, scheduleBoundsRefresh]);
+  }, [applySelectionTransformDelta, scheduleBoundsRefresh, selectModeActive]);
+
+  const handleSelectionProxyDragEnd = useCallback(() => {
+    if (!selectModeActive) {
+      return;
+    }
+    applySelectionTransformDelta();
+    finalizeSelectionTransform();
+    const stage = stageRef.current;
+    if (stage) {
+      stage.container().style.cursor = 'pointer';
+    }
+  }, [applySelectionTransformDelta, finalizeSelectionTransform, selectModeActive]);
 
   // Mouse wheel zoom
   useEffect(() => {
@@ -926,12 +1072,11 @@ export const SimpleCanvas = ({
   const renderWidth = Math.max(1, width * scale);
   const renderHeight = Math.max(1, height * scale);
   const safeScale = Math.max(scale, 0.0001);
-  const outlineStrokeWidth = Math.max(1 / safeScale, 0.75);
   const outlineDash: [number, number] = [8 / safeScale, 4 / safeScale];
   const transformerAnchorSize = Math.max(8 / safeScale, 6);
   const transformerAnchorStrokeWidth = Math.max(1 / safeScale, 0.75);
   const transformerAnchorCornerRadius = Math.max(2 / safeScale, 1);
-  const transformerPadding = 8 / safeScale;
+  const transformerPadding = 0;
   const transformerHitStrokeWidth = Math.max(12 / safeScale, 6);
 
   const baseCursor = (isPointerPanning || isTouchPanning)
@@ -946,33 +1091,50 @@ export const SimpleCanvas = ({
     stageRef.current.container().style.cursor = baseCursor;
   }, [baseCursor, selectModeActive]);
 
-  const renderableLayers = layerControls ? [...layerControls.layers].reverse() : null;
-  const selectedLayerIds = layerControls?.selectedLayerIds ?? [];
-  const selectedLayerSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds]);
-  const primaryLayerId = layerControls?.primaryLayerId ?? null;
-
   const syncTransformerToSelection = useCallback(() => {
     const transformer = selectionTransformerRef.current;
-    if (!transformer) {
+    const proxy = selectionProxyRef.current;
+
+    if (!transformer || !proxy) {
       return;
     }
 
-    if (!selectModeActive) {
+    if (!selectModeActive || !selectedLayerBounds) {
+      proxy.visible(false);
       transformer.nodes([]);
       transformer.visible(false);
       transformer.getLayer()?.batchDraw();
       return;
     }
 
-    const nodes = selectedLayerIds
-      .map((layerId) => layerNodeRefs.current.get(layerId))
-      .filter((node): node is Konva.Layer => Boolean(node));
+    if (!isSelectionTransformingRef.current) {
+      const minimumSize = 0.001;
+      const width = Math.max(selectedLayerBounds.width, minimumSize);
+      const height = Math.max(selectedLayerBounds.height, minimumSize);
+      const centerX = selectedLayerBounds.x + selectedLayerBounds.width / 2;
+      const centerY = selectedLayerBounds.y + selectedLayerBounds.height / 2;
 
-    transformer.nodes(nodes);
-    transformer.visible(nodes.length > 0);
+      proxy.width(width);
+      proxy.height(height);
+      proxy.offset({
+        x: width / 2,
+        y: height / 2,
+      });
+      proxy.position({
+        x: centerX,
+        y: centerY,
+      });
+      proxy.rotation(0);
+      proxy.scale({ x: 1, y: 1 });
+    }
+
+    proxy.visible(true);
+
+    transformer.nodes([proxy]);
+    transformer.visible(true);
     transformer.forceUpdate();
     transformer.getLayer()?.batchDraw();
-  }, [selectModeActive, selectedLayerIds]);
+  }, [selectModeActive, selectedLayerBounds]);
 
   useEffect(() => {
     syncTransformerToSelection();
@@ -993,6 +1155,10 @@ export const SimpleCanvas = ({
       pendingSelectionRef.current = null;
     }
   }, [selectedLayerIds]);
+  useEffect(() => {
+    selectionTransformStateRef.current = null;
+  }, [selectedLayerIds]);
+
   const bottomLayerId = layerControls?.layers[layerControls.layers.length - 1]?.id ?? null;
   const smallActionButtonStyle: CSSProperties = {
     border: '1px solid #d0d0d0',
@@ -1679,27 +1845,29 @@ export const SimpleCanvas = ({
             {children}
           </Layer>
         )}
-        {selectModeActive && selectedLayerBounds && (
-          <Layer listening={false}>
-            <Rect
-              x={selectedLayerBounds.x}
-              y={selectedLayerBounds.y}
-              width={selectedLayerBounds.width}
-              height={selectedLayerBounds.height}
-              stroke="#00f6ff"
-              strokeWidth={outlineStrokeWidth}
-              dash={outlineDash}
-              listening={false}
-            />
-          </Layer>
-        )}
         {selectModeActive && (
           <Layer listening={Boolean(selectedLayerIds.length > 0)}>
+            <Rect
+              ref={selectionProxyRef}
+              x={0}
+              y={0}
+              width={0}
+              height={0}
+              opacity={0.001}
+              fill="#ffffff"
+              strokeEnabled={false}
+              listening={Boolean(selectedLayerBounds && selectedLayerIds.length > 0)}
+              draggable
+              perfectDrawEnabled={false}
+              onDragStart={handleSelectionProxyDragStart}
+              onDragMove={handleSelectionProxyDragMove}
+              onDragEnd={handleSelectionProxyDragEnd}
+            />
             <Transformer
               ref={selectionTransformerRef}
               rotateEnabled
               resizeEnabled
-              visible={selectedLayerIds.length > 0}
+              visible={Boolean(selectedLayerBounds && selectedLayerIds.length > 0)}
               anchorSize={transformerAnchorSize}
               anchorCornerRadius={transformerAnchorCornerRadius}
               anchorStroke="#00f6ff"
