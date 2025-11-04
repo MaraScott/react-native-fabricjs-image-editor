@@ -6,11 +6,12 @@
 import { useRef, useEffect, useState, useCallback, useLayoutEffect, useMemo } from 'react';
 import type { ReactNode, CSSProperties, DragEvent } from 'react';
 import { Stage, Layer } from '@atoms/Canvas';
-import { Rect } from 'react-konva';
+import { Rect, Transformer } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 
 type PanOffset = { x: number; y: number };
+type ScaleVector = { x: number; y: number };
 type PointerPanState = {
   pointerId: number;
   start: { x: number; y: number };
@@ -57,6 +58,16 @@ export interface LayerControlHandlers {
   reorderLayer: (sourceId: string, targetId: string, position: 'above' | 'below') => void;
   ensureAllVisible: () => void;
   updateLayerPosition: (layerId: string, position: { x: number; y: number }) => void;
+  updateLayerScale?: (layerId: string, scale: ScaleVector) => void;
+  updateLayerRotation?: (layerId: string, rotation: number) => void;
+  updateLayerTransform?: (
+    layerId: string,
+    transform: {
+      position: PanOffset;
+      scale: ScaleVector;
+      rotation: number;
+    }
+  ) => void;
 }
 
 const MIN_ZOOM = -100;
@@ -168,6 +179,9 @@ export const SimpleCanvas = ({
   const touchPanState = useRef<TouchPanState | null>(null);
   const selectionDragStateRef = useRef<SelectionDragState | null>(null);
   const pendingSelectionRef = useRef<string[] | null>(null);
+  const selectionTransformerRef = useRef<Konva.Transformer | null>(null);
+  const transformAnimationFrameRef = useRef<number | null>(null);
+  const isSelectionTransformingRef = useRef(false);
   const [scale, setScale] = useState(1);
   const [internalZoom, setInternalZoom] = useState<number>(zoom);
   const [panOffset, setPanOffset] = useState<PanOffset>({ x: 0, y: 0 });
@@ -190,6 +204,14 @@ export const SimpleCanvas = ({
   useEffect(() => {
     panOffsetRef.current = panOffset;
   }, [panOffset]);
+
+  useEffect(() => {
+    return () => {
+      if (transformAnimationFrameRef.current !== null && typeof window !== 'undefined') {
+        window.cancelAnimationFrame(transformAnimationFrameRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!layerControls || !stageRef.current) {
@@ -280,6 +302,26 @@ export const SimpleCanvas = ({
     const targetIds = pendingSelectionRef.current ?? layerControls?.selectedLayerIds ?? null;
     updateBoundsFromLayerIds(targetIds);
   }, [layerControls?.selectedLayerIds, updateBoundsFromLayerIds]);
+
+  const scheduleBoundsRefresh = useCallback(() => {
+    if (!selectModeActive) {
+      return;
+    }
+
+    if (typeof window === 'undefined') {
+      refreshBoundsFromSelection();
+      return;
+    }
+
+    if (transformAnimationFrameRef.current !== null) {
+      return;
+    }
+
+    transformAnimationFrameRef.current = window.requestAnimationFrame(() => {
+      transformAnimationFrameRef.current = null;
+      refreshBoundsFromSelection();
+    });
+  }, [refreshBoundsFromSelection, selectModeActive]);
 
   useEffect(() => {
     refreshBoundsFromSelection();
@@ -400,6 +442,70 @@ export const SimpleCanvas = ({
     },
     [updateZoom]
   );
+
+  const handleTransformerTransformStart = useCallback(() => {
+    isSelectionTransformingRef.current = true;
+  }, []);
+
+  const handleTransformerTransform = useCallback(() => {
+    scheduleBoundsRefresh();
+  }, [scheduleBoundsRefresh]);
+
+  const handleTransformerTransformEnd = useCallback(() => {
+    isSelectionTransformingRef.current = false;
+
+    const transformer = selectionTransformerRef.current;
+    if (!transformer) {
+      scheduleBoundsRefresh();
+      return;
+    }
+
+    const nodes = transformer.nodes();
+
+    if (layerControls) {
+      nodes.forEach((node) => {
+        const identifier = node.id();
+        if (!identifier) {
+          return;
+        }
+
+        const layerId = identifier.startsWith('layer-') ? identifier.slice(6) : identifier;
+        if (!layerId) {
+          return;
+        }
+
+        const position = node.position();
+        layerControls.updateLayerPosition(layerId, {
+          x: position.x,
+          y: position.y,
+        });
+
+        const rotation = node.rotation();
+        const scaleX = node.scaleX();
+        const scaleY = node.scaleY();
+
+        if (typeof layerControls.updateLayerTransform === 'function') {
+          layerControls.updateLayerTransform(layerId, {
+            position: { x: position.x, y: position.y },
+            rotation,
+            scale: { x: scaleX, y: scaleY },
+          });
+        } else {
+          if (typeof layerControls.updateLayerRotation === 'function') {
+            layerControls.updateLayerRotation(layerId, rotation);
+          }
+          if (typeof layerControls.updateLayerScale === 'function') {
+            layerControls.updateLayerScale(layerId, { x: scaleX, y: scaleY });
+          }
+        }
+      });
+
+      layerControls.ensureAllVisible();
+    }
+
+    scheduleBoundsRefresh();
+    transformer.getLayer()?.batchDraw();
+  }, [layerControls, scheduleBoundsRefresh]);
 
   // Mouse wheel zoom
   useEffect(() => {
@@ -822,6 +928,11 @@ export const SimpleCanvas = ({
   const safeScale = Math.max(scale, 0.0001);
   const outlineStrokeWidth = Math.max(1 / safeScale, 0.75);
   const outlineDash: [number, number] = [8 / safeScale, 4 / safeScale];
+  const transformerAnchorSize = Math.max(8 / safeScale, 6);
+  const transformerAnchorStrokeWidth = Math.max(1 / safeScale, 0.75);
+  const transformerAnchorCornerRadius = Math.max(2 / safeScale, 1);
+  const transformerPadding = 8 / safeScale;
+  const transformerHitStrokeWidth = Math.max(12 / safeScale, 6);
 
   const baseCursor = (isPointerPanning || isTouchPanning)
     ? 'grabbing'
@@ -839,6 +950,33 @@ export const SimpleCanvas = ({
   const selectedLayerIds = layerControls?.selectedLayerIds ?? [];
   const selectedLayerSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds]);
   const primaryLayerId = layerControls?.primaryLayerId ?? null;
+
+  const syncTransformerToSelection = useCallback(() => {
+    const transformer = selectionTransformerRef.current;
+    if (!transformer) {
+      return;
+    }
+
+    if (!selectModeActive) {
+      transformer.nodes([]);
+      transformer.visible(false);
+      transformer.getLayer()?.batchDraw();
+      return;
+    }
+
+    const nodes = selectedLayerIds
+      .map((layerId) => layerNodeRefs.current.get(layerId))
+      .filter((node): node is Konva.Layer => Boolean(node));
+
+    transformer.nodes(nodes);
+    transformer.visible(nodes.length > 0);
+    transformer.forceUpdate();
+    transformer.getLayer()?.batchDraw();
+  }, [selectModeActive, selectedLayerIds]);
+
+  useEffect(() => {
+    syncTransformerToSelection();
+  }, [layersRevision, syncTransformerToSelection]);
 
   useEffect(() => {
     if (!pendingSelectionRef.current) {
@@ -1356,6 +1494,7 @@ export const SimpleCanvas = ({
                   } else {
                     layerNodeRefs.current.delete(layer.id);
                   }
+                  syncTransformerToSelection();
                 }}
                 key={layer.id}
                 id={`layer-${layer.id}`}
@@ -1551,6 +1690,30 @@ export const SimpleCanvas = ({
               strokeWidth={outlineStrokeWidth}
               dash={outlineDash}
               listening={false}
+            />
+          </Layer>
+        )}
+        {selectModeActive && (
+          <Layer listening={Boolean(selectedLayerIds.length > 0)}>
+            <Transformer
+              ref={selectionTransformerRef}
+              rotateEnabled
+              resizeEnabled
+              visible={selectedLayerIds.length > 0}
+              anchorSize={transformerAnchorSize}
+              anchorCornerRadius={transformerAnchorCornerRadius}
+              anchorStroke="#00f6ff"
+              anchorFill="#00f6ff"
+              anchorStrokeWidth={transformerAnchorStrokeWidth}
+              anchorHitStrokeWidth={transformerHitStrokeWidth}
+              borderStroke="#00f6ff"
+              borderStrokeWidth={transformerAnchorStrokeWidth}
+              borderDash={outlineDash}
+              padding={transformerPadding}
+              ignoreStroke={false}
+              onTransformStart={handleTransformerTransformStart}
+              onTransform={handleTransformerTransform}
+              onTransformEnd={handleTransformerTransformEnd}
             />
           </Layer>
         )}
