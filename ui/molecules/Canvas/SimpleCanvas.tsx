@@ -1609,12 +1609,11 @@ export const SimpleCanvas = ({
                             type="button"
                             onPointerDown={(event) => event.stopPropagation()}
                             onClick={(event) => {
-                              const mode: LayerSelectionMode = event.shiftKey
-                                ? 'range'
-                                : event.metaKey || event.ctrlKey
-                                  ? 'toggle'
-                                  : 'replace';
-                              pendingSelectionRef.current = layerControls.selectLayer(layer.id, { mode });
+                              // Multiselect disabled: always replace the current selection
+                              // when clicking a layer in the layer panel. Previously the
+                              // code respected shift/meta keys to support multi-select;
+                              // that behavior is intentionally disabled.
+                              pendingSelectionRef.current = layerControls.selectLayer(layer.id, { mode: 'replace' });
                             }}
                             style={{
                               flex: 1,
@@ -1813,14 +1812,9 @@ export const SimpleCanvas = ({
 
                   event.cancelBubble = true;
 
-                  const nativeEvent = event.evt as MouseEvent;
-                  const mode: LayerSelectionMode = nativeEvent.shiftKey
-                    ? 'append'
-                    : nativeEvent.metaKey || nativeEvent.ctrlKey
-                      ? 'toggle'
-                      : 'replace';
-
-                  pendingSelectionRef.current = layerControls.selectLayer(layer.id, { mode });
+                  // Multiselect disabled for canvas selection: always replace
+                  // the selection when clicking a layer on the stage.
+                  pendingSelectionRef.current = layerControls.selectLayer(layer.id, { mode: 'replace' });
                 }}
                 onTap={(event: KonvaEventObject<TouchEvent>) => {
                   if (!selectModeActive || !layerControls) {
@@ -1835,14 +1829,9 @@ export const SimpleCanvas = ({
                     return;
                   }
 
-                  const nativeEvent = event.evt as PointerEvent;
-                  const mode: LayerSelectionMode = nativeEvent.shiftKey
-                    ? 'append'
-                    : nativeEvent.metaKey || nativeEvent.ctrlKey
-                      ? 'toggle'
-                      : 'replace';
-
-                  pendingSelectionRef.current = layerControls.selectLayer(layer.id, { mode });
+                  // Multiselect disabled for pointer down selection: always
+                  // replace selection on pointer down.
+                  pendingSelectionRef.current = layerControls.selectLayer(layer.id, { mode: 'replace' });
 
                   const stage = event.target.getStage();
                   if (stage) {
