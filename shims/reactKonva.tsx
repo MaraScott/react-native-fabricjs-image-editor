@@ -212,7 +212,7 @@ export const Layer = forwardRef<Konva.Layer | null, LayerProps>(({ children, ...
   useEffect(() => {
     const layer = new Konva.Layer(filterConfig(rest));
     layerRef.current = layer;
-    parent.add(layer);
+    (parent as any).add(layer);
     const initialProps = filterProps(rest);
     prevPropsRef.current = initialProps;
     applyNodeProps(layer, initialProps, {});
@@ -266,13 +266,13 @@ function createKonvaComponent<T extends Konva.Node>(factory: NodeFactory<T>) {
     useEffect(() => {
       const node = factory();
       nodeRef.current = node;
-      parent.add(node);
+      (parent as any).add(node);
       const initialProps = filterProps(props);
       prevPropsRef.current = initialProps;
       applyNodeProps(node, initialProps, {});
       setReady(true);
       return () => {
-        node.destroy();
+        (node as any).destroy?.();
         nodeRef.current = null;
         prevPropsRef.current = {};
         setReady(false);
