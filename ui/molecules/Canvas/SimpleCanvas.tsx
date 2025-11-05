@@ -46,6 +46,10 @@ export interface LayerDescriptor {
   name: string;
   visible: boolean;
   position: { x: number; y: number };
+  /** Optional persisted rotation (degrees) */
+  rotation?: number;
+  /** Optional persisted scale */
+  scale?: ScaleVector;
   render: () => ReactNode;
 }
 
@@ -60,6 +64,8 @@ export interface LayerControlHandlers {
   selectedLayerIds: string[];
   primaryLayerId: string | null;
   selectLayer: (layerId: string, options?: LayerSelectionOptions) => string[];
+  /** Clear any selection (deselect all) */
+  clearSelection?: () => void;
   addLayer: () => void;
   removeLayer: (layerId: string) => void;
   duplicateLayer: (layerId: string) => void;
@@ -193,6 +199,7 @@ export const SimpleCanvas = ({
   const selectionTransformerRef = useRef<Konva.Transformer | null>(null);
   const selectionProxyRef = useRef<Konva.Rect | null>(null);
   const selectionTransformStateRef = useRef<SelectionTransformSnapshot | null>(null);
+  const selectionProxyRotationRef = useRef<number>(0);
   const transformAnimationFrameRef = useRef<number | null>(null);
   const isSelectionTransformingRef = useRef(false);
   const [scale, setScale] = useState(1);
@@ -347,6 +354,9 @@ export const SimpleCanvas = ({
       return;
     }
 
+    // Capture current proxy rotation so we can persist it when not actively transforming
+    selectionProxyRotationRef.current = proxy.rotation() ?? 0;
+
     const nodeSnapshots = selectedLayerIds
       .map((layerId) => {
         const node = layerNodeRefs.current.get(layerId);
@@ -485,6 +495,16 @@ export const SimpleCanvas = ({
     scheduleBoundsRefresh();
     proxy?.getLayer()?.batchDraw();
   }, [layerControls, scheduleBoundsRefresh, selectedLayerIds]);
+  
+  // Persist the proxy rotation when a selection transform finalizes so the visual selection keeps orientation
+  const finalizeSelectionTransformWithRotation = useCallback(() => {
+    const proxy = selectionProxyRef.current;
+    if (proxy) {
+      selectionProxyRotationRef.current = proxy.rotation() ?? selectionProxyRotationRef.current;
+    }
+    finalizeSelectionTransform();
+  }, [finalizeSelectionTransform]);
+
 
   useEffect(() => {
     refreshBoundsFromSelection();
@@ -606,6 +626,8 @@ export const SimpleCanvas = ({
     [updateZoom]
   );
 
+  
+
   const handleTransformerTransformStart = useCallback(() => {
     isSelectionTransformingRef.current = true;
     captureSelectionTransformState();
@@ -618,8 +640,8 @@ export const SimpleCanvas = ({
 
   const handleTransformerTransformEnd = useCallback(() => {
     applySelectionTransformDelta();
-    finalizeSelectionTransform();
-  }, [applySelectionTransformDelta, finalizeSelectionTransform]);
+    finalizeSelectionTransformWithRotation();
+  }, [applySelectionTransformDelta, finalizeSelectionTransformWithRotation]);
 
   const handleSelectionProxyDragStart = useCallback(() => {
     if (!selectModeActive) {
@@ -646,12 +668,14 @@ export const SimpleCanvas = ({
       return;
     }
     applySelectionTransformDelta();
-    finalizeSelectionTransform();
+    finalizeSelectionTransformWithRotation();
     const stage = stageRef.current;
     if (stage) {
       stage.container().style.cursor = 'pointer';
     }
-  }, [applySelectionTransformDelta, finalizeSelectionTransform, selectModeActive]);
+  }, [applySelectionTransformDelta, finalizeSelectionTransformWithRotation, selectModeActive]);
+
+  
 
   // Mouse wheel zoom
   useEffect(() => {
@@ -783,6 +807,43 @@ export const SimpleCanvas = ({
       }
     }
   }, [isLayerPanelOpen, copyFeedback, draggingLayerId, dragOverLayer]);
+
+  const clearSelection = useCallback(() => {
+    if (layerControls && typeof layerControls.clearSelection === 'function') {
+      layerControls.clearSelection();
+    } else {
+      pendingSelectionRef.current = null;
+      setSelectedLayerBounds(null);
+    }
+  }, [layerControls]);
+
+  const handleStageMouseDown = useCallback((event: KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (!selectModeActive || !layerControls) return;
+
+    // If the click is on the stage itself (i.e. not on any shape), clear selection
+    if (event.target.getStage && event.target === event.target.getStage()) {
+      clearSelection();
+    }
+  }, [selectModeActive, layerControls, clearSelection]);
+
+  // Deselect when clicking anywhere outside the canvas container
+  useEffect(() => {
+    if (!selectModeActive || !layerControls) return;
+    if (typeof document === 'undefined') return;
+
+    const handleDocumentPointerDown = (ev: PointerEvent) => {
+      const target = ev.target as Node | null;
+      if (containerRef.current && target && containerRef.current.contains(target)) {
+        // Click was inside the canvas container - ignore (stage handler handles background clicks)
+        return;
+      }
+
+      clearSelection();
+    };
+
+    document.addEventListener('pointerdown', handleDocumentPointerDown);
+    return () => document.removeEventListener('pointerdown', handleDocumentPointerDown);
+  }, [selectModeActive, layerControls, clearSelection]);
 
   const finishPointerPan = useCallback((event?: React.PointerEvent<HTMLDivElement>) => {
     if (!pointerPanState.current) {
@@ -1109,22 +1170,76 @@ export const SimpleCanvas = ({
 
     if (!isSelectionTransformingRef.current) {
       const minimumSize = 0.001;
-      const width = Math.max(selectedLayerBounds.width, minimumSize);
-      const height = Math.max(selectedLayerBounds.height, minimumSize);
+      // axis-aligned bounding box from nodes
+      const bboxW = Math.max(selectedLayerBounds.width, minimumSize);
+      const bboxH = Math.max(selectedLayerBounds.height, minimumSize);
       const centerX = selectedLayerBounds.x + selectedLayerBounds.width / 2;
       const centerY = selectedLayerBounds.y + selectedLayerBounds.height / 2;
 
-      proxy.width(width);
-      proxy.height(height);
+      // Determine desired rotation in degrees.
+      // Prefer per-layer persisted rotation when a single layer is selected so
+      // selection orientation isn't shared across different layers. For multi-
+      // selection prefer the primary layer's rotation if available, otherwise
+      // fall back to the transient selectionProxyRotationRef used during group transforms.
+      let rotationDeg = 0;
+      try {
+        const selectedIds = layerControls?.selectedLayerIds ?? [];
+        if (selectedIds.length === 1) {
+          const single = layerControls?.layers.find((l) => l.id === selectedIds[0]);
+          rotationDeg = single?.rotation ?? 0;
+        } else if (layerControls?.primaryLayerId) {
+          const primary = layerControls?.layers.find((l) => l.id === layerControls.primaryLayerId);
+          rotationDeg = primary?.rotation ?? (selectionProxyRotationRef.current ?? 0);
+        } else {
+          rotationDeg = selectionProxyRotationRef.current ?? 0;
+        }
+      } catch (e) {
+        rotationDeg = selectionProxyRotationRef.current ?? 0;
+      }
+      const rotationRad = (rotationDeg * Math.PI) / 180;
+
+      // Compute absolute trig values for the rotation
+      const a = Math.abs(Math.cos(rotationRad));
+      const b = Math.abs(Math.sin(rotationRad));
+
+      // Solve for local (unrotated) width/height so that when rotated by rotationDeg
+      // the axis-aligned bounding box becomes [bboxW, bboxH].
+      // [bboxW]   [ a  b ] [w]
+      // [bboxH] = [ b  a ] [h]
+      // Invert when possible: det = a^2 - b^2 = cos(2R)
+      let localW = bboxW;
+      let localH = bboxH;
+      const denom = a * a - b * b;
+
+      if (Math.abs(denom) < 1e-6) {
+        // Near singular (around 45deg) – fall back to a square to avoid instability
+        const maxSide = Math.max(bboxW, bboxH);
+        localW = maxSide;
+        localH = maxSide;
+      } else {
+        localW = (a * bboxW - b * bboxH) / denom;
+        localH = (-b * bboxW + a * bboxH) / denom;
+
+        // sanity clamps: ensure positive finite sizes
+        if (!Number.isFinite(localW) || localW <= 0) {
+          localW = bboxW;
+        }
+        if (!Number.isFinite(localH) || localH <= 0) {
+          localH = bboxH;
+        }
+      }
+
+      proxy.width(localW);
+      proxy.height(localH);
       proxy.offset({
-        x: width / 2,
-        y: height / 2,
+        x: localW / 2,
+        y: localH / 2,
       });
       proxy.position({
         x: centerX,
         y: centerY,
       });
-      proxy.rotation(0);
+      proxy.rotation(rotationDeg);
       proxy.scale({ x: 1, y: 1 });
     }
 
@@ -1134,7 +1249,7 @@ export const SimpleCanvas = ({
     transformer.visible(true);
     transformer.forceUpdate();
     transformer.getLayer()?.batchDraw();
-  }, [selectModeActive, selectedLayerBounds]);
+  }, [selectModeActive, selectedLayerBounds, layerControls, selectedLayerIds]);
 
   useEffect(() => {
     syncTransformerToSelection();
@@ -1158,6 +1273,26 @@ export const SimpleCanvas = ({
   useEffect(() => {
     selectionTransformStateRef.current = null;
   }, [selectedLayerIds]);
+
+  // Attach Konva stage listeners for background clicks (use Konva events to satisfy typings)
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || !selectModeActive) return;
+
+    const handler = (event: any) => {
+      if (event.target === event.target.getStage()) {
+        clearSelection();
+      }
+    };
+
+    stage.on('mousedown', handler);
+    stage.on('touchstart', handler);
+
+    return () => {
+      stage.off('mousedown', handler);
+      stage.off('touchstart', handler);
+    };
+  }, [selectModeActive, clearSelection]);
 
   const bottomLayerId = layerControls?.layers[layerControls.layers.length - 1]?.id ?? null;
   const smallActionButtonStyle: CSSProperties = {
@@ -1667,6 +1802,9 @@ export const SimpleCanvas = ({
                 visible={layer.visible}
                 x={layer.position.x}
                 y={layer.position.y}
+                rotation={layer.rotation ?? 0}
+                scaleX={layer.scale?.x ?? 1}
+                scaleY={layer.scale?.y ?? 1}
                 draggable={Boolean(selectModeActive)}
                 onClick={(event: KonvaEventObject<MouseEvent>) => {
                   if (!selectModeActive || !layerControls) {

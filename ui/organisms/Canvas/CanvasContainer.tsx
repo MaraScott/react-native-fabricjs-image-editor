@@ -17,6 +17,8 @@ export interface CanvasLayerDefinition {
   name: string;
   visible?: boolean;
   position?: { x: number; y: number };
+  rotation?: number;
+  scale?: { x: number; y: number };
   render: () => ReactNode;
 }
 
@@ -50,6 +52,8 @@ const normaliseLayerDefinitions = (
     name: definition.name ?? `Layer ${index + 1}`,
     visible: definition.visible ?? true,
     position: definition.position ?? { x: 0, y: 0 },
+    rotation: definition.rotation ?? 0,
+    scale: definition.scale ?? { x: 1, y: 1 },
     render: definition.render,
   }));
 };
@@ -125,6 +129,8 @@ export const CanvasContainer = ({
         name: 'Layer 1',
         visible: true,
         position: { x: 0, y: 0 },
+        rotation: 0,
+        scale: { x: 1, y: 1 },
         render: () => null,
       },
     ];
@@ -157,26 +163,33 @@ export const CanvasContainer = ({
       }
       return;
     }
-
     const validSelected = selectedLayerIds.filter((id) => layerIndexMap.has(id));
+    // Allow empty selection. If there are no valid selected IDs, keep selection empty.
     const sortedSelection = validSelected.length > 0
       ? [...validSelected].sort(
         (a, b) => (layerIndexMap.get(a) ?? 0) - (layerIndexMap.get(b) ?? 0)
       )
-      : [layers[0].id];
+      : [];
 
     if (!areSelectionsEqual(selectedLayerIds, sortedSelection)) {
       setSelectedLayerIds(sortedSelection);
     }
 
-    const primaryCandidate = sortedSelection.includes(primaryLayerId ?? '')
-      ? (primaryLayerId ?? sortedSelection[sortedSelection.length - 1])
-      : sortedSelection[sortedSelection.length - 1];
+    const primaryCandidate = sortedSelection.length > 0
+      ? (sortedSelection.includes(primaryLayerId ?? '')
+        ? (primaryLayerId ?? sortedSelection[sortedSelection.length - 1])
+        : sortedSelection[sortedSelection.length - 1])
+      : null;
 
     if (primaryCandidate !== primaryLayerId) {
       setPrimaryLayerId(primaryCandidate);
     }
   }, [layers, layerIndexMap, primaryLayerId, selectedLayerIds]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedLayerIds([]);
+    setPrimaryLayerId(null);
+  }, []);
 
   const selectLayer = useCallback<LayerControlHandlers['selectLayer']>((layerId, options) => {
     const mode = options?.mode ?? 'replace';
@@ -269,6 +282,8 @@ export const CanvasContainer = ({
         name: `Layer ${previousLayers.length + 1}`,
         visible: true,
         position: { x: 0, y: 0 },
+        rotation: 0,
+        scale: { x: 1, y: 1 },
         render: () => null,
       };
 
@@ -374,6 +389,8 @@ export const CanvasContainer = ({
       {
         name: target.name,
         visible: target.visible,
+        rotation: target.rotation ?? 0,
+        scale: target.scale ?? { x: 1, y: 1 },
       },
       null,
       2
@@ -498,11 +515,42 @@ export const CanvasContainer = ({
     );
   }, []);
 
+  const updateLayerRotation = useCallback<NonNullable<LayerControlHandlers['updateLayerRotation']>>((layerId, rotation) => {
+    setLayers((previousLayers) =>
+      previousLayers.map((layer) =>
+        layer.id === layerId
+          ? { ...layer, rotation }
+          : layer
+      )
+    );
+  }, []);
+
+  const updateLayerScale = useCallback<NonNullable<LayerControlHandlers['updateLayerScale']>>((layerId, scale) => {
+    setLayers((previousLayers) =>
+      previousLayers.map((layer) =>
+        layer.id === layerId
+          ? { ...layer, scale }
+          : layer
+      )
+    );
+  }, []);
+
+  const updateLayerTransform = useCallback<NonNullable<LayerControlHandlers['updateLayerTransform']>>((layerId, transform) => {
+    setLayers((previousLayers) =>
+      previousLayers.map((layer) =>
+        layer.id === layerId
+          ? { ...layer, position: transform.position, rotation: transform.rotation, scale: transform.scale }
+          : layer
+      )
+    );
+  }, []);
+
   const layerControls = useMemo<LayerControlHandlers>(() => ({
     layers,
     selectedLayerIds,
     primaryLayerId,
     selectLayer,
+    clearSelection,
     addLayer,
     removeLayer,
     duplicateLayer,
@@ -512,11 +560,15 @@ export const CanvasContainer = ({
     reorderLayer,
     ensureAllVisible,
     updateLayerPosition,
+    updateLayerScale,
+    updateLayerRotation,
+    updateLayerTransform,
   }), [
     layers,
     selectedLayerIds,
     primaryLayerId,
     selectLayer,
+    clearSelection,
     addLayer,
     removeLayer,
     duplicateLayer,
@@ -526,6 +578,9 @@ export const CanvasContainer = ({
     reorderLayer,
     ensureAllVisible,
     updateLayerPosition,
+    updateLayerScale,
+    updateLayerRotation,
+    updateLayerTransform,
   ]);
 
   const handleStageReady = (stageInstance: Konva.Stage) => {
