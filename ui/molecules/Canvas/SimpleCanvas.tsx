@@ -31,6 +31,7 @@ import {
   computeNodeBounds,
   areBoundsEqual,
 } from './utils';
+import OverlaySelection from './components/OverlaySelection';
 
 const MIN_ZOOM = -100;
 const MAX_ZOOM = 200;
@@ -87,6 +88,15 @@ export const SimpleCanvas = ({
   const selectionProxyRotationRef = useRef<number>(0);
   const transformAnimationFrameRef = useRef<number | null>(null);
   const isSelectionTransformingRef = useRef(false);
+  const overlayDragState = useRef<
+    | null
+    | {
+        pointerId: number;
+        startX: number;
+        startY: number;
+        initialPositions: Map<string, { x: number; y: number }>;
+      }
+  >(null);
   const [scale, setScale] = useState(1);
   const [internalZoom, setInternalZoom] = useState<number>(zoom);
   const [panOffset, setPanOffset] = useState<PanOffset>({ x: 0, y: 0 });
@@ -104,6 +114,10 @@ export const SimpleCanvas = ({
     position: 'above' | 'below';
   } | null>(null);
   const [selectedLayerBounds, setSelectedLayerBounds] = useState<Bounds | null>(null);
+  const [overlaySelectionBox, setOverlaySelectionBox] = useState<
+    | { x: number; y: number; width: number; height: number; rotation?: number }
+    | null
+  >(null);
   const layerNodeRefs = useRef<Map<string, Konva.Layer>>(new Map());
   const renderableLayers = layerControls ? [...layerControls.layers].reverse() : null;
   const selectedLayerIds = layerControls?.selectedLayerIds ?? [];
@@ -120,7 +134,7 @@ export const SimpleCanvas = ({
         window.cancelAnimationFrame(transformAnimationFrameRef.current);
       }
     };
-  }, []);
+  }, [layerControls]);
 
   useEffect(() => {
     if (!layerControls || !stageRef.current) {
@@ -559,6 +573,257 @@ export const SimpleCanvas = ({
       stage.container().style.cursor = 'pointer';
     }
   }, [applySelectionTransformDelta, finalizeSelectionTransformWithRotation, selectModeActive]);
+
+  // Overlay drag handlers - allow dragging the visual bounding box when it's rendered
+  // outside of the Konva stage. This moves the selected layers by translating their
+  // positions in stage coordinates (screen delta / scale).
+  const handleOverlayPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!overlaySelectionBox || !selectModeActive || !layerControls) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const pointerId = event.pointerId;
+      try {
+        (event.currentTarget as Element).setPointerCapture(pointerId);
+      } catch {}
+
+      // capture initial positions from layer descriptors (fallback to node positions)
+      const initialPositions = new Map<string, { x: number; y: number }>();
+      const activeSelection = layerControls.selectedLayerIds;
+      activeSelection.forEach((id) => {
+        const node = layerNodeRefs.current.get(id);
+        if (node) {
+          const p = node.position();
+          initialPositions.set(id, { x: p.x, y: p.y });
+        } else {
+          const desc = layerControls.layers.find((l) => l.id === id);
+          if (desc) {
+            initialPositions.set(id, { x: desc.position.x, y: desc.position.y });
+          }
+        }
+      });
+
+      overlayDragState.current = {
+        pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        initialPositions,
+      };
+
+      // prepare transform snapshot so transforms (rotation/scale) remain consistent
+      captureSelectionTransformState();
+      isSelectionTransformingRef.current = true;
+      const stage = stageRef.current;
+      if (stage) stage.container().style.cursor = 'grabbing';
+    },
+    [overlaySelectionBox, selectModeActive, layerControls, captureSelectionTransformState]
+  );
+
+  const handleOverlayPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const state = overlayDragState.current;
+    if (!state || event.pointerId !== state.pointerId) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const dx = event.clientX - state.startX;
+    const dy = event.clientY - state.startY;
+
+    // Convert screen delta to stage coordinates
+    const dxStage = dx / Math.max(scale, 0.0001);
+    const dyStage = dy / Math.max(scale, 0.0001);
+
+    state.initialPositions.forEach((pos, id) => {
+      const node = layerNodeRefs.current.get(id);
+      if (!node) return;
+      const newX = pos.x + dxStage;
+      const newY = pos.y + dyStage;
+      node.position({ x: newX, y: newY });
+      if (typeof node.batchDraw === 'function') node.batchDraw();
+      // update the baseline position so subsequent moves are incremental
+      state.initialPositions.set(id, { x: newX, y: newY });
+    });
+
+    stageRef.current?.batchDraw();
+    // update overlay visual position to follow pointer
+    setOverlaySelectionBox((prev) => (prev ? { ...prev, x: prev.x + dx, y: prev.y + dy } : prev));
+    // move start anchor so repeated moves are incremental
+    overlayDragState.current = { ...state, startX: event.clientX, startY: event.clientY };
+    // Update the computed bounds so the Konva transformer and proxy stay in sync
+    try {
+      const activeSelection = layerControls?.selectedLayerIds ?? Array.from(state.initialPositions.keys());
+      updateBoundsFromLayerIds(activeSelection);
+    } catch (e) {
+      // ignore
+    }
+  }, [scale]);
+
+  const handleOverlayPointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const state = overlayDragState.current;
+    if (!state || event.pointerId !== state.pointerId) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    try {
+      (event.currentTarget as Element).releasePointerCapture(state.pointerId);
+    } catch {}
+
+    // Persist final positions
+    const ids = Array.from(state.initialPositions.keys());
+    ids.forEach((id) => {
+      const node = layerNodeRefs.current.get(id);
+      if (!node) return;
+      const p = node.position();
+      if (layerControls) {
+        layerControls.updateLayerPosition(id, { x: p.x, y: p.y });
+      }
+    });
+
+    overlayDragState.current = null;
+    isSelectionTransformingRef.current = false;
+    // Ensure bounds are updated immediately after finishing drag so the transformer
+    // and proxy reflect the new positions.
+    try {
+      const activeSelection = layerControls?.selectedLayerIds ?? Array.from(state.initialPositions.keys());
+      updateBoundsFromLayerIds(activeSelection);
+    } catch {}
+    // clear any transient transform snapshot
+    selectionTransformStateRef.current = null;
+    scheduleBoundsRefresh();
+    const stage = stageRef.current;
+    if (stage) stage.container().style.cursor = 'pointer';
+  }, [scheduleBoundsRefresh, layerControls]);
+
+  const overlayRotateState = useRef<
+    | null
+    | {
+        pointerId: number;
+        startAngle: number; // degrees
+        startBoxRotation: number; // degrees
+        initialRotations: Map<string, number>;
+        center: { x: number; y: number };
+      }
+  >(null);
+
+  const handleOverlayRotatePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!overlaySelectionBox || !selectModeActive || !layerControls) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const pointerId = event.pointerId;
+      try {
+        (event.currentTarget as Element).setPointerCapture(pointerId);
+      } catch {}
+
+      const center = { x: overlaySelectionBox.x, y: overlaySelectionBox.y };
+      const startAngleRad = Math.atan2(event.clientY - center.y, event.clientX - center.x);
+      const startAngleDeg = (startAngleRad * 180) / Math.PI;
+
+      const initialRotations = new Map<string, number>();
+      const activeSelection = layerControls.selectedLayerIds;
+      activeSelection.forEach((id) => {
+        const node = layerNodeRefs.current.get(id);
+        if (node) {
+          initialRotations.set(id, node.rotation() ?? 0);
+        } else {
+          const desc = layerControls.layers.find((l) => l.id === id);
+          initialRotations.set(id, desc?.rotation ?? 0);
+        }
+      });
+
+      overlayRotateState.current = {
+        pointerId,
+        startAngle: startAngleDeg,
+        startBoxRotation: overlaySelectionBox.rotation ?? 0,
+        initialRotations,
+        center,
+      };
+
+      // prepare for transform
+      captureSelectionTransformState();
+      isSelectionTransformingRef.current = true;
+    },
+    [overlaySelectionBox, selectModeActive, layerControls, captureSelectionTransformState]
+  );
+
+  const handleOverlayRotatePointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const state = overlayRotateState.current;
+    if (!state || event.pointerId !== state.pointerId) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const currentAngleRad = Math.atan2(event.clientY - state.center.y, event.clientX - state.center.x);
+    const currentAngleDeg = (currentAngleRad * 180) / Math.PI;
+    const delta = currentAngleDeg - state.startAngle;
+
+    const newRotation = state.startBoxRotation + delta;
+
+    state.initialRotations.forEach((initial, id) => {
+      const node = layerNodeRefs.current.get(id);
+      if (!node) return;
+      node.rotation(initial + delta);
+      if (typeof node.batchDraw === 'function') node.batchDraw();
+    });
+
+    selectionProxyRotationRef.current = newRotation;
+    setOverlaySelectionBox((prev) => (prev ? { ...prev, rotation: newRotation } : prev));
+
+    try {
+      const activeSelection = layerControls?.selectedLayerIds ?? Array.from(state.initialRotations.keys());
+      updateBoundsFromLayerIds(activeSelection);
+    } catch (e) {
+      // ignore
+    }
+
+    stageRef.current?.batchDraw();
+  }, []);
+
+  const handleOverlayRotatePointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const state = overlayRotateState.current;
+    if (!state || event.pointerId !== state.pointerId) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    try {
+      (event.currentTarget as Element).releasePointerCapture(state.pointerId);
+    } catch {}
+
+    // persist rotations
+    const ids = Array.from(state.initialRotations.keys());
+    ids.forEach((id) => {
+      const node = layerNodeRefs.current.get(id);
+      if (!node) return;
+      const rotation = node.rotation();
+      if (layerControls) {
+        if (typeof layerControls.updateLayerTransform === 'function') {
+          const position = node.position();
+          const scaleX = node.scaleX();
+          const scaleY = node.scaleY();
+          layerControls.updateLayerTransform(id, {
+            position: { x: position.x, y: position.y },
+            rotation,
+            scale: { x: scaleX, y: scaleY },
+          });
+        } else {
+          if (typeof layerControls.updateLayerRotation === 'function') {
+            layerControls.updateLayerRotation(id, rotation);
+          }
+        }
+      }
+    });
+
+    overlayRotateState.current = null;
+    isSelectionTransformingRef.current = false;
+    selectionTransformStateRef.current = null;
+    scheduleBoundsRefresh();
+  }, [scheduleBoundsRefresh, layerControls]);
 
   
 
@@ -1037,11 +1302,77 @@ export const SimpleCanvas = ({
     stageRef.current.container().style.cursor = baseCursor;
   }, [baseCursor, selectModeActive]);
 
+  // Compute an HTML overlay selection box (screen-space) so the selection
+  // bounding box can be visible even when portions are outside the Konva stage.
+  useEffect(() => {
+    if (!selectedLayerBounds) {
+      setOverlaySelectionBox(null);
+      return;
+    }
+
+    const container = containerRef.current;
+    const stage = stageRef.current;
+    if (!container || !stage) {
+      setOverlaySelectionBox(null);
+      return;
+    }
+
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+
+    // Stage render size in screen pixels
+    const renderWidth = Math.max(1, width * scale);
+    const renderHeight = Math.max(1, height * scale);
+
+    // Stage is centered inside the container via flexbox. Apply panOffset translation
+    // to find the stage top-left in container coordinates.
+    const stageLeft = (containerWidth - renderWidth) / 2 + panOffset.x;
+    const stageTop = (containerHeight - renderHeight) / 2 + panOffset.y;
+
+    const boxW = Math.max(0, selectedLayerBounds.width * scale);
+    const boxH = Math.max(0, selectedLayerBounds.height * scale);
+
+    // Center coordinates of selection in screen space
+    const centerX = stageLeft + (selectedLayerBounds.x + selectedLayerBounds.width / 2) * scale;
+    const centerY = stageTop + (selectedLayerBounds.y + selectedLayerBounds.height / 2) * scale;
+
+    // Decide rotation for overlay — reuse the same logic used for transformer rotation
+    let rotationDeg = selectionProxyRotationRef.current ?? 0;
+    try {
+      const selectedIds = layerControls?.selectedLayerIds ?? [];
+      if (selectedIds.length === 1) {
+        const single = layerControls?.layers.find((l) => l.id === selectedIds[0]);
+        rotationDeg = single?.rotation ?? rotationDeg;
+      } else if (layerControls?.primaryLayerId) {
+        const primary = layerControls?.layers.find((l) => l.id === layerControls.primaryLayerId);
+        rotationDeg = primary?.rotation ?? rotationDeg;
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    setOverlaySelectionBox({ x: centerX, y: centerY, width: boxW, height: boxH, rotation: rotationDeg });
+  }, [selectedLayerBounds, scale, panOffset, width, height, layerControls]);
+
   const syncTransformerToSelection = useCallback(() => {
     const transformer = selectionTransformerRef.current;
     const proxy = selectionProxyRef.current;
 
     if (!transformer || !proxy) {
+      return;
+    }
+
+    // If we have an HTML overlay active (selection extends outside the stage) hide
+    // the Konva transformer and proxy so only the overlay is visible.
+    if (overlaySelectionBox) {
+      try {
+        proxy.visible(false);
+      } catch {}
+      try {
+        transformer.nodes([]);
+        transformer.visible(false);
+        transformer.getLayer()?.batchDraw();
+      } catch {}
       return;
     }
 
@@ -1134,7 +1465,7 @@ export const SimpleCanvas = ({
     transformer.visible(true);
     transformer.forceUpdate();
     transformer.getLayer()?.batchDraw();
-  }, [selectModeActive, selectedLayerBounds, layerControls, selectedLayerIds]);
+  }, [selectModeActive, selectedLayerBounds, layerControls, selectedLayerIds, overlaySelectionBox]);
 
   useEffect(() => {
     syncTransformerToSelection();
@@ -1898,6 +2229,16 @@ export const SimpleCanvas = ({
           </Layer>
         )}
       </Stage>
+      {overlaySelectionBox && (
+        <OverlaySelection
+          box={overlaySelectionBox}
+          onPointerDown={handleOverlayPointerDown}
+          onPointerMove={handleOverlayPointerMove}
+          onPointerUp={handleOverlayPointerUp}
+          onResizePointerDown={(dir, e) => { e.stopPropagation(); /* resize not implemented yet */ }}
+          onRotatePointerDown={handleOverlayRotatePointerDown}
+        />
+      )}
     </div>
   );
 };
