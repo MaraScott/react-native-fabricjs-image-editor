@@ -1,0 +1,110 @@
+import type { ReactNode, CSSProperties } from 'react';
+import type Konva from 'konva';
+
+export type PanOffset = { 
+  x: number; 
+  y: number; 
+};
+
+export type ScaleVector = { 
+  x: number; 
+  y: number;
+};
+
+export type PointerPanState = {
+  pointerId: number;
+  start: { x: number; y: number };
+  origin: PanOffset;
+};
+
+export type TouchPanState = {
+  center: { x: number; y: number };
+  origin: PanOffset;
+  touchCount: number;
+};
+
+export type SelectionDragState = {
+  anchorLayerId: string;
+  initialPositions: Map<string, PanOffset>;
+};
+
+export type SelectionNodeSnapshot = {
+  id: string;
+  node: Konva.Layer;
+  transform: Konva.Transform;
+};
+
+export type SelectionTransformSnapshot = {
+  proxyTransform: Konva.Transform;
+  nodes: SelectionNodeSnapshot[];
+};
+
+export type LayerMoveDirection = 'up' | 'down' | 'top' | 'bottom';
+
+export type LayerSelectionMode = 'replace' | 'append' | 'toggle' | 'range';
+
+export interface LayerSelectionOptions {
+  mode?: LayerSelectionMode;
+}
+
+export interface LayerDescriptor {
+  id: string;
+  name: string;
+  visible: boolean;
+  position: { x: number; y: number };
+  /** Optional persisted rotation (degrees) */
+  rotation?: number;
+  /** Optional persisted scale */
+  scale?: ScaleVector;
+  render: () => ReactNode;
+}
+
+export interface LayerControlHandlers {
+  layers: LayerDescriptor[];
+  selectedLayerIds: string[];
+  primaryLayerId: string | null;
+  selectLayer: (layerId: string, options?: LayerSelectionOptions) => string[];
+  /** Clear any selection (deselect all) */
+  clearSelection?: () => void;
+  addLayer: () => void;
+  removeLayer: (layerId: string) => void;
+  duplicateLayer: (layerId: string) => void;
+  copyLayer: (layerId: string) => Promise<string | void> | string | void;
+  moveLayer: (layerId: string, direction: LayerMoveDirection) => void;
+  toggleVisibility: (layerId: string) => void;
+  reorderLayer: (sourceId: string, targetId: string, position: 'above' | 'below') => void;
+  ensureAllVisible: () => void;
+  updateLayerPosition: (layerId: string, position: { x: number; y: number }) => void;
+  updateLayerScale?: (layerId: string, scale: ScaleVector) => void;
+  updateLayerRotation?: (layerId: string, rotation: number) => void;
+  updateLayerTransform?: (
+    layerId: string,
+    transform: {
+      position: PanOffset;
+      scale: ScaleVector;
+      rotation: number;
+    }
+  ) => void;
+}
+
+export interface Bounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface SimpleCanvasProps {
+  width?: number;
+  height?: number;
+  backgroundColor?: string;
+  containerBackground?: string;
+  zoom?: number;
+  children?: ReactNode;
+  onStageReady?: (stage: Konva.Stage) => void;
+  onZoomChange?: (zoom: number) => void;
+  panModeActive?: boolean;
+  layerControls?: LayerControlHandlers;
+  layersRevision?: number;
+  selectModeActive?: boolean;
+}

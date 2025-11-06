@@ -9,83 +9,28 @@ import { Stage, Layer } from '@atoms/Canvas';
 import { Rect, Transformer } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
-
-type PanOffset = { x: number; y: number };
-type ScaleVector = { x: number; y: number };
-type PointerPanState = {
-  pointerId: number;
-  start: { x: number; y: number };
-  origin: PanOffset;
-};
-type TouchPanState = {
-  center: { x: number; y: number };
-  origin: PanOffset;
-  touchCount: number;
-};
-
-type SelectionDragState = {
-  anchorLayerId: string;
-  initialPositions: Map<string, PanOffset>;
-};
-
-type SelectionNodeSnapshot = {
-  id: string;
-  node: Konva.Layer;
-  transform: Konva.Transform;
-};
-
-type SelectionTransformSnapshot = {
-  proxyTransform: Konva.Transform;
-  nodes: SelectionNodeSnapshot[];
-};
-
-export type LayerMoveDirection = 'up' | 'down' | 'top' | 'bottom';
-
-export interface LayerDescriptor {
-  id: string;
-  name: string;
-  visible: boolean;
-  position: { x: number; y: number };
-  /** Optional persisted rotation (degrees) */
-  rotation?: number;
-  /** Optional persisted scale */
-  scale?: ScaleVector;
-  render: () => ReactNode;
-}
-
-export type LayerSelectionMode = 'replace' | 'append' | 'toggle' | 'range';
-
-export interface LayerSelectionOptions {
-  mode?: LayerSelectionMode;
-}
-
-export interface LayerControlHandlers {
-  layers: LayerDescriptor[];
-  selectedLayerIds: string[];
-  primaryLayerId: string | null;
-  selectLayer: (layerId: string, options?: LayerSelectionOptions) => string[];
-  /** Clear any selection (deselect all) */
-  clearSelection?: () => void;
-  addLayer: () => void;
-  removeLayer: (layerId: string) => void;
-  duplicateLayer: (layerId: string) => void;
-  copyLayer: (layerId: string) => Promise<string | void> | string | void;
-  moveLayer: (layerId: string, direction: LayerMoveDirection) => void;
-  toggleVisibility: (layerId: string) => void;
-  reorderLayer: (sourceId: string, targetId: string, position: 'above' | 'below') => void;
-  ensureAllVisible: () => void;
-  updateLayerPosition: (layerId: string, position: { x: number; y: number }) => void;
-  updateLayerScale?: (layerId: string, scale: ScaleVector) => void;
-  updateLayerRotation?: (layerId: string, rotation: number) => void;
-  updateLayerTransform?: (
-    layerId: string,
-    transform: {
-      position: PanOffset;
-      scale: ScaleVector;
-      rotation: number;
-    }
-  ) => void;
-}
+import type {
+  PanOffset,
+  ScaleVector,
+  PointerPanState,
+  TouchPanState,
+  SelectionDragState,
+  SelectionNodeSnapshot,
+  SelectionTransformSnapshot,
+  LayerControlHandlers,
+  LayerDescriptor,
+  LayerMoveDirection,
+  LayerSelectionMode,
+  LayerSelectionOptions,
+  Bounds,
+  SimpleCanvasProps,
+} from './types/canvas.types';
+import {
+  isFiniteNumber,
+  normaliseBounds,
+  computeNodeBounds,
+  areBoundsEqual,
+} from './utils';
 
 const MIN_ZOOM = -100;
 const MAX_ZOOM = 200;
@@ -100,73 +45,13 @@ const clampZoomValue = (value: number): number => {
   return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
 };
 
-type Bounds = { x: number; y: number; width: number; height: number };
-
-const isFiniteNumber = (value: number): boolean => Number.isFinite(value);
-
-const normaliseBounds = (rect: Bounds | null | undefined): Bounds | null => {
-  if (!rect) {
-    return null;
-  }
-
-  const { x, y, width, height } = rect;
-
-  if (![x, y, width, height].every(isFiniteNumber)) {
-    return null;
-  }
-
-  return {
-    x,
-    y,
-    width: Math.max(0, width),
-    height: Math.max(0, height),
-  };
-};
-
-const computeNodeBounds = (node: Konva.Node | null): Bounds | null => {
-  if (!node) {
-    return null;
-  }
-
-  const rect = node.getClientRect({
-    skipTransform: false,
-    relativeTo: node.getStage() ?? undefined,
-  });
-
-  return normaliseBounds(rect);
-};
-
-const areBoundsEqual = (first: Bounds | null, second: Bounds | null): boolean => {
-  if (first === second) {
-    return true;
-  }
-
-  if (!first || !second) {
-    return false;
-  }
-
-  return (
-    first.x === second.x &&
-    first.y === second.y &&
-    first.width === second.width &&
-    first.height === second.height
-  );
-};
-
-export interface SimpleCanvasProps {
-  width?: number;
-  height?: number;
-  backgroundColor?: string;
-  containerBackground?: string;
-  zoom?: number;
-  children?: ReactNode;
-  onStageReady?: (stage: Konva.Stage) => void;
-  onZoomChange?: (zoom: number) => void;
-  panModeActive?: boolean;
-  layerControls?: LayerControlHandlers;
-  layersRevision?: number;
-  selectModeActive?: boolean;
-}
+/**
+ * SimpleCanvas Molecule - A ready-to-use canvas with stage and layer
+ * Provides zoom functionality where:
+ * - zoom = 0 (default): Stage fits to container
+ * - zoom > 0: Zoom in (percentage increase)
+ * - zoom < 0: Zoom out (percentage decrease)
+ */
 
 /**
  * SimpleCanvas Molecule - A ready-to-use canvas with stage and layer
