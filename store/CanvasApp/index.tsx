@@ -1,8 +1,8 @@
 import { configureStore } from '@reduxjs/toolkit';
 import thunk from 'redux-thunk';
 
-import { configuration as settings } from '@store/CanvasApp/configuration';
-import { view } from '@store/CanvasApp/view';
+import { configuration as settings } from './configuration';
+import { view } from './view';
 
 export const CanvasApp = configureStore({ 
     reducer: {

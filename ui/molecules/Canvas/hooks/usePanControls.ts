@@ -1,4 +1,7 @@
 import { useCallback, useState, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import type { RootState } from '@store/CanvasApp';
+import { viewActions } from '@store/CanvasApp/view';
 import type { PanOffset, PointerPanState, TouchPanState } from '../types/canvas.types';
 
 interface UsePanControlsProps {
@@ -28,7 +31,8 @@ export const usePanControls = ({
   spacePressed = false,
   selectModeActive = false,
 }: UsePanControlsProps): UsePanControlsResult => {
-  const [panOffset, setPanOffset] = useState<PanOffset>({ x: 0, y: 0 });
+  const dispatch = useDispatch();
+  const panOffset = useSelector((state: RootState) => state.view.pan.offset);
   const panOffsetRef = useRef(panOffset);
   const [isPointerPanning, setIsPointerPanning] = useState(false);
   const [isTouchPanning, setIsTouchPanning] = useState(false);
@@ -102,11 +106,11 @@ export const usePanControls = ({
     const deltaX = event.clientX - state.start.x;
     const deltaY = event.clientY - state.start.y;
 
-    setPanOffset({
+    dispatch(viewActions.pan.setOffset({
       x: state.origin.x + deltaX,
       y: state.origin.y + deltaY,
-    });
-  }, []);
+    }));
+  }, [dispatch]);
 
   const handlePointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const state = pointerPanState.current;
@@ -201,10 +205,10 @@ export const usePanControls = ({
         event.preventDefault();
         const center = getTouchCenter(touches);
 
-        setPanOffset({
+        dispatch(viewActions.pan.setOffset({
           x: panState.origin.x + (center.x - panState.center.x),
           y: panState.origin.y + (center.y - panState.center.y),
-        });
+        }));
         return;
       }
     }
@@ -213,12 +217,12 @@ export const usePanControls = ({
       event.preventDefault();
       const center = getTouchCenter(touches);
 
-      setPanOffset({
+      dispatch(viewActions.pan.setOffset({
         x: panState.origin.x + (center.x - panState.center.x),
         y: panState.origin.y + (center.y - panState.center.y),
-      });
+      }));
     }
-  }, [panModeActive, clearTouchPan]);
+  }, [panModeActive, clearTouchPan, dispatch]);
 
   const handleTouchEnd = useCallback((event: TouchEvent) => {
     if (touchPanState.current) {
@@ -248,6 +252,10 @@ export const usePanControls = ({
     clearTouchPan();
     lastTouchDistance.current = 0;
   }, [clearTouchPan]);
+
+  const setPanOffset = useCallback((offset: PanOffset) => {
+    dispatch(viewActions.pan.setOffset(offset));
+  }, [dispatch]);
 
   return {
     panOffset,

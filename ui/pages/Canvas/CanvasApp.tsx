@@ -4,6 +4,9 @@
  */
 
 import { useState, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import type { RootState } from '@store/CanvasApp';
+import { viewActions } from '@store/CanvasApp/view';
 import { CanvasLayout } from '@templates/Canvas';
 import { CanvasContainer } from '@organisms/Canvas';
 import type { CanvasLayerDefinition } from '@organisms/Canvas';
@@ -30,9 +33,13 @@ export const CanvasApp = ({
   containerBackground = '#cccccc',
   initialZoom = 0,
 }: CanvasAppProps) => {
+  const dispatch = useDispatch();
   const [zoom, setZoom] = useState(initialZoom);
-  const [isPanToolActive, setIsPanToolActive] = useState(false);
-  const [isSelectToolActive, setIsSelectToolActive] = useState(true);
+  
+  // Get tool states from Redux store
+  const isPanToolActive = useSelector((state: RootState) => state.view.pan.active);
+  const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
+  
   const initialCanvasLayers = useMemo<CanvasLayerDefinition[]>(() => [
     {
       id: 'layer-text',
@@ -93,23 +100,23 @@ export const CanvasApp = ({
   ], []);
 
   const togglePanTool = () => {
-    setIsPanToolActive((previous) => {
-      const next = !previous;
-      if (next) {
-        setIsSelectToolActive(false);
-      }
-      return next;
-    });
+    if (isPanToolActive) {
+      // Switch to select tool when disabling pan
+      dispatch(viewActions.setActiveTool('select'));
+    } else {
+      // Enable pan tool
+      dispatch(viewActions.setActiveTool('pan'));
+    }
   };
 
   const toggleSelectTool = () => {
-    setIsSelectToolActive((previous) => {
-      const next = !previous;
-      if (next) {
-        setIsPanToolActive(false);
-      }
-      return next;
-    });
+    if (isSelectToolActive) {
+      // Switch to pan tool when disabling select
+      dispatch(viewActions.setActiveTool('pan'));
+    } else {
+      // Enable select tool
+      dispatch(viewActions.setActiveTool('select'));
+    }
   };
 
   return (
