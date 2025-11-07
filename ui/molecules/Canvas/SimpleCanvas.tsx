@@ -5,6 +5,8 @@
 
 import { useRef, useEffect, useState, useCallback, useLayoutEffect, useMemo } from 'react';
 import type { ReactNode, CSSProperties, DragEvent } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '@store/CanvasApp';
 import { Stage, Layer } from '@atoms/Canvas';
 import { Rect, Transformer } from 'react-konva';
 import type Konva from 'konva';
@@ -75,6 +77,9 @@ export const SimpleCanvas = ({
   layersRevision = 0,
   selectModeActive = false,
 }: SimpleCanvasProps) => {
+  // Get active tool from Redux store
+  const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
+  
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastTouchDistance = useRef(0);
@@ -1549,7 +1554,7 @@ export const SimpleCanvas = ({
         position: 'relative',
       }}
     >
-      {layerControls && (
+      {layerControls && isSelectToolActive && (
         <>
           <button
             ref={layerButtonRef}
