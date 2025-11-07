@@ -51,3 +51,26 @@ export const areBoundsEqual = (first: Bounds | null, second: Bounds | null): boo
     first.height === second.height
   );
 };
+
+/**
+ * Calculate the unified bounding box that contains all provided bounds
+ */
+export const unifyBounds = (boundsList: Bounds[]): Bounds | null => {
+  if (boundsList.length === 0) {
+    return null;
+  }
+
+  return boundsList.reduce<Bounds>((accumulator, bounds) => {
+    const minX = Math.min(accumulator.x, bounds.x);
+    const minY = Math.min(accumulator.y, bounds.y);
+    const maxX = Math.max(accumulator.x + accumulator.width, bounds.x + bounds.width);
+    const maxY = Math.max(accumulator.y + accumulator.height, bounds.y + bounds.height);
+
+    return {
+      x: minX,
+      y: minY,
+      width: Math.max(0, maxX - minX),
+      height: Math.max(0, maxY - minY),
+    };
+  }, boundsList[0]);
+};
