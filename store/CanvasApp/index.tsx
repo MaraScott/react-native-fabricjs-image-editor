@@ -1,8 +1,8 @@
 import { configureStore } from '@reduxjs/toolkit';
 import thunk from 'redux-thunk';
 
-import { configuration as settings } from 'store/CanvasApp/configuration';
-import { view } from 'store/CanvasApp/view';
+import { configuration as settings } from '@store/CanvasApp/configuration';
+import { view } from '@store/CanvasApp/view';
 
 export const CanvasApp = configureStore({ 
     reducer: {
@@ -11,3 +11,7 @@ export const CanvasApp = configureStore({
     },
     middleware: [thunk]
 });
+
+// Export types for TypeScript usage
+export type RootState = ReturnType<typeof CanvasApp.getState>;
+export type AppDispatch = typeof CanvasApp.dispatch;
