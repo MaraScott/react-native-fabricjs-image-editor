@@ -631,7 +631,7 @@ export const SimpleCanvas = ({
     const dx = event.clientX - state.startX;
     const dy = event.clientY - state.startY;
 
-    // Convert screen delta to stage coordinates
+    // Convert screen delta to stage coordinates using current scale
     const dxStage = dx / Math.max(scale, 0.0001);
     const dyStage = dy / Math.max(scale, 0.0001);
 
@@ -642,15 +642,11 @@ export const SimpleCanvas = ({
       const newY = pos.y + dyStage;
       node.position({ x: newX, y: newY });
       if (typeof node.batchDraw === 'function') node.batchDraw();
-      // update the baseline position so subsequent moves are incremental
-      state.initialPositions.set(id, { x: newX, y: newY });
     });
 
     stageRef.current?.batchDraw();
     // update overlay visual position to follow pointer
     setOverlaySelectionBox((prev) => (prev ? { ...prev, x: prev.x + dx, y: prev.y + dy } : prev));
-    // move start anchor so repeated moves are incremental
-    overlayDragState.current = { ...state, startX: event.clientX, startY: event.clientY };
     // Update the computed bounds so the Konva transformer and proxy stay in sync
     try {
       const activeSelection = layerControls?.selectedLayerIds ?? Array.from(state.initialPositions.keys());
@@ -658,7 +654,7 @@ export const SimpleCanvas = ({
     } catch (e) {
       // ignore
     }
-  }, [scale]);
+  }, [scale, layerNodeRefs, stageRef, layerControls, updateBoundsFromLayerIds]);
 
   const handleOverlayPointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const state = overlayDragState.current;
