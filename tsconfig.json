@@ -6,6 +6,8 @@
   "jsx": "react-jsx",
   "strict": false,
   "noImplicitAny": false,
+  "allowJs": false,
+  "checkJs": false,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
@@ -21,6 +23,12 @@
       "react-konva": [ "./shims/reactKonva" ],
       "react/jsx-runtime": [ "./shims/jsxRuntime" ],
       "its-fine": [ "./shims/itsFine" ],
+      "redux": [ "./shims/redux" ],
+      "react-redux": [ "./shims/react-redux" ],
+      "redux-thunk": [ "./shims/redux-thunk" ],
+      "reduxThunk": [ "./shims/reduxThunk" ],
+      "reduxToolkit": [ "./shims/reduxToolkit" ],
+      "@reduxjs/toolkit": [ "./shims/reduxjs/toolkit" ],
       "@atoms/*": [ "./ui/atoms/*" ],
       "@molecules/*": [ "./ui/molecules/*" ],
       "@organisms/*": [ "./ui/organisms/*" ],
@@ -30,6 +38,8 @@
       "@contexts/*": [ "./contexts/*" ],
       "@utils/*": [ "./utils/*" ],
       "@types/*": [ "./types/*" ],
+      "@store/*": [ "./store/*" ],
+      "store/*": [ "./store/*" ],
       "@expo": [ "../../../../*" ],
       "@tinyartist/*": [ "../../../*" ],
       "@editor": [ "./*" ],
@@ -48,6 +58,7 @@
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "scripts"
   ]
 }

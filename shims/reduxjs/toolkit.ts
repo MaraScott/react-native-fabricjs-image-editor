@@ -217,5 +217,47 @@ export const thunkMiddleware =
     return next(action);
   };
 
+/**
+ * Builder for createReducer
+ */
+export interface ActionReducerMapBuilder<State> {
+  addCase<ActionCreatorType extends { type: string }>(
+    actionCreator: ActionCreatorType | string,
+    reducer: CaseReducer<State, any>
+  ): ActionReducerMapBuilder<State>;
+}
+
+/**
+ * Create a reducer with a builder callback
+ */
+export function createReducer<S>(
+  initialState: S,
+  builderCallback: (builder: ActionReducerMapBuilder<S>) => void
+): Reducer<S> {
+  const actionsMap: { [type: string]: CaseReducer<S, any> } = {};
+
+  const builder: ActionReducerMapBuilder<S> = {
+    addCase(actionCreatorOrType: any, reducer: CaseReducer<S, any>) {
+      const type = typeof actionCreatorOrType === 'string' 
+        ? actionCreatorOrType 
+        : actionCreatorOrType.type;
+      actionsMap[type] = reducer;
+      return builder;
+    },
+  };
+
+  builderCallback(builder);
+
+  return (state = initialState, action: any): S => {
+    const caseReducer = actionsMap[action.type];
+    if (caseReducer) {
+      // Support Immer-style draft mutations
+      const result = caseReducer(state, action);
+      return (result !== undefined ? result : state) as S;
+    }
+    return state;
+  };
+}
+
 export type { Action, AnyAction, Reducer, Store, Dispatch } from '../redux';
 export { combineReducers, createStore } from '../redux';

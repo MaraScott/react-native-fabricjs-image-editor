@@ -1,14 +1,13 @@
-import { configureStore } from 'reduxToolkit';
-import { combineReducers } from 'redux';
-import thunk from 'reduxThunk';
+import { configureStore } from '@reduxjs/toolkit';
+import thunk from 'redux-thunk';
 
 import { configuration as settings } from 'store/CanvasApp/configuration';
 import { view } from 'store/CanvasApp/view';
 
 export const CanvasApp = configureStore({ 
-    reducer: combineReducers({
+    reducer: {
         settings,
         view,
-    }),
+    },
     middleware: [thunk]
 });

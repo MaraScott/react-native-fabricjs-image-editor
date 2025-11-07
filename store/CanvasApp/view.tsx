@@ -1,4 +1,4 @@
-import { createReducer } from 'reduxToolkit'
+import { createReducer } from '@reduxjs/toolkit'
 
 const initialState = { 
     active: "select",

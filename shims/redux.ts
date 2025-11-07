@@ -206,7 +206,7 @@ export function createStore<S = any, A extends Action = AnyAction>(
   dispatch({ type: '@@redux/INIT' } as A);
 
   return {
-    dispatch,
+    dispatch: dispatch as Dispatch<A>,
     subscribe,
     getState,
     replaceReducer,

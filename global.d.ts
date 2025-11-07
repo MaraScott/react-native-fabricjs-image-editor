@@ -12,7 +12,9 @@ declare namespace JSX {
 
   // Basic element types
   interface Element {}
-  interface ElementClass {}
+  interface ElementClass {
+    props: any;
+  }
   interface ElementAttributesProperty { props: any }
   interface ElementChildrenAttribute { children: any }
 }
