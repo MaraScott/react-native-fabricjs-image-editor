@@ -214,7 +214,7 @@ In dev tools, enable "Disable cache" to always get fresh builds.
 ## ⚡ Performance Tips
 
 ### Fast Rebuild Times
-- Watch mode rebuilds in <100ms typically
+- Watch mode rebuilds in less than 100ms typically
 - Only changed files are rebuilt
 - esbuild is extremely fast
 
@@ -270,9 +270,9 @@ cat tsconfig.json
 
 ## 📚 Additional Resources
 
-- [QUICK_START.md](QUICK_START.md) - Basic usage guide
-- [ATOMIC_DESIGN.md](ATOMIC_DESIGN.md) - Architecture details
-- [STRUCTURE.md](STRUCTURE.md) - Component hierarchy
+- [Quick Start](../getting-started/quickstart) - Basic usage guide
+- [Atomic Design](../architecture/atomic-design) - Architecture details
+- [Structure Guide](../architecture/structure) - Component hierarchy
 - [Konva Docs](https://konvajs.org/) - Konva.js documentation
 - [React-Konva Docs](https://konvajs.org/docs/react/) - React-Konva guide
 - [esbuild Docs](https://esbuild.github.io/) - Build tool documentation

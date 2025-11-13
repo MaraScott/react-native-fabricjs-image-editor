@@ -11,16 +11,35 @@ import { Provider } from 'react-redux'
 import { CanvasApp as CanvasAppStore } from '@store/CanvasApp';
 import { CanvasApp } from '@pages/Canvas';
 
-// Get configuration from bootstrap (if available)
+/**
+ * Host-provided bootstrap configuration that allows the embedding surface to
+ * control canvas dimensions and styling. Falls back to safe defaults when the
+ * host does not expose any overrides.
+ */
 const bootstrap = (window as any).__EDITOR_BOOTSTRAP__ || {};
 const width = bootstrap.width || 800;
 const height = bootstrap.height || 600;
 const backgroundColor = bootstrap.backgroundColor || '#ffffff';
 
 // Mount the application
+/**
+ * getElementById - Auto-generated documentation stub.
+ *
+ * @returns {'image-editor-root'} Result produced by getElementById.
+ */
 const container = document.getElementById('image-editor-root');
 
+/**
+ * if - Auto-generated documentation stub.
+ *
+ * @returns {container} Result produced by if.
+ */
 if (container) {
+    /**
+     * createRoot - Auto-generated documentation stub.
+     *
+     * @returns {container} Result produced by createRoot.
+     */
     const root = createRoot(container);
     root.render(
         <StrictMode>

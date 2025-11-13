@@ -9,6 +9,12 @@ import type { Layer as KonvaLayerInstance } from 'konva/lib/Layer';
 import type { LayerConfig } from 'konva/lib/Layer';
 import type { ReactNode } from 'react';
 
+/**
+ * LayerProps interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * LayerProps interface - Generated documentation block.
+ */
 export interface LayerProps extends Partial<LayerConfig> {
   children?: ReactNode;
 }

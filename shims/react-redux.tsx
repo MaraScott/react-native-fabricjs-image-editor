@@ -1,112 +1,476 @@
 /**
  * React-Redux shim - Minimal implementation without external dependencies
- * Provides Provider, useSelector, useDispatch hooks
+ * Provides React bindings for Redux state management
  */
 
-import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
-import type { Store, Dispatch, AnyAction } from './redux';
+import { createContext, useContext, useEffect, useReducer, useRef } from 'react';
+import type { Store, Action } from './redux';
 
+// Context to hold the Redux store
 const ReactReduxContext = createContext<Store | null>(null);
 
-export interface ProviderProps {
-  store: Store;
-  children: ReactNode;
-}
-
 /**
- * Provider component - Makes Redux store available to child components
+ * Provider component to make Redux store available to components
  */
-export function Provider({ store, children }: ProviderProps) {
+/**
+ * Provider - Auto-generated summary; refine if additional context is needed.
+ *
+ * @param {*} { store - Parameter derived from the static analyzer.
+ * @param {*} children } - Parameter derived from the static analyzer.
+ *
+ * @returns {{ store, children }: { store: Store; children: React.ReactNode }} Refer to the implementation for the precise returned value.
+ */
+export function Provider({ store, children }: { store: Store; children: React.ReactNode }) {
   return <ReactReduxContext.Provider value={store}>{children}</ReactReduxContext.Provider>;
 }
 
 /**
  * Hook to access the Redux store
  */
-export function useStore<S = any>(): Store<S> {
+export function useStore<S = any, A extends Action = Action>(): Store<S, A> {
+  /**
+   * useContext - Auto-generated summary; refine if additional context is needed.
+   *
+   * @returns {ReactReduxContext} Refer to the implementation for the precise returned value.
+   */
   const store = useContext(ReactReduxContext);
+  /**
+   * if - Auto-generated summary; refine if additional context is needed.
+   *
+   * @returns {!store} Refer to the implementation for the precise returned value.
+   */
+  /**
+   * if - Auto-generated documentation stub.
+   *
+   * @returns {!store} Result produced by if.
+   */
   if (!store) {
+    /**
+     * Error - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {'useStore must be used within a Provider'} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * Error - Auto-generated documentation stub.
+     *
+     * @returns {'useStore must be used within a Provider'} Result produced by Error.
+     */
     throw new Error('useStore must be used within a Provider');
   }
-  return store as Store<S>;
+  return store as Store<S, A>;
 }
 
 /**
  * Hook to access the dispatch function
  */
-export function useDispatch<A extends AnyAction = AnyAction>(): Dispatch<A> {
-  const store = useStore();
+export function useDispatch<A extends Action = Action>() {
+  const store = useStore<any, A>();
   return store.dispatch;
 }
 
 /**
  * Hook to select data from the Redux store
  */
-export function useSelector<S = any, R = any>(
-  selector: (state: S) => R,
-  equalityFn?: (left: R, right: R) => boolean
-): R {
+export function useSelector<S = any, R = any>(selector: (state: S) => R): R {
   const store = useStore<S>();
-  const [selectedState, setSelectedState] = useState<R>(() => selector(store.getState()));
-  const selectorRef = useRef(selector);
-  const equalityFnRef = useRef(equalityFn);
+  /**
+   * useReducer - Auto-generated summary; refine if additional context is needed.
+   */
+  /**
+   * useReducer - Auto-generated documentation stub.
+   */
+  const [, forceRender] = useReducer((s) => s + 1, 0);
+  /**
+   * useRef - Auto-generated summary; refine if additional context is needed.
+   *
+   * @returns {selector} Refer to the implementation for the precise returned value.
+   */
+  /**
+   * useRef - Auto-generated documentation stub.
+   *
+   * @returns {selector} Result produced by useRef.
+   */
+  const latestSelector = useRef(selector);
+  const latestSelectedState = useRef<R>();
 
   // Update refs
-  useEffect(() => {
-    selectorRef.current = selector;
-    equalityFnRef.current = equalityFn;
-  });
+  latestSelector.current = selector;
 
+  // Get current selected state
+  /**
+   * current - Auto-generated summary; refine if additional context is needed.
+   */
+  /**
+   * current - Auto-generated documentation stub.
+   */
+  const selectedState = latestSelector.current(store.getState());
+
+  // Subscribe to store updates
+  /**
+   * useEffect - Auto-generated summary; refine if additional context is needed.
+   */
   useEffect(() => {
+    /**
+     * checkForUpdates - Auto-generated summary; refine if additional context is needed.
+     */
+    /**
+     * checkForUpdates - Auto-generated documentation stub.
+     */
     const checkForUpdates = () => {
-      const newSelectedState = selectorRef.current(store.getState());
-      const equalityCheck = equalityFnRef.current || defaultEqualityFn;
-
-      if (!equalityCheck(selectedState, newSelectedState)) {
-        setSelectedState(newSelectedState);
+      /**
+       * current - Auto-generated summary; refine if additional context is needed.
+       */
+      /**
+       * current - Auto-generated documentation stub.
+       */
+      const newSelectedState = latestSelector.current(store.getState());
+      
+      // Only re-render if the selected state has changed
+      /**
+       * if - Auto-generated summary; refine if additional context is needed.
+       */
+      /**
+       * if - Auto-generated documentation stub.
+       */
+      if (newSelectedState !== latestSelectedState.current) {
+        latestSelectedState.current = newSelectedState;
+        /**
+         * forceRender - Auto-generated summary; refine if additional context is needed.
+         */
+        forceRender();
       }
     };
 
-    // Initial check
-    checkForUpdates();
-
-    // Subscribe to store updates
+    // Subscribe to store changes
+    /**
+     * subscribe - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {checkForUpdates} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * subscribe - Auto-generated documentation stub.
+     *
+     * @returns {checkForUpdates} Result produced by subscribe.
+     */
     const unsubscribe = store.subscribe(checkForUpdates);
 
+    // Check for updates immediately in case state changed before subscription
+    /**
+     * checkForUpdates - Auto-generated summary; refine if additional context is needed.
+     */
+    /**
+     * checkForUpdates - Auto-generated documentation stub.
+     */
+    checkForUpdates();
+
     return unsubscribe;
-  }, [store, selectedState]);
+  }, [store]);
+
+  // Update ref with current selected state
+  latestSelectedState.current = selectedState;
 
   return selectedState;
 }
 
 /**
- * Default equality function (shallow equality)
+ /**
+  * HOC - Auto-generated summary; refine if additional context is needed.
+  *
+  * @returns {for class components} Refer to the implementation for the precise returned value.
+  */
+ /**
+  * HOC - Auto-generated documentation stub.
+  */
+/**
+ * Connect HOC (for class components) - basic implementation
  */
-function defaultEqualityFn<T>(a: T, b: T): boolean {
-  return a === b;
+export function connect<SP = {}, DP = {}>(
+  mapStateToProps?: (state: any) => SP,
+  mapDispatchToProps?: ((dispatch: any) => DP) | DP
+) {
+  return function wrapWithConnect<P>(WrappedComponent: React.ComponentType<P & SP & DP>) {
+    /**
+     * ConnectedComponent - Auto-generated summary; refine if additional context is needed.
+     *
+     * @param {*} props - Parameter derived from the static analyzer.
+     *
+     * @returns {props: P} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * ConnectedComponent - Auto-generated documentation stub.
+     *
+     * @param {*} props - Parameter forwarded to ConnectedComponent.
+     *
+     * @returns {props: P} Result produced by ConnectedComponent.
+     */
+    return function ConnectedComponent(props: P) {
+      /**
+       * useStore - Auto-generated documentation stub.
+       */
+      const store = useStore();
+      const dispatch = store.dispatch;
+
+      const stateProps = mapStateToProps ? mapStateToProps(store.getState()) : ({} as SP);
+      
+      let dispatchProps: DP;
+      /**
+       * if - Auto-generated summary; refine if additional context is needed.
+       */
+      /**
+       * if - Auto-generated documentation stub.
+       */
+      if (typeof mapDispatchToProps === 'function') {
+        dispatchProps = mapDispatchToProps(dispatch);
+      /**
+       * if - Auto-generated summary; refine if additional context is needed.
+       *
+       * @returns {mapDispatchToProps} Refer to the implementation for the precise returned value.
+       */
+      } else if (mapDispatchToProps) {
+        dispatchProps = mapDispatchToProps;
+      } else {
+        dispatchProps = { dispatch } as any;
+      }
+
+      const mergedProps = { ...props, ...stateProps, ...dispatchProps };
+
+      return <WrappedComponent {...mergedProps} />;
+    };
+  };
 }
 
 /**
- * Shallow equality function for objects
+ * Create a selector hook with memoization
  */
-export function shallowEqual<T>(objA: T, objB: T): boolean {
+/**
+ * createSelectorHook - Auto-generated summary; refine if additional context is needed.
+ */
+/**
+ * createSelectorHook - Auto-generated documentation stub.
+ */
+export function createSelectorHook(context = ReactReduxContext) {
+  return function useSelectorWithContext<S = any, R = any>(selector: (state: S) => R): R {
+    /**
+     * useContext - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {context} Refer to the implementation for the precise returned value.
+     */
+    const store = useContext(context);
+    /**
+     * if - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {!store} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * if - Auto-generated documentation stub.
+     *
+     * @returns {!store} Result produced by if.
+     */
+    if (!store) {
+      /**
+       * Error - Auto-generated summary; refine if additional context is needed.
+       *
+       * @returns {'useSelector must be used within a Provider'} Refer to the implementation for the precise returned value.
+       */
+      /**
+       * Error - Auto-generated documentation stub.
+       *
+       * @returns {'useSelector must be used within a Provider'} Result produced by Error.
+       */
+      throw new Error('useSelector must be used within a Provider');
+    }
+
+    /**
+     * useReducer - Auto-generated documentation stub.
+     */
+    const [, forceRender] = useReducer((s) => s + 1, 0);
+    /**
+     * useRef - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {selector} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * useRef - Auto-generated documentation stub.
+     *
+     * @returns {selector} Result produced by useRef.
+     */
+    const latestSelector = useRef(selector);
+    const latestSelectedState = useRef<R>();
+
+    latestSelector.current = selector;
+    /**
+     * current - Auto-generated summary; refine if additional context is needed.
+     */
+    /**
+     * current - Auto-generated documentation stub.
+     */
+    const selectedState = latestSelector.current(store.getState());
+
+    /**
+     * useEffect - Auto-generated summary; refine if additional context is needed.
+     */
+    /**
+     * useEffect - Auto-generated documentation stub.
+     */
+    useEffect(() => {
+      /**
+       * checkForUpdates - Auto-generated summary; refine if additional context is needed.
+       */
+      /**
+       * checkForUpdates - Auto-generated documentation stub.
+       */
+      const checkForUpdates = () => {
+        /**
+         * current - Auto-generated summary; refine if additional context is needed.
+         */
+        /**
+         * current - Auto-generated documentation stub.
+         */
+        const newSelectedState = latestSelector.current(store.getState());
+        
+        /**
+         * if - Auto-generated summary; refine if additional context is needed.
+         */
+        /**
+         * if - Auto-generated documentation stub.
+         */
+        if (newSelectedState !== latestSelectedState.current) {
+          latestSelectedState.current = newSelectedState;
+          /**
+           * forceRender - Auto-generated summary; refine if additional context is needed.
+           */
+          /**
+           * forceRender - Auto-generated documentation stub.
+           */
+          forceRender();
+        }
+      };
+
+      /**
+       * subscribe - Auto-generated summary; refine if additional context is needed.
+       *
+       * @returns {checkForUpdates} Refer to the implementation for the precise returned value.
+       */
+      /**
+       * subscribe - Auto-generated documentation stub.
+       *
+       * @returns {checkForUpdates} Result produced by subscribe.
+       */
+      const unsubscribe = store.subscribe(checkForUpdates);
+      /**
+       * checkForUpdates - Auto-generated summary; refine if additional context is needed.
+       */
+      checkForUpdates();
+
+      return unsubscribe;
+    }, [store]);
+
+    latestSelectedState.current = selectedState;
+
+    return selectedState;
+  };
+}
+
+/**
+ /**
+  * together - Auto-generated summary; refine if additional context is needed.
+  *
+  * @returns {no-op in this implementation} Refer to the implementation for the precise returned value.
+  */
+ /**
+  * together - Auto-generated documentation stub.
+  */
+/**
+ * Batch multiple updates together (no-op in this implementation)
+ */
+/**
+ * batch - Auto-generated summary; refine if additional context is needed.
+ *
+ * @param {*} fn - Parameter derived from the static analyzer.
+ */
+export function batch(fn: () => void) {
+  /**
+   * fn - Auto-generated summary; refine if additional context is needed.
+   */
+  fn();
+}
+
+/**
+ * Shallow equality check for objects
+ */
+/**
+ * shallowEqual - Auto-generated documentation stub.
+ *
+ * @param {*} objA - Parameter forwarded to shallowEqual.
+ * @param {*} objB - Parameter forwarded to shallowEqual.
+ *
+ * @returns {boolean} Result produced by shallowEqual.
+ */
+export function shallowEqual(objA: any, objB: any): boolean {
+  /**
+   * if - Auto-generated summary; refine if additional context is needed.
+   */
+  /**
+   * if - Auto-generated documentation stub.
+   */
   if (objA === objB) {
     return true;
   }
 
+  /**
+   * if - Auto-generated summary; refine if additional context is needed.
+   */
   if (typeof objA !== 'object' || objA === null || typeof objB !== 'object' || objB === null) {
     return false;
   }
 
-  const keysA = Object.keys(objA) as (keyof T)[];
-  const keysB = Object.keys(objB) as (keyof T)[];
+  /**
+   * keys - Auto-generated summary; refine if additional context is needed.
+   *
+   * @returns {objA} Refer to the implementation for the precise returned value.
+   */
+  /**
+   * keys - Auto-generated documentation stub.
+   *
+   * @returns {objA} Result produced by keys.
+   */
+  const keysA = Object.keys(objA);
+  /**
+   * keys - Auto-generated summary; refine if additional context is needed.
+   *
+   * @returns {objB} Refer to the implementation for the precise returned value.
+   */
+  /**
+   * keys - Auto-generated documentation stub.
+   *
+   * @returns {objB} Result produced by keys.
+   */
+  const keysB = Object.keys(objB);
 
+  /**
+   * if - Auto-generated summary; refine if additional context is needed.
+   */
   if (keysA.length !== keysB.length) {
     return false;
   }
 
+  /**
+   * for - Auto-generated summary; refine if additional context is needed.
+   */
   for (let i = 0; i < keysA.length; i++) {
     const key = keysA[i];
+    /**
+     * if - Auto-generated summary; refine if additional context is needed.
+     *
+     * @param {*} !Object.prototype.hasOwnProperty.call(objB - Parameter derived from the static analyzer.
+     * @param {*} key - Parameter derived from the static analyzer.
+     */
+    /**
+     * if - Auto-generated documentation stub.
+     *
+     * @param {*} !Object.prototype.hasOwnProperty.call(objB - Parameter forwarded to if.
+     * @param {*} key - Parameter forwarded to if.
+     */
     if (!Object.prototype.hasOwnProperty.call(objB, key) || objA[key] !== objB[key]) {
       return false;
     }

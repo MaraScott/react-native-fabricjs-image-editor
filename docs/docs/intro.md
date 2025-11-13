@@ -118,7 +118,7 @@ The editor follows a strict separation of concerns:
 2. **Presentation Layer** (`/ui`): Pure React components that receive props and callbacks
 3. **Data Layer** (`/types`, `/utils`): Type definitions and pure utility functions
 
-See [ARCHITECTURE.md](doc/ARCHITECTURE.md) for detailed architecture documentation.
+See [Architecture Guide](architecture/atomic-design) for detailed architecture documentation.
 
 ## Key Concepts
 
@@ -260,9 +260,9 @@ See [useWordPressIntegration.ts](hooks/editor/useWordPressIntegration.ts) for im
 
 ## Further Documentation
 
-- [ARCHITECTURE.md](doc/ARCHITECTURE.md) - Detailed architecture and design patterns
-- [COMPONENT_USAGE.md](doc/COMPONENT_USAGE.md) - Component API and usage examples
-- [QUICK_REFERENCE.md](doc/QUICK_REFERENCE.md) - Quick reference for common tasks
+- [Architecture Guide](architecture/atomic-design) - Detailed architecture and design patterns
+- [Component API](api/atoms) - Component API and usage examples
+- [Quick Start](getting-started/quickstart) - Quick reference for common tasks
 
 ## Build System
 

@@ -22,17 +22,92 @@ export const ZoomControl = ({
   maxZoom = -1 * minZoom,
   step = 10,
 }: ZoomControlProps) => {
+  /**
+   * handleZoomIn - Auto-generated summary; refine if additional context is needed.
+   */
+  /**
+   * handleZoomIn - Auto-generated documentation stub.
+   */
   const handleZoomIn = () => {
+    /**
+     * min - Auto-generated summary; refine if additional context is needed.
+     *
+     * @param {*} maxZoom - Parameter derived from the static analyzer.
+     * @param {*} zoom + step - Parameter derived from the static analyzer.
+     *
+     * @returns {maxZoom, zoom + step} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * min - Auto-generated documentation stub.
+     *
+     * @param {*} maxZoom - Parameter forwarded to min.
+     * @param {*} zoom + step - Parameter forwarded to min.
+     *
+     * @returns {maxZoom, zoom + step} Result produced by min.
+     */
     const newZoom = Math.min(maxZoom, zoom + step);
+    /**
+     * onZoomChange - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {newZoom} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * onZoomChange - Auto-generated documentation stub.
+     *
+     * @returns {newZoom} Result produced by onZoomChange.
+     */
     onZoomChange(newZoom);
   };
 
+  /**
+   * handleZoomOut - Auto-generated summary; refine if additional context is needed.
+   */
+  /**
+   * handleZoomOut - Auto-generated documentation stub.
+   */
   const handleZoomOut = () => {
+    /**
+     * max - Auto-generated summary; refine if additional context is needed.
+     *
+     * @param {*} minZoom - Parameter derived from the static analyzer.
+     * @param {*} zoom - step - Parameter derived from the static analyzer.
+     *
+     * @returns {minZoom, zoom - step} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * max - Auto-generated documentation stub.
+     *
+     * @param {*} minZoom - Parameter forwarded to max.
+     * @param {*} zoom - step - Parameter forwarded to max.
+     *
+     * @returns {minZoom, zoom - step} Result produced by max.
+     */
     const newZoom = Math.max(minZoom, zoom - step);
+    /**
+     * onZoomChange - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {newZoom} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * onZoomChange - Auto-generated documentation stub.
+     *
+     * @returns {newZoom} Result produced by onZoomChange.
+     */
     onZoomChange(newZoom);
   };
 
+  /**
+   * handleZoomReset - Auto-generated summary; refine if additional context is needed.
+   */
+  /**
+   * handleZoomReset - Auto-generated documentation stub.
+   */
   const handleZoomReset = () => {
+    /**
+     * onZoomChange - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {0} Refer to the implementation for the precise returned value.
+     */
     onZoomChange(0);
   };
 
@@ -95,7 +170,33 @@ export const ZoomControl = ({
           ...(isMinZoom && disabledStyle),
         }}
         onMouseEnter={(e) => {
+          /**
+           * if - Auto-generated summary; refine if additional context is needed.
+           *
+           * @returns {!isMinZoom} Refer to the implementation for the precise returned value.
+           */
+          /**
+           * if - Auto-generated documentation stub.
+           *
+           * @returns {!isMinZoom} Result produced by if.
+           */
           if (!isMinZoom) {
+            /**
+             * assign - Auto-generated summary; refine if additional context is needed.
+             *
+             * @param {*} e.currentTarget.style - Parameter derived from the static analyzer.
+             * @param {*} buttonHoverStyle - Parameter derived from the static analyzer.
+             *
+             * @returns {e.currentTarget.style, buttonHoverStyle} Refer to the implementation for the precise returned value.
+             */
+            /**
+             * assign - Auto-generated documentation stub.
+             *
+             * @param {*} e.currentTarget.style - Parameter forwarded to assign.
+             * @param {*} buttonHoverStyle - Parameter forwarded to assign.
+             *
+             * @returns {e.currentTarget.style, buttonHoverStyle} Result produced by assign.
+             */
             Object.assign(e.currentTarget.style, buttonHoverStyle);
           }
         }}
@@ -127,7 +228,33 @@ export const ZoomControl = ({
           ...(isMaxZoom && disabledStyle),
         }}
         onMouseEnter={(e) => {
+          /**
+           * if - Auto-generated summary; refine if additional context is needed.
+           *
+           * @returns {!isMaxZoom} Refer to the implementation for the precise returned value.
+           */
+          /**
+           * if - Auto-generated documentation stub.
+           *
+           * @returns {!isMaxZoom} Result produced by if.
+           */
           if (!isMaxZoom) {
+            /**
+             * assign - Auto-generated summary; refine if additional context is needed.
+             *
+             * @param {*} e.currentTarget.style - Parameter derived from the static analyzer.
+             * @param {*} buttonHoverStyle - Parameter derived from the static analyzer.
+             *
+             * @returns {e.currentTarget.style, buttonHoverStyle} Refer to the implementation for the precise returned value.
+             */
+            /**
+             * assign - Auto-generated documentation stub.
+             *
+             * @param {*} e.currentTarget.style - Parameter forwarded to assign.
+             * @param {*} buttonHoverStyle - Parameter forwarded to assign.
+             *
+             * @returns {e.currentTarget.style, buttonHoverStyle} Result produced by assign.
+             */
             Object.assign(e.currentTarget.style, buttonHoverStyle);
           }
         }}
@@ -156,7 +283,29 @@ export const ZoomControl = ({
           ...(zoom === 0 && disabledStyle),
         }}
         onMouseEnter={(e) => {
+          /**
+           * if - Auto-generated summary; refine if additional context is needed.
+           */
+          /**
+           * if - Auto-generated documentation stub.
+           */
           if (zoom !== 0) {
+            /**
+             * assign - Auto-generated summary; refine if additional context is needed.
+             *
+             * @param {*} e.currentTarget.style - Parameter derived from the static analyzer.
+             * @param {*} buttonHoverStyle - Parameter derived from the static analyzer.
+             *
+             * @returns {e.currentTarget.style, buttonHoverStyle} Refer to the implementation for the precise returned value.
+             */
+            /**
+             * assign - Auto-generated documentation stub.
+             *
+             * @param {*} e.currentTarget.style - Parameter forwarded to assign.
+             * @param {*} buttonHoverStyle - Parameter forwarded to assign.
+             *
+             * @returns {e.currentTarget.style, buttonHoverStyle} Result produced by assign.
+             */
             Object.assign(e.currentTarget.style, buttonHoverStyle);
           }
         }}
@@ -166,6 +315,16 @@ export const ZoomControl = ({
             borderColor: '#ddd',
           });
         }}
+        /**
+         * zoom - Auto-generated summary; refine if additional context is needed.
+         *
+         * @returns {fit to container} Refer to the implementation for the precise returned value.
+         */
+        /**
+         * zoom - Auto-generated documentation stub.
+         *
+         * @returns {fit to container} Result produced by zoom.
+         */
         title="Reset zoom (fit to container)"
       >
         Fit

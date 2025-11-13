@@ -30,23 +30,44 @@ export type PayloadAction<P = void, T extends string = string, M = never, E = ne
         error: E;
       });
 
+/**
+ * CaseReducer interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * CaseReducer interface - Generated documentation block.
+ */
 export interface CaseReducer<S = any, A extends Action = AnyAction> {
   (state: S, action: A): S | void;
 }
 
+/**
+ * CaseReducers interface - Auto-generated interface summary; customize as needed.
+ */
 export interface CaseReducers<S, AS extends { [key: string]: any } = any> {
   [key: string]: CaseReducer<S, any>;
 }
 
+/**
+ * SliceCaseReducers interface - Auto-generated interface summary; customize as needed.
+ */
 export interface SliceCaseReducers<State> {
   [K: string]: CaseReducer<State, PayloadAction<any>>;
 }
 
+/**
+ * ActionCreator interface - Auto-generated interface summary; customize as needed.
+ */
 export interface ActionCreator<P = void, T extends string = string> {
   (payload: P): PayloadAction<P, T>;
   type: T;
 }
 
+/**
+ * Slice interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * Slice interface - Generated documentation block.
+ */
 export interface Slice<
   State = any,
   CaseReducers extends SliceCaseReducers<State> = SliceCaseReducers<State>,
@@ -56,6 +77,22 @@ export interface Slice<
   reducer: Reducer<State>;
   actions: {
     [K in keyof CaseReducers]: ActionCreator<
+      /**
+       * extends - Auto-generated summary; refine if additional context is needed.
+       *
+       * @param {*} state - Parameter derived from the static analyzer.
+       * @param {*} action - Parameter derived from the static analyzer.
+       *
+       * @returns {state: any, action: infer A} Refer to the implementation for the precise returned value.
+       */
+      /**
+       * extends - Auto-generated documentation stub.
+       *
+       * @param {*} state - Parameter forwarded to extends.
+       * @param {*} action - Parameter forwarded to extends.
+       *
+       * @returns {state: any, action: infer A} Result produced by extends.
+       */
       CaseReducers[K] extends (state: any, action: infer A) => any
         ? A extends PayloadAction<infer P>
           ? P
@@ -65,9 +102,25 @@ export interface Slice<
     >;
   };
   caseReducers: CaseReducers;
+  /**
+   * getInitialState - Auto-generated summary; refine if additional context is needed.
+   *
+   * @returns {State;} Refer to the implementation for the precise returned value.
+   */
+  /**
+   * getInitialState - Auto-generated documentation stub.
+   *
+   * @returns {State;} Result produced by getInitialState.
+   */
   getInitialState(): State;
 }
 
+/**
+ * CreateSliceOptions interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * CreateSliceOptions interface - Generated documentation block.
+ */
 export interface CreateSliceOptions<
   State = any,
   CR extends SliceCaseReducers<State> = SliceCaseReducers<State>,
@@ -92,6 +145,12 @@ export function createSlice<
 
   const initialState =
     typeof initialStateArg === 'function'
+      /**
+       * as - Auto-generated summary; refine if additional context is needed.
+       */
+      /**
+       * as - Auto-generated documentation stub.
+       */
       ? (initialStateArg as () => State)()
       : initialStateArg;
 
@@ -99,6 +158,16 @@ export function createSlice<
   const caseReducerMap: { [type: string]: CaseReducer<State, any> } = {};
 
   // Generate action creators and map action types to reducers
+  /**
+   * keys - Auto-generated summary; refine if additional context is needed.
+   *
+   * @returns {reducers} Refer to the implementation for the precise returned value.
+   */
+  /**
+   * keys - Auto-generated documentation stub.
+   *
+   * @returns {reducers} Result produced by keys.
+   */
   Object.keys(reducers).forEach((reducerName) => {
     const type = `${name}/${reducerName}`;
     const caseReducer = reducers[reducerName];
@@ -116,9 +185,45 @@ export function createSlice<
   // Create the slice reducer
   const reducer: Reducer<State> = (state = initialState, action: any): State => {
     const caseReducer = caseReducerMap[action.type];
+    /**
+     * if - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {caseReducer} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * if - Auto-generated documentation stub.
+     *
+     * @returns {caseReducer} Result produced by if.
+     */
     if (caseReducer) {
       // Support Immer-style draft mutations by checking if reducer returns undefined
+      /**
+       * caseReducer - Auto-generated summary; refine if additional context is needed.
+       *
+       * @param {*} state - Parameter derived from the static analyzer.
+       * @param {*} action - Parameter derived from the static analyzer.
+       *
+       * @returns {state, action} Refer to the implementation for the precise returned value.
+       */
+      /**
+       * caseReducer - Auto-generated documentation stub.
+       *
+       * @param {*} state - Parameter forwarded to caseReducer.
+       * @param {*} action - Parameter forwarded to caseReducer.
+       *
+       * @returns {state, action} Result produced by caseReducer.
+       */
       const result = caseReducer(state, action);
+      /**
+       * return - Auto-generated summary; refine if additional context is needed.
+       *
+       * @param {*} result !== undefined ? result - Parameter derived from the static analyzer.
+       */
+      /**
+       * return - Auto-generated documentation stub.
+       *
+       * @param {*} result !== undefined ? result - Parameter forwarded to return.
+       */
       return (result !== undefined ? result : state) as State;
     }
     return state;
@@ -133,6 +238,12 @@ export function createSlice<
   };
 }
 
+/**
+ * ConfigureStoreOptions interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * ConfigureStoreOptions interface - Generated documentation block.
+ */
 export interface ConfigureStoreOptions<S = any, A extends Action = AnyAction> {
   reducer: Reducer<S, A> | { [K in keyof S]: Reducer<S[K], A> };
   middleware?: any[];
@@ -157,21 +268,77 @@ export function configureStore<S = any, A extends Action = AnyAction>(
 
   let rootReducer: Reducer<S, A>;
 
+  /**
+   * if - Auto-generated summary; refine if additional context is needed.
+   */
+  /**
+   * if - Auto-generated documentation stub.
+   */
   if (typeof reducer === 'function') {
     rootReducer = reducer;
   } else {
+    /**
+     * combineReducers - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {reducer as any} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * combineReducers - Auto-generated documentation stub.
+     *
+     * @returns {reducer as any} Result produced by combineReducers.
+     */
     rootReducer = combineReducers(reducer as any) as Reducer<S, A>;
   }
 
   // Create store enhancer
+  /**
+   * applyMiddleware - Auto-generated summary; refine if additional context is needed.
+   *
+   * @returns {undefined;} Refer to the implementation for the precise returned value.
+   */
+  /**
+   * applyMiddleware - Auto-generated documentation stub.
+   *
+   * @returns {undefined;} Result produced by applyMiddleware.
+   */
   const middlewareEnhancer = middleware.length > 0 ? applyMiddleware(...middleware) : undefined;
 
   const composedEnhancers: any[] = [];
 
+  /**
+   * if - Auto-generated summary; refine if additional context is needed.
+   *
+   * @returns {middlewareEnhancer} Refer to the implementation for the precise returned value.
+   */
+  /**
+   * if - Auto-generated documentation stub.
+   *
+   * @returns {middlewareEnhancer} Result produced by if.
+   */
   if (middlewareEnhancer) {
+    /**
+     * push - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {middlewareEnhancer} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * push - Auto-generated documentation stub.
+     *
+     * @returns {middlewareEnhancer} Result produced by push.
+     */
     composedEnhancers.push(middlewareEnhancer);
   }
 
+  /**
+   * push - Auto-generated summary; refine if additional context is needed.
+   *
+   * @returns {...enhancers} Refer to the implementation for the precise returned value.
+   */
+  /**
+   * push - Auto-generated documentation stub.
+   *
+   * @returns {...enhancers} Result produced by push.
+   */
   composedEnhancers.push(...enhancers);
 
   // Add Redux DevTools support if available
@@ -181,9 +348,28 @@ export function configureStore<S = any, A extends Action = AnyAction>(
       : compose;
 
   const composedEnhancer = composedEnhancers.length > 0
+    /**
+     * composeEnhancers - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {...composedEnhancers} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * composeEnhancers - Auto-generated documentation stub.
+     *
+     * @returns {...composedEnhancers} Result produced by composeEnhancers.
+     */
     ? composeEnhancers(...composedEnhancers)
     : undefined;
 
+  /**
+   * createStore - Auto-generated summary; refine if additional context is needed.
+   *
+   * @param {*} rootReducer - Parameter derived from the static analyzer.
+   * @param {*} preloadedState - Parameter derived from the static analyzer.
+   * @param {*} composedEnhancer - Parameter derived from the static analyzer.
+   *
+   * @returns {rootReducer, preloadedState, composedEnhancer} Refer to the implementation for the precise returned value.
+   */
   return createStore(rootReducer, preloadedState, composedEnhancer);
 }
 
@@ -193,6 +379,9 @@ export function configureStore<S = any, A extends Action = AnyAction>(
 export function createAction<P = void, T extends string = string>(
   type: T
 ): ActionCreator<P, T> {
+  /**
+   * actionCreator - Auto-generated summary; refine if additional context is needed.
+   */
   const actionCreator = ((payload: P) => ({
     type,
     payload,
@@ -210,15 +399,50 @@ export const thunkMiddleware =
   ({ dispatch, getState }: { dispatch: Dispatch; getState: () => any }) =>
   (next: Dispatch) =>
   (action: any) => {
+    /**
+     * if - Auto-generated summary; refine if additional context is needed.
+     */
     if (typeof action === 'function') {
+      /**
+       * action - Auto-generated summary; refine if additional context is needed.
+       *
+       * @param {*} dispatch - Parameter derived from the static analyzer.
+       * @param {*} getState - Parameter derived from the static analyzer.
+       *
+       * @returns {dispatch, getState} Refer to the implementation for the precise returned value.
+       */
+      /**
+       * action - Auto-generated documentation stub.
+       *
+       * @param {*} dispatch - Parameter forwarded to action.
+       * @param {*} getState - Parameter forwarded to action.
+       *
+       * @returns {dispatch, getState} Result produced by action.
+       */
       return action(dispatch, getState);
     }
 
+    /**
+     * next - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {action} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * next - Auto-generated documentation stub.
+     *
+     * @returns {action} Result produced by next.
+     */
     return next(action);
   };
 
 /**
  * Builder for createReducer
+ */
+/**
+ * ActionReducerMapBuilder interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * ActionReducerMapBuilder interface - Generated documentation block.
  */
 export interface ActionReducerMapBuilder<State> {
   addCase<ActionCreatorType extends { type: string }>(
@@ -246,13 +470,71 @@ export function createReducer<S>(
     },
   };
 
+  /**
+   * builderCallback - Auto-generated summary; refine if additional context is needed.
+   *
+   * @returns {builder} Refer to the implementation for the precise returned value.
+   */
+  /**
+   * builderCallback - Auto-generated documentation stub.
+   *
+   * @returns {builder} Result produced by builderCallback.
+   */
   builderCallback(builder);
 
+  /**
+   * return - Auto-generated summary; refine if additional context is needed.
+   *
+   * @param {*} state = initialState - Parameter derived from the static analyzer.
+   * @param {*} action - Parameter derived from the static analyzer.
+   */
+  /**
+   * return - Auto-generated documentation stub.
+   *
+   * @param {*} state = initialState - Parameter forwarded to return.
+   * @param {*} action - Parameter forwarded to return.
+   */
   return (state = initialState, action: any): S => {
     const caseReducer = actionsMap[action.type];
+    /**
+     * if - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {caseReducer} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * if - Auto-generated documentation stub.
+     *
+     * @returns {caseReducer} Result produced by if.
+     */
     if (caseReducer) {
       // Support Immer-style draft mutations
+      /**
+       * caseReducer - Auto-generated summary; refine if additional context is needed.
+       *
+       * @param {*} state - Parameter derived from the static analyzer.
+       * @param {*} action - Parameter derived from the static analyzer.
+       *
+       * @returns {state, action} Refer to the implementation for the precise returned value.
+       */
+      /**
+       * caseReducer - Auto-generated documentation stub.
+       *
+       * @param {*} state - Parameter forwarded to caseReducer.
+       * @param {*} action - Parameter forwarded to caseReducer.
+       *
+       * @returns {state, action} Result produced by caseReducer.
+       */
       const result = caseReducer(state, action);
+      /**
+       * return - Auto-generated summary; refine if additional context is needed.
+       *
+       * @param {*} result !== undefined ? result - Parameter derived from the static analyzer.
+       */
+      /**
+       * return - Auto-generated documentation stub.
+       *
+       * @param {*} result !== undefined ? result - Parameter forwarded to return.
+       */
       return (result !== undefined ? result : state) as S;
     }
     return state;

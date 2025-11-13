@@ -16,6 +16,15 @@ export interface CanvasLayoutProps {
 
 /**
  * CanvasLayout Template - Defines the overall layout structure
+ /**
+  * center - Auto-generated summary; refine if additional context is needed.
+  *
+  * @returns {for zoom controls} Refer to the implementation for the precise returned value.
+  */
+ /**
+  * center - Auto-generated documentation stub.
+  */
+/**
  * Header has three zones: left, center (for zoom controls), and right
  */
 export const CanvasLayout = ({
@@ -93,8 +102,8 @@ export const CanvasLayout = ({
           style={{
             flex: 1,
             display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
+            width: '100%',
+            height: '100%',
           }}
         >
           {children}

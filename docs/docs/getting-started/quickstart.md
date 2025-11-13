@@ -207,8 +207,8 @@ function ExportExample() {
 
 ## 📚 More Information
 
-- [ATOMIC_DESIGN.md](ATOMIC_DESIGN.md) - Detailed architecture guide
-- [STRUCTURE.md](STRUCTURE.md) - Visual component hierarchy
+- [Atomic Design](../architecture/atomic-design) - Detailed architecture guide
+- [Structure Guide](../architecture/structure) - Visual component hierarchy
 - [Konva Docs](https://konvajs.org/) - Konva.js documentation
 - [React-Konva Docs](https://konvajs.org/docs/react/) - React-Konva guide
 

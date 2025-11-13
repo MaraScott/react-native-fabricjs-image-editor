@@ -43,15 +43,34 @@ export type LayerMoveDirection = 'up' | 'down' | 'top' | 'bottom';
 
 export type LayerSelectionMode = 'replace' | 'append' | 'toggle' | 'range';
 
+/**
+ * LayerSelectionOptions interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * LayerSelectionOptions interface - Generated documentation block.
+ */
 export interface LayerSelectionOptions {
   mode?: LayerSelectionMode;
 }
 
+/**
+ * LayerDescriptor interface - Auto-generated interface summary; customize as needed.
+ */
 export interface LayerDescriptor {
   id: string;
   name: string;
   visible: boolean;
   position: { x: number; y: number };
+  /**
+   * rotation - Auto-generated summary; refine if additional context is needed.
+   *
+   * @returns {degrees} Refer to the implementation for the precise returned value.
+   */
+  /**
+   * rotation - Auto-generated documentation stub.
+   *
+   * @returns {degrees} Result produced by rotation.
+   */
   /** Optional persisted rotation (degrees) */
   rotation?: number;
   /** Optional persisted scale */
@@ -59,11 +78,19 @@ export interface LayerDescriptor {
   render: () => ReactNode;
 }
 
+/**
+ * LayerControlHandlers interface - Auto-generated interface summary; customize as needed.
+ */
 export interface LayerControlHandlers {
   layers: LayerDescriptor[];
   selectedLayerIds: string[];
   primaryLayerId: string | null;
   selectLayer: (layerId: string, options?: LayerSelectionOptions) => string[];
+  /**
+   * selection - Auto-generated documentation stub.
+   *
+   * @returns {deselect all} Result produced by selection.
+   */
   /** Clear any selection (deselect all) */
   clearSelection?: () => void;
   addLayer: () => void;
@@ -87,6 +114,12 @@ export interface LayerControlHandlers {
   ) => void;
 }
 
+/**
+ * Bounds interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * Bounds interface - Generated documentation block.
+ */
 export interface Bounds {
   x: number;
   y: number;
@@ -94,6 +127,12 @@ export interface Bounds {
   height: number;
 }
 
+/**
+ * SimpleCanvasProps interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * SimpleCanvasProps interface - Generated documentation block.
+ */
 export interface SimpleCanvasProps {
   width?: number;
   height?: number;

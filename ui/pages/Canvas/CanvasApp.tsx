@@ -13,6 +13,12 @@ import type { CanvasLayerDefinition } from '@organisms/Canvas';
 import { ZoomControl } from '@molecules/Controls';
 import { Rect, Circle, Text } from 'react-konva';
 
+/**
+ * CanvasAppProps interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * CanvasAppProps interface - Generated documentation block.
+ */
 export interface CanvasAppProps {
   width?: number;
   height?: number;
@@ -33,11 +39,47 @@ export const CanvasApp = ({
   containerBackground = '#cccccc',
   initialZoom = 0,
 }: CanvasAppProps) => {
+  /**
+   * useDispatch - Auto-generated summary; refine if additional context is needed.
+   */
+  /**
+   * useDispatch - Auto-generated documentation stub.
+   */
   const dispatch = useDispatch();
+  /**
+   * useState - Auto-generated summary; refine if additional context is needed.
+   *
+   * @returns {initialZoom} Refer to the implementation for the precise returned value.
+   */
+  /**
+   * useState - Auto-generated documentation stub.
+   *
+   * @returns {initialZoom} Result produced by useState.
+   */
   const [zoom, setZoom] = useState(initialZoom);
   
   // Get tool states from Redux store
+  /**
+   * useSelector - Auto-generated summary; refine if additional context is needed.
+   *
+   * @param {*} (state - Parameter derived from the static analyzer.
+   */
+  /**
+   * useSelector - Auto-generated documentation stub.
+   *
+   * @param {*} (state - Parameter forwarded to useSelector.
+   */
   const isPanToolActive = useSelector((state: RootState) => state.view.pan.active);
+  /**
+   * useSelector - Auto-generated summary; refine if additional context is needed.
+   *
+   * @param {*} (state - Parameter derived from the static analyzer.
+   */
+  /**
+   * useSelector - Auto-generated documentation stub.
+   *
+   * @param {*} (state - Parameter forwarded to useSelector.
+   */
   const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
   
   const initialCanvasLayers = useMemo<CanvasLayerDefinition[]>(() => [
@@ -99,22 +141,53 @@ export const CanvasApp = ({
     },
   ], []);
 
+  /**
+   * togglePanTool - Auto-generated summary; refine if additional context is needed.
+   */
+  /**
+   * togglePanTool - Auto-generated documentation stub.
+   */
   const togglePanTool = () => {
+    /**
+     * if - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {isPanToolActive} Refer to the implementation for the precise returned value.
+     */
     if (isPanToolActive) {
       // Switch to select tool when disabling pan
+      /**
+       * dispatch - Auto-generated summary; refine if additional context is needed.
+       */
       dispatch(viewActions.setActiveTool('select'));
     } else {
       // Enable pan tool
+      /**
+       * dispatch - Auto-generated summary; refine if additional context is needed.
+       */
       dispatch(viewActions.setActiveTool('pan'));
     }
   };
 
+  /**
+   * toggleSelectTool - Auto-generated summary; refine if additional context is needed.
+   */
   const toggleSelectTool = () => {
+    /**
+     * if - Auto-generated summary; refine if additional context is needed.
+     *
+     * @returns {isSelectToolActive} Refer to the implementation for the precise returned value.
+     */
     if (isSelectToolActive) {
       // Switch to pan tool when disabling select
+      /**
+       * dispatch - Auto-generated summary; refine if additional context is needed.
+       */
       dispatch(viewActions.setActiveTool('pan'));
     } else {
       // Enable select tool
+      /**
+       * dispatch - Auto-generated summary; refine if additional context is needed.
+       */
       dispatch(viewActions.setActiveTool('select'));
     }
   };

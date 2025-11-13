@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "build": "node scripts/build.js",
-    "watch": "node scripts/watch.js"
+    "watch": "node scripts/watch.js",
+    "add-jsdoc": "node scripts/add-jsdoc-comments.js",
+    "index-code": "node scripts/index-code-jsdoc.js"
   },
   "dependencies": {},
   "devDependencies": {

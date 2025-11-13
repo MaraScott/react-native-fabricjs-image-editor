@@ -5,7 +5,20 @@
 
 // Provide a very permissive JSX namespace so TSX/JSX elements type-check locally.
 declare namespace JSX {
-  // Allow any intrinsic element (div, span, button, etc.) with any props.
+  /**
+   /**
+    * element - Auto-generated documentation stub.
+    *
+    * @param {*} div - Parameter forwarded to element.
+    * @param {*} span - Parameter forwarded to element.
+    * @param {*} button - Parameter forwarded to element.
+    * @param {*} etc. - Parameter forwarded to element.
+    *
+    * @returns {div, span, button, etc.} Result produced by element.
+    */
+   * Allow any intrinsic element (div, span, button, etc.) with any props so the
+   * editor can compile without the full DOM typings available.
+   */
   interface IntrinsicElements {
     [elemName: string]: any;
   }
@@ -93,4 +106,3 @@ declare global {
     __EDITOR_BOOTSTRAP__?: any;
   }
 }
-

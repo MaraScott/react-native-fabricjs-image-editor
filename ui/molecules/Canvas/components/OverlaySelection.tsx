@@ -9,6 +9,12 @@ export type OverlayBox = {
   rotation?: number;
 };
 
+/**
+ * Props interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * Props interface - Generated documentation block.
+ */
 interface Props {
   box: OverlayBox;
   onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
@@ -24,8 +30,34 @@ const handleStyle: CSSProperties = {
   height: '12px',
   background: '#00f6ff',
   borderRadius: '2px',
+  /**
+   * translate - Auto-generated summary; refine if additional context is needed.
+   *
+   * @param {*} -50% - Parameter derived from the static analyzer.
+   * @param {*} -50% - Parameter derived from the static analyzer.
+   *
+   * @returns {-50%, -50%} Refer to the implementation for the precise returned value.
+   */
+  /**
+   * translate - Auto-generated documentation stub.
+   *
+   * @param {*} -50% - Parameter forwarded to translate.
+   * @param {*} -50% - Parameter forwarded to translate.
+   *
+   * @returns {-50%, -50%} Result produced by translate.
+   */
   transform: 'translate(-50%, -50%)',
   zIndex: 16,
+  /**
+   * rgba - Auto-generated summary; refine if additional context is needed.
+   *
+   * @param {*} 0 - Parameter derived from the static analyzer.
+   * @param {*} 0 - Parameter derived from the static analyzer.
+   * @param {*} 0 - Parameter derived from the static analyzer.
+   * @param {*} 0.2 - Parameter derived from the static analyzer.
+   *
+   * @returns {0,0,0,0.2} Refer to the implementation for the precise returned value.
+   */
   boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
 };
 
@@ -45,6 +77,22 @@ export const OverlaySelection = ({
     top: `${y}px`,
     width: `${width}px`,
     height: `${height}px`,
+    /**
+     * translate - Auto-generated summary; refine if additional context is needed.
+     *
+     * @param {*} -50% - Parameter derived from the static analyzer.
+     * @param {*} -50% - Parameter derived from the static analyzer.
+     *
+     * @returns {-50%, -50%} Refer to the implementation for the precise returned value.
+     */
+    /**
+     * translate - Auto-generated documentation stub.
+     *
+     * @param {*} -50% - Parameter forwarded to translate.
+     * @param {*} -50% - Parameter forwarded to translate.
+     *
+     * @returns {-50%, -50%} Result produced by translate.
+     */
     transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
     transformOrigin: 'center center',
     pointerEvents: 'auto',
@@ -55,8 +103,20 @@ export const OverlaySelection = ({
     cursor: 'grab',
   };
 
+  /**
+   * mkHandle - Auto-generated summary; refine if additional context is needed.
+   */
+  /**
+   * mkHandle - Auto-generated documentation stub.
+   */
   const mkHandle = (leftPct: number, topPct: number, dir: string) => (
     <div
+      /**
+       * stopPropagation - Auto-generated summary; refine if additional context is needed.
+       */
+      /**
+       * stopPropagation - Auto-generated documentation stub.
+       */
       onPointerDown={(e) => { e.stopPropagation(); onResizePointerDown?.(dir, e); }}
       style={{ ...handleStyle, left: `${leftPct}%`, top: `${topPct}%`, cursor: `${dir}-resize` }}
       role="button"
@@ -73,19 +133,99 @@ export const OverlaySelection = ({
       onPointerCancel={onPointerUp}
     >
       {/* corners */}
+      /**
+       * mkHandle - Auto-generated documentation stub.
+       *
+       * @param {*} 0 - Parameter forwarded to mkHandle.
+       * @param {*} 0 - Parameter forwarded to mkHandle.
+       * @param {*} 'nw' - Parameter forwarded to mkHandle.
+       *
+       * @returns {0, 0, 'nw'} Result produced by mkHandle.
+       */
       {mkHandle(0, 0, 'nw')}
+      /**
+       * mkHandle - Auto-generated documentation stub.
+       *
+       * @param {*} 100 - Parameter forwarded to mkHandle.
+       * @param {*} 0 - Parameter forwarded to mkHandle.
+       * @param {*} 'ne' - Parameter forwarded to mkHandle.
+       *
+       * @returns {100, 0, 'ne'} Result produced by mkHandle.
+       */
       {mkHandle(100, 0, 'ne')}
+      /**
+       * mkHandle - Auto-generated documentation stub.
+       *
+       * @param {*} 0 - Parameter forwarded to mkHandle.
+       * @param {*} 100 - Parameter forwarded to mkHandle.
+       * @param {*} 'sw' - Parameter forwarded to mkHandle.
+       *
+       * @returns {0, 100, 'sw'} Result produced by mkHandle.
+       */
       {mkHandle(0, 100, 'sw')}
+      /**
+       * mkHandle - Auto-generated documentation stub.
+       *
+       * @param {*} 100 - Parameter forwarded to mkHandle.
+       * @param {*} 100 - Parameter forwarded to mkHandle.
+       * @param {*} 'se' - Parameter forwarded to mkHandle.
+       *
+       * @returns {100, 100, 'se'} Result produced by mkHandle.
+       */
       {mkHandle(100, 100, 'se')}
 
       {/* edges */}
+      /**
+       * mkHandle - Auto-generated documentation stub.
+       *
+       * @param {*} 50 - Parameter forwarded to mkHandle.
+       * @param {*} 0 - Parameter forwarded to mkHandle.
+       * @param {*} 'n' - Parameter forwarded to mkHandle.
+       *
+       * @returns {50, 0, 'n'} Result produced by mkHandle.
+       */
       {mkHandle(50, 0, 'n')}
+      /**
+       * mkHandle - Auto-generated documentation stub.
+       *
+       * @param {*} 100 - Parameter forwarded to mkHandle.
+       * @param {*} 50 - Parameter forwarded to mkHandle.
+       * @param {*} 'e' - Parameter forwarded to mkHandle.
+       *
+       * @returns {100, 50, 'e'} Result produced by mkHandle.
+       */
       {mkHandle(100, 50, 'e')}
+      /**
+       * mkHandle - Auto-generated documentation stub.
+       *
+       * @param {*} 50 - Parameter forwarded to mkHandle.
+       * @param {*} 100 - Parameter forwarded to mkHandle.
+       * @param {*} 's' - Parameter forwarded to mkHandle.
+       *
+       * @returns {50, 100, 's'} Result produced by mkHandle.
+       */
       {mkHandle(50, 100, 's')}
+      /**
+       * mkHandle - Auto-generated documentation stub.
+       *
+       * @param {*} 0 - Parameter forwarded to mkHandle.
+       * @param {*} 50 - Parameter forwarded to mkHandle.
+       * @param {*} 'w' - Parameter forwarded to mkHandle.
+       *
+       * @returns {0, 50, 'w'} Result produced by mkHandle.
+       */
       {mkHandle(0, 50, 'w')}
 
+      /**
+       * handle - Auto-generated documentation stub.
+       *
+       * @returns {above top center} Result produced by handle.
+       */
       {/* rotate handle (above top center) */}
       <div
+        /**
+         * stopPropagation - Auto-generated documentation stub.
+         */
         onPointerDown={(e) => { e.stopPropagation(); onRotatePointerDown?.(e); }}
         style={{ ...handleStyle, left: '50%', top: '-12px', background: '#ffffff', border: '2px solid #00f6ff', cursor: 'grab' }}
         role="button"

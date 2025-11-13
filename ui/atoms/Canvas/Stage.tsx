@@ -9,6 +9,12 @@ import type { StageConfig } from 'konva/lib/Stage';
 import type { ReactNode, CSSProperties } from 'react';
 import type Konva from 'konva';
 
+/**
+ * StageProps interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * StageProps interface - Generated documentation block.
+ */
 export interface StageProps extends Partial<StageConfig> {
   children?: ReactNode;
   width: number;

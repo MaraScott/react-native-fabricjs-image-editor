@@ -13,6 +13,12 @@ export interface ToolReadyState {
     settings: boolean;
 }
 
+/**
+ * SelectToolState interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * SelectToolState interface - Generated documentation block.
+ */
 export interface SelectToolState {
     active: boolean;
     selectedIds: string[];
@@ -24,6 +30,12 @@ export interface SelectToolState {
     } | null;
 }
 
+/**
+ * PanToolState interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * PanToolState interface - Generated documentation block.
+ */
 export interface PanToolState {
     active: boolean;
     offset: {
@@ -34,6 +46,12 @@ export interface PanToolState {
     spacePressedMode: boolean;
 }
 
+/**
+ * DrawToolState interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * DrawToolState interface - Generated documentation block.
+ */
 export interface DrawToolState {
     active: boolean;
     brushSize: number;
@@ -43,12 +61,24 @@ export interface DrawToolState {
     currentPath: string | null;
 }
 
+/**
+ * RubberToolState interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * RubberToolState interface - Generated documentation block.
+ */
 export interface RubberToolState {
     active: boolean;
     eraserSize: number;
     isErasing: boolean;
 }
 
+/**
+ * CropToolState interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * CropToolState interface - Generated documentation block.
+ */
 export interface CropToolState {
     active: boolean;
     targetElementId: string | null;
@@ -60,6 +90,12 @@ export interface CropToolState {
     } | null;
 }
 
+/**
+ * ViewState interface - Auto-generated interface summary; customize as needed.
+ */
+/**
+ * ViewState interface - Generated documentation block.
+ */
 export interface ViewState {
     activeTool: ToolName;
     ready: ToolReadyState;
