@@ -9,7 +9,7 @@ import type { ReactNode, CSSProperties, DragEvent } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@store/CanvasApp';
 import { Stage, Layer } from '@atoms/Canvas';
-import { Rect, Transformer } from 'react-konva';
+import { Rect, Transformer, Group } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type {
@@ -574,7 +574,16 @@ export const SimpleCanvas = ({
         /**
          * map - Auto-generated documentation stub.
          */
-        .map((node) => computeNodeBounds(node))
+        .map((node) => {
+          const bounds = computeNodeBounds(node);
+          console.log('[updateBounds] Node bounds:', {
+            nodeType: node?.getClassName(),
+            nodeAttrs: { x: node?.x(), y: node?.y(), width: node?.width?.(), height: node?.height?.() },
+            computedBounds: bounds,
+            clientRect: node?.getClientRect()
+          });
+          return bounds;
+        })
         /**
          * filter - Auto-generated summary; refine if additional context is needed.
          */
@@ -5522,12 +5531,18 @@ export const SimpleCanvas = ({
    * useEffect - Auto-generated summary; refine if additional context is needed.
    */
   useEffect(() => {
+    console.log('[DEBUG] updateOverlaySelectionBox useEffect triggered:', {
+      selectedLayerBounds,
+      hasResolveSelectionRotation: typeof resolveSelectionRotation === 'function'
+    });
+    
     /**
      * if - Auto-generated summary; refine if additional context is needed.
      *
      * @returns {!selectedLayerBounds} Refer to the implementation for the precise returned value.
      */
     if (!selectedLayerBounds) {
+      console.log('[DEBUG] updateOverlaySelectionBox - No selectedLayerBounds, setting overlaySelectionBox to null');
       /**
        * setOverlaySelectionBox - Auto-generated summary; refine if additional context is needed.
        *
@@ -5542,14 +5557,8 @@ export const SimpleCanvas = ({
       return;
     }
 
-    const boxW = Math.max(0, selectedLayerBounds.width);
-    const boxH = Math.max(0, selectedLayerBounds.height);
-
-    // Center coordinates in stage space
-    const centerX = selectedLayerBounds.x + selectedLayerBounds.width / 2;
-    const centerY = selectedLayerBounds.y + selectedLayerBounds.height / 2;
-
-    // Decide rotation for overlay — reuse the same logic used for transformer rotation
+    // Use selectedLayerBounds directly - same coordinates as Transformer
+    // KonvaSelectionBox will use x,y as top-left corner (not center)
     const rotationDeg = resolveSelectionRotation();
 
     /**
@@ -5561,7 +5570,7 @@ export const SimpleCanvas = ({
      * @param {*} height - Parameter derived from the static analyzer.
      * @param {*} rotation - Parameter derived from the static analyzer.
      *
-     * @returns {{ x: centerX, y: centerY, width: boxW, height: boxH, rotation: rotationDeg }} Refer to the implementation for the precise returned value.
+     * @returns {{ x: selectedLayerBounds.x, y: selectedLayerBounds.y, width: selectedLayerBounds.width, height: selectedLayerBounds.height, rotation: rotationDeg }} Refer to the implementation for the precise returned value.
      */
     /**
      * setOverlaySelectionBox - Auto-generated documentation stub.
@@ -5572,17 +5581,19 @@ export const SimpleCanvas = ({
      * @param {*} height - Parameter forwarded to setOverlaySelectionBox.
      * @param {*} rotation - Parameter forwarded to setOverlaySelectionBox.
      *
-     * @returns {{ x: centerX, y: centerY, width: boxW, height: boxH, rotation: rotationDeg }} Result produced by setOverlaySelectionBox.
+     * @returns {{ x: selectedLayerBounds.x, y: selectedLayerBounds.y, width: selectedLayerBounds.width, height: selectedLayerBounds.height, rotation: rotationDeg }} Result produced by setOverlaySelectionBox.
      */
-    const newBox = { x: centerX, y: centerY, width: boxW, height: boxH, rotation: rotationDeg };
+    const newBox = { 
+      x: selectedLayerBounds.x, 
+      y: selectedLayerBounds.y, 
+      width: selectedLayerBounds.width, 
+      height: selectedLayerBounds.height, 
+      rotation: rotationDeg 
+    };
     console.log('[DEBUG] updateOverlaySelectionBox - Setting selection box:', newBox);
     console.log('[DEBUG] selectedLayerBounds:', selectedLayerBounds);
-    console.log('[DEBUG] containerDimensions:', containerDimensions);
-    console.log('[DEBUG] renderWidth:', renderWidth, 'renderHeight:', renderHeight);
-    console.log('[DEBUG] panOffset:', panOffset);
-    console.log('[DEBUG] scale:', scale);
     setOverlaySelectionBox(newBox);
-  }, [selectedLayerBounds, resolveSelectionRotation, containerDimensions, renderWidth, renderHeight, panOffset, scale]);
+  }, [selectedLayerBounds, resolveSelectionRotation]);
 
   /**
    * useCallback - Auto-generated summary; refine if additional context is needed.
@@ -7464,8 +7475,9 @@ export const SimpleCanvas = ({
           cursor: baseCursor,
         }}
       >
-        {/* Background Layer - Full container */}
+        {/* Background + Stage Mimic Layer - Combined for performance */}
         <Layer listening={false}>
+          {/* Full container background */}
           <Rect
             x={0}
             y={0}
@@ -7473,10 +7485,7 @@ export const SimpleCanvas = ({
             height={containerDimensions.height / safeScale}
             fill={containerBackground}
           />
-        </Layer>
-
-        {/* Stage Mimic Layer - The visible canvas area */}
-        <Layer listening={false}>
+          {/* Stage Mimic - The visible canvas area */}
           <Rect
             x={stageViewportOffsetX}
             y={stageViewportOffsetY}
@@ -8380,7 +8389,33 @@ export const SimpleCanvas = ({
         
         {/* Selection & Transform Layer */}
         {selectModeActive && (
-          <Layer listening={Boolean(selectedLayerIds.length > 0)}>
+          <Layer 
+            listening={true}
+            scaleX={1 / safeScale}
+            scaleY={1 / safeScale}
+          >
+            {/* Debug: Always visible indicator */}
+            <Rect
+              x={stageViewportOffsetX + 10}
+              y={stageViewportOffsetY + 10}
+              width={30}
+              height={30}
+              fill="lime"
+              stroke="black"
+              strokeWidth={2}
+            />
+            
+            {/* Debug: Test red rectangle at same position as lime square */}
+            <Rect
+              x={stageViewportOffsetX + 50}
+              y={stageViewportOffsetY + 10}
+              width={100}
+              height={100}
+              fill="red"
+              stroke="black"
+              strokeWidth={2}
+            />
+            
             <Rect
               ref={selectionProxyRef}
               x={0}
@@ -8422,8 +8457,22 @@ export const SimpleCanvas = ({
             />
             
             {/* Konva-based Selection Box (replaces HTML overlay) */}
-            {overlaySelectionBox && (() => {
+            {(() => {
+              console.log('[DEBUG RENDER] Selection box check:', {
+                overlaySelectionBox,
+                selectedLayerBounds,
+                selectedLayerIds,
+                selectModeActive
+              });
+              
+              if (!overlaySelectionBox) {
+                console.log('[DEBUG RENDER] No overlaySelectionBox - not rendering KonvaSelectionBox');
+                return null;
+              }
+              
               console.log('[DEBUG RENDER] KonvaSelectionBox rendering with box:', overlaySelectionBox);
+              console.log('[DEBUG RENDER] Layer listening:', true);
+              console.log('[DEBUG RENDER] stageViewportOffset:', { x: stageViewportOffsetX, y: stageViewportOffsetY });
               console.log('[DEBUG RENDER] selectionProxyRef.current:', selectionProxyRef.current);
               if (selectionProxyRef.current) {
                 console.log('[DEBUG RENDER] selectionProxy absoluteTransform:', selectionProxyRef.current.getAbsoluteTransform().m);
@@ -8435,15 +8484,77 @@ export const SimpleCanvas = ({
                 console.log('[DEBUG RENDER] selectionProxy visible:', selectionProxyRef.current.visible());
                 console.log('[DEBUG RENDER] selectionProxy opacity:', selectionProxyRef.current.opacity());
               }
+
+              // Render selected layer content inside the Group
+              // Group positioned at actual layer bounds (not forced to center)
+              const selectedLayerContent: ReactNode = layerControls && selectedLayerIds.length > 0 && selectedLayerBounds ? (
+                <>
+                  {selectedLayerIds.map((layerId) => {
+                    const layer = layerControls.layers.find((l) => l.id === layerId);
+                    if (!layer) return null;
+
+                    // Group is positioned at center of selectedLayerBounds
+                    const groupCenterX = selectedLayerBounds.x + selectedLayerBounds.width / 2;
+                    const groupCenterY = selectedLayerBounds.y + selectedLayerBounds.height / 2;
+                    
+                    // Layer position in container space
+                    const layerContainerX = stageViewportOffsetX + layer.position.x;
+                    const layerContainerY = stageViewportOffsetY + layer.position.y;
+                    
+                    // Layer position relative to Group center
+                    const layerX = layerContainerX - groupCenterX;
+                    const layerY = layerContainerY - groupCenterY;
+
+                    console.log(`[DEBUG] Layer ${layerId} positioning (natural bounds):`, {
+                      selectedLayerBounds,
+                      groupCenter: { x: groupCenterX, y: groupCenterY },
+                      layerPositionInMimic: layer.position,
+                      layerContainerPosition: { x: layerContainerX, y: layerContainerY },
+                      relativeToGroupCenter: { x: layerX, y: layerY }
+                    });
+
+                    return (
+                      <Group
+                        key={`selection-content-${layerId}`}
+                        x={layerX}
+                        y={layerY}
+                        rotation={layer.rotation ?? 0}
+                        scaleX={layer.scale?.x ?? 1}
+                        scaleY={layer.scale?.y ?? 1}
+                      >
+                        {layer.render()}
+                      </Group>
+                    );
+                  })}
+                </>
+              ) : null;
+
+              console.log('[DEBUG RENDER] About to render KonvaSelectionBox with safeScale:', safeScale);
+              
+              // Since the Selection Layer has inverse scale applied, we need to scale the box coordinates
+              const unscaledBox = {
+                x: overlaySelectionBox.x * safeScale,
+                y: overlaySelectionBox.y * safeScale,
+                width: overlaySelectionBox.width * safeScale,
+                height: overlaySelectionBox.height * safeScale,
+                rotation: overlaySelectionBox.rotation
+              };
+              
+              console.log('[DEBUG RENDER] Original box:', overlaySelectionBox);
+              console.log('[DEBUG RENDER] Unscaled box for Layer:', unscaledBox);
+              
               return (
                 <KonvaSelectionBox
-                  box={overlaySelectionBox}
+                  box={unscaledBox}
+                  stageScale={1}
                   onPointerDown={handleOverlayPointerDown}
                   onPointerMove={handleOverlayPointerMove}
                   onPointerUp={handleOverlayPointerUp}
                   onResizePointerDown={handleOverlayResizePointerDown}
                   onRotatePointerDown={handleOverlayRotatePointerDown}
-                />
+                >
+                  {selectedLayerContent}
+                </KonvaSelectionBox>
               );
             })()}
           </Layer>
