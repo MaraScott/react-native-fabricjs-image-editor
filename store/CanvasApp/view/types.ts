@@ -19,6 +19,16 @@ export interface ToolReadyState {
 /**
  * SelectToolState interface - Generated documentation block.
  */
+export interface SelectionTransform {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    rotation: number;
+    scaleX: number;
+    scaleY: number;
+}
+
 export interface SelectToolState {
     active: boolean;
     selectedIds: string[];
@@ -28,6 +38,7 @@ export interface SelectToolState {
         width: number;
         height: number;
     } | null;
+    selectionTransform: SelectionTransform | null;
 }
 
 /**

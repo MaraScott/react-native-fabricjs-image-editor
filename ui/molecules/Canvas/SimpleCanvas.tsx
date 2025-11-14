@@ -9,8 +9,10 @@ import {
 } from './hooks/zoomUtils';
 import { useResize } from './hooks/useResize';
 import { useRotation } from './hooks/useRotation';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '@store/CanvasApp';
+import { selectActions } from '@store/CanvasApp/view/select';
+import { selectSelectionTransform } from '@store/CanvasApp/view/selectors';
 import { Stage, Layer as KonvaLayer } from '@atoms/Canvas';
 import { Rect } from 'react-konva';
 import {
@@ -45,7 +47,10 @@ export const SimpleCanvas = ({
   layersRevision = 0,
   selectModeActive = false,
 }: SimpleCanvasProps) => {
+  const dispatch = useDispatch();
   const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
+  // Read selectionTransform from Redux
+  const reduxSelectionTransform = useSelector(selectSelectionTransform);
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastTouchDistance = useRef(0);
@@ -152,50 +157,29 @@ export const SimpleCanvas = ({
     return _refreshBoundsFromSelection();
   };
 
+
   // --- Unified selection transform state for Layer and SelectionLayer ---
-  // Collect live data for selected layers
-  const selectedLayerLiveData: Record<string, {
-    x: number;
-    y: number;
-    rotation: number;
-    scaleX: number;
-    scaleY: number;
-    width: number;
-    height: number;
-  }> = {};
-  selectedLayerNodeRefs.current.forEach((node, id) => {
-    if (node) {
-      selectedLayerLiveData[id] = {
-        x: node.x(),
-        y: node.y(),
-        rotation: node.rotation(),
-        scaleX: node.scaleX(),
-        scaleY: node.scaleY(),
-        width: typeof node.width === 'function' ? node.width() : 0,
-        height: typeof node.height === 'function' ? node.height() : 0,
-      };
+  // Use Redux selectionTransform as the single source of truth
+  const selectionTransform = reduxSelectionTransform;
+
+  // Ensure selectionTransform is initialized when selection changes
+  useEffect(() => {
+    if (selectedLayerIds.length > 0 && !reduxSelectionTransform) {
+      // Compute bounding box from selectedLayerBounds if available
+      if (selectedLayerBounds) {
+        const { x, y, width, height } = selectedLayerBounds;
+        // Default rotation and scale
+        const rotation = 0;
+        const scaleX = 1;
+        const scaleY = 1;
+        dispatch(selectActions.setSelectionTransform({ x, y, width, height, rotation, scaleX, scaleY }));
+      }
     }
-  });
-  let selectionTransform: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    rotation: number;
-    scaleX: number;
-    scaleY: number;
-  } | null = null;
-  if (selectedLayerBounds) {
-    selectionTransform = {
-      x: selectedLayerBounds.x,
-      y: selectedLayerBounds.y,
-      width: selectedLayerBounds.width,
-      height: selectedLayerBounds.height,
-      rotation: resolveSelectionRotation(),
-      scaleX: 1,
-      scaleY: 1,
-    };
-  }
+    // If selection is cleared, also clear selectionTransform
+    if (selectedLayerIds.length === 0 && reduxSelectionTransform) {
+      dispatch(selectActions.setSelectionTransform(null));
+    }
+  }, [selectedLayerIds, selectedLayerBounds, reduxSelectionTransform, dispatch]);
 
   // Unified effect: batch draw stage and reset pan on zoom reset
   useEffect(() => {
@@ -311,26 +295,38 @@ export const SimpleCanvas = ({
     proxy.getStage()?.batchDraw();
   }, []);
 
+  // On transform finalize, update Redux selectionTransform
   const finalizeSelectionTransform = useCallback(() => {
     const proxy = selectionProxyRef.current;
-
+    if (proxy) {
+      // Get proxy transform values
+      const x = proxy.x();
+      const y = proxy.y();
+      const width = proxy.width();
+      const height = proxy.height();
+      const rotation = proxy.rotation();
+      const scaleX = proxy.scaleX();
+      const scaleY = proxy.scaleY();
+      // Dispatch to Redux
+      dispatch(selectActions.setSelectionTransform({ x, y, width, height, rotation, scaleX, scaleY }));
+    } else {
+      dispatch(selectActions.setSelectionTransform(null));
+    }
+    // ...existing code for updating layerControls and cleaning up...
     if (layerControls) {
       selectedLayerIds.forEach((layerId) => {
         const node = layerNodeRefs.current.get(layerId);
         if (!node) {
           return;
         }
-
         const position = node.position();
         layerControls.updateLayerPosition(layerId, {
           x: position.x,
           y: position.y,
         });
-
         const rotation = node.rotation();
         const scaleX = node.scaleX();
         const scaleY = node.scaleY();
-
         if (typeof layerControls.updateLayerTransform === 'function') {
           layerControls.updateLayerTransform(layerId, {
             position: { x: position.x, y: position.y },
@@ -346,15 +342,13 @@ export const SimpleCanvas = ({
           }
         }
       });
-
       layerControls.ensureAllVisible();
     }
-
     selectionTransformStateRef.current = null;
     isSelectionTransformingRef.current = false;
     scheduleBoundsRefresh();
     proxy?.getLayer()?.batchDraw();
-  }, [layerControls, scheduleBoundsRefresh, selectedLayerIds]);
+  }, [dispatch, layerControls, scheduleBoundsRefresh, selectedLayerIds]);
   
   // Persist the proxy rotation when a selection transform finalizes so the visual selection keeps orientation
   const finalizeSelectionTransformWithRotation = useCallback(() => {
@@ -419,11 +413,31 @@ export const SimpleCanvas = ({
     if (stage) {
       stage.container().style.cursor = 'grabbing';
     }
-  }, [captureSelectionTransformState, selectModeActive]);
+    const { x, y, width, height } = selectedLayerBounds;
+    // Default rotation and scale
+    const rotation = 0;
+    const scaleX = 1;
+    const scaleY = 1;
+    dispatch(selectActions.setSelectionTransform({ x, y, width, height, rotation, scaleX, scaleY }));
+  }, [captureSelectionTransformState, selectModeActive, selectActions, dispatch, selectedLayerBounds]);
 
   const handleSelectionProxyDragMove = useCallback(() => {
     if (!selectModeActive) {
       return;
+    }
+    // Real-time debug log: log proxy transform on every drag frame
+    const proxy = selectionProxyRef.current;
+    if (proxy) {
+      // eslint-disable-next-line no-console
+      console.log('SimpleCanvas proxy (dragging):', {
+        x: proxy.x(),
+        y: proxy.y(),
+        width: proxy.width(),
+        height: proxy.height(),
+        rotation: proxy.rotation(),
+        scaleX: proxy.scaleX(),
+        scaleY: proxy.scaleY(),
+      });
     }
     applySelectionTransformDelta();
     scheduleBoundsRefresh();
@@ -1121,9 +1135,9 @@ export const SimpleCanvas = ({
         {/* Debug: log selectionTransform in render */}
         {(() => {
           // eslint-disable-next-line no-console
-          console.log('[SimpleCanvas] selectedLayerNodeRefs in render:', selectedLayerLiveData, selectedLayerIds[0]);
+          console.log('[SimpleCanvas] selectedLayerNodeRefs in render:', selectedLayerNodeRefs.current, selectedLayerIds[0]);
         })()}
-        {<SelectionLayer
+        <SelectionLayer
           key="selection-layer"
           selectModeActive={selectModeActive}
           scaleX={1 / safeScale}
@@ -1146,8 +1160,7 @@ export const SimpleCanvas = ({
           onTransformStart={handleTransformerTransformStart}
           onTransform={handleTransformerTransform}
           onTransformEnd={handleTransformerTransformEnd}
-          selectedLayerLiveData={selectedLayerLiveData}
-        />}
+        />
         
       </Stage>
     </div>

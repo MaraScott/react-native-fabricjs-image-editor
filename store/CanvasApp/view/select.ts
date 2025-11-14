@@ -4,12 +4,13 @@
  */
 
 import { createReducer, type PayloadAction } from '@reduxjs/toolkit';
-import type { SelectToolState } from './types';
+import type { SelectToolState, SelectionTransform } from './types';
 
 const initialState: SelectToolState = {
     active: false,
     selectedIds: [],
     selectionRect: null,
+    selectionTransform: null,
 };
 
 /**
@@ -88,6 +89,7 @@ export const selectReducer = createReducer(initialState, (builder) => {
         .addCase('view/select/clearSelection', (state) => {
             state.selectedIds = [];
             state.selectionRect = null;
+            state.selectionTransform = null;
         })
         /**
          * addCase - Auto-generated documentation stub.
@@ -98,6 +100,9 @@ export const selectReducer = createReducer(initialState, (builder) => {
          */
         .addCase('view/select/setSelectionRect', (state, action: PayloadAction<{ x: number; y: number; width: number; height: number } | null>) => {
             state.selectionRect = action.payload;
+        })
+        .addCase('view/select/setSelectionTransform', (state, action: PayloadAction<SelectionTransform | null>) => {
+            state.selectionTransform = action.payload;
         });
 });
 
@@ -119,5 +124,9 @@ export const selectActions = {
     setSelectionRect: (rect: { x: number; y: number; width: number; height: number } | null) => ({ 
         type: 'view/select/setSelectionRect' as const, 
         payload: rect 
+    }),
+    setSelectionTransform: (transform: import('./types').SelectionTransform | null) => ({
+        type: 'view/select/setSelectionTransform' as const,
+        payload: transform,
     }),
 };

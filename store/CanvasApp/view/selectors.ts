@@ -1,4 +1,11 @@
 /**
+ * Selector: Get the current selection transform (position, size, rotation, scale)
+ */
+export const selectSelectionTransform = (state: RootState) => {
+    const viewState = state.view as unknown as import('./types').ViewState;
+    return viewState.select.selectionTransform;
+};
+/**
  * Redux Selectors for View State
  * Provides derived/computed state from the store
  */

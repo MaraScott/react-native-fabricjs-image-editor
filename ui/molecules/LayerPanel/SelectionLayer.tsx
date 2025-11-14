@@ -8,6 +8,9 @@ import { Layer, Rect, Transformer } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { MutableRefObject } from 'react';
+import { useSelector } from 'react-redux';
+import { useEffect } from 'react';
+import { selectSelectionTransform } from '@store/CanvasApp/view/selectors';
 
 /**
  * SelectionLayer component props
@@ -101,15 +104,7 @@ export interface SelectionLayerProps {
   /**
    * Live data for selected layers (x, y, rotation, scale, width, height)
    */
-  selectedLayerLiveData?: Record<string, {
-    x: number;
-    y: number;
-    rotation: number;
-    scaleX: number;
-    scaleY: number;
-    width: number;
-    height: number;
-  }>;
+  // No longer needed: selectedLayerLiveData
 }
 
 /**
@@ -142,12 +137,25 @@ export const SelectionLayer = ({
   onTransformStart,
   onTransform,
   onTransformEnd,
-  selectedLayerLiveData,
 }: SelectionLayerProps) => {
+  // Read selectionTransform from Redux
+  const selectionTransform = useSelector(selectSelectionTransform);
+  // Only log when selectionTransform changes, not on every render
+  useEffect(() => {
+    if (isInteracting && selectionTransform) {
+      // eslint-disable-next-line no-console
+      console.log('SelectionLayer selectionTransform (dragging):', selectionTransform);
+    } else if (!isInteracting && selectionTransform) {
+      // eslint-disable-next-line no-console
+      console.log('SelectionLayer selectionTransform (idle):', selectionTransform);
+    }
+  }, [selectionTransform, isInteracting]);
+
   if (!selectModeActive) {
     return null;
   }
 
+  // Guard: Don't render selection proxy if selectionTransform is not defined
   return (
     <Layer 
       listening={true}
@@ -164,7 +172,6 @@ export const SelectionLayer = ({
         stroke="black"
         strokeWidth={2}
       />
-      
       {/* Debug: Test red rectangle at same position as lime square */}
       <Rect
         x={stageViewportOffsetX + 50}
@@ -175,32 +182,38 @@ export const SelectionLayer = ({
         stroke="black"
         strokeWidth={2}
       />
-      
-      <Rect
-        ref={selectionProxyRef}
-        x={stageViewportOffsetX + selectedLayerLiveData.x}
-        y={stageViewportOffsetY + selectedLayerLiveData.y}
-        width={selectedLayerLiveData.size?.width || 200}
-        height={selectedLayerLiveData.size?.height || 200}
-        opacity={1}
-        fill="red"
-        stroke="blue"
-        strokeWidth={2}
-        strokeEnabled={true}
-        listening={hasSelection}
-        draggable
-        perfectDrawEnabled={false}
-        onDragStart={onProxyDragStart}
-        onDragMove={onProxyDragMove}
-        onDragEnd={onProxyDragEnd}
-      />
+      {/* Use Redux selectionTransform for the proxy */}
+      {console.log('$Rendering SelectionLayer with selectionTransform:', selectionTransform)}
+      {selectionTransform ? (
+        <Rect
+          ref={selectionProxyRef}
+          x={selectionTransform.x}
+          y={selectionTransform.y}
+          width={selectionTransform.width}
+          height={selectionTransform.height}
+          rotation={selectionTransform.rotation}
+          scaleX={selectionTransform.scaleX}
+          scaleY={selectionTransform.scaleY}
+          opacity={1}
+          fill="red"
+          stroke="blue"
+          strokeWidth={2}
+          strokeEnabled={true}
+          listening={hasSelection}
+          draggable
+          perfectDrawEnabled={false}
+          onDragStart={onProxyDragStart}
+          onDragMove={onProxyDragMove}
+          onDragEnd={onProxyDragEnd}
+        />
+      ) : null}
       <Transformer
         ref={transformerRef}
         rotateEnabled
         resizeEnabled
         visible={Boolean(
           (isInteracting || hasSelection) &&
-          hasSelection
+          hasSelection && selectionTransform
         )}
         anchorSize={anchorSize}
         anchorCornerRadius={anchorCornerRadius}
