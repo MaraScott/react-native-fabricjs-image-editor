@@ -1,9 +1,18 @@
-import { useRef, useEffect, useState, useCallback, useLayoutEffect, useMemo } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import {
+  WHEEL_ZOOM_STEP,
+  KEYBOARD_ZOOM_STEP,
+  PINCH_ZOOM_SENSITIVITY,
+  TOUCH_DELTA_THRESHOLD,
+  useUpdateZoom,
+  useApplyZoomDelta,
+} from './hooks/zoomUtils';
+import { useResize } from './hooks/useResize';
+import { useRotation } from './hooks/useRotation';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@store/CanvasApp';
 import { Stage, Layer as KonvaLayer } from '@atoms/Canvas';
 import { Rect } from 'react-konva';
-import type { KonvaEventObject } from 'konva/lib/Node';
 import {
   SelectionLayer,
   Layer,
@@ -22,17 +31,6 @@ import type {
 } from './types/canvas.types';
 import { useSelectionBounds } from './hooks/useSelectionBounds';
 
-const MIN_ZOOM = -100;
-const MAX_ZOOM = 200;
-const WHEEL_ZOOM_STEP = 5;
-const KEYBOARD_ZOOM_STEP = 10;
-const PINCH_ZOOM_SENSITIVITY = 50;
-const TOUCH_DELTA_THRESHOLD = 0.5;
-const MIN_EFFECTIVE_SCALE = 0.05;
-
-const clampZoomValue = (value: number): number => {
-  return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
-};
 
 export const SimpleCanvas = ({
   width = 1024,
@@ -58,22 +56,12 @@ export const SimpleCanvas = ({
   const selectionTransformerRef = useRef<Konva.Transformer | null>(null);
   const selectionProxyRef = useRef<Konva.Rect | null>(null);
   const selectionTransformStateRef = useRef<SelectionTransformSnapshot | null>(null);
-  const selectionProxyRotationRef = useRef<number>(0);
   const transformAnimationFrameRef = useRef<number | null>(null);
   const isSelectionTransformingRef = useRef(false);
-  const overlayDragState = useRef<
-    | null
-    | {
-        pointerId: number;
-        startX: number;
-        startY: number;
-        initialPositions: Map<string, { x: number; y: number }>;
-      }
-  >(null);
-  const [scale, setScale] = useState(1);
   const [internalZoom, setInternalZoom] = useState<number>(zoom);
   const [panOffset, setPanOffset] = useState<PanOffset>({ x: 0, y: 0 });
-  const [containerDimensions, setContainerDimensions] = useState({ width: 1024, height: 1024 });
+  // Use useResize hook for containerDimensions and scale (keep single containerRef)
+  const { containerDimensions, scale, setContainerDimensions, setScale } = useResize(containerRef, width, height, internalZoom);
   const panOffsetRef = useRef(panOffset);
   const [spacePressed, setSpacePressed] = useState(false);
   const [isPointerPanning, setIsPointerPanning] = useState(false);
@@ -93,12 +81,6 @@ export const SimpleCanvas = ({
   const renderableLayers = layerControls ? [...layerControls.layers].reverse() : null;
   const selectedLayerIds = layerControls?.selectedLayerIds ?? [];
   const selectedLayerSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds]);
-  const primaryLayerId = layerControls?.primaryLayerId ?? null;
-  // ...existing code...
-
-
-  // Move these above the utilities so they are defined before use
-  // ...existing code...
 
   // Utility: Sync selectedLayerNodeRefs from layerNodeRefs and selectedLayerIds
   const syncSelectedLayerNodeRefs = useCallback(() => {
@@ -110,19 +92,6 @@ export const SimpleCanvas = ({
       }
     });
   }, [selectedLayerIds]);
-
-  // Utility: Apply a transform to all selected layers via selectedLayerNodeRefs
-  const applyTransformToSelectedLayers = useCallback((transform: { x?: number; y?: number; rotation?: number; scaleX?: number; scaleY?: number }) => {
-    selectedLayerNodeRefs.current.forEach((node) => {
-      if (!node) return;
-      if (typeof transform.x === 'number') node.x(transform.x);
-      if (typeof transform.y === 'number') node.y(transform.y);
-      if (typeof transform.rotation === 'number') node.rotation(transform.rotation);
-      if (typeof transform.scaleX === 'number') node.scaleX(transform.scaleX);
-      if (typeof transform.scaleY === 'number') node.scaleY(transform.scaleY);
-      if (typeof node.batchDraw === 'function') node.batchDraw();
-    });
-  }, []);
 
   // Utility: Commit selected layer node values back to app state (e.g., after transform)
   const commitSelectedLayerNodeTransforms = useCallback(() => {
@@ -153,15 +122,12 @@ export const SimpleCanvas = ({
     });
   }, [layerControls]);
   const layerNodeRefs = useRef<Map<string, Konva.Layer>>(new Map());
-  // ...existing code...
-  // ...existing code...
 
   // Use selection bounds hook (must be before using resolveSelectionRotation)
   const {
     updateBoundsFromLayerIds: _updateBoundsFromLayerIds,
     refreshBoundsFromSelection: _refreshBoundsFromSelection,
     scheduleBoundsRefresh,
-    getLayerRotation,
     resolveSelectionRotation,
   } = useSelectionBounds({
     selectModeActive,
@@ -172,6 +138,9 @@ export const SimpleCanvas = ({
     transformAnimationFrameRef,
     setSelectedLayerBounds,
   });
+
+  // Rotation logic is now handled by useRotation (must be after resolveSelectionRotation)
+  const { selectionProxyRotationRef, getRotationDeg, getRotationRad } = useRotation(resolveSelectionRotation);
 
   // Wrap bounds functions with debug logging
   // Assume updateBoundsFromLayerIds takes a single argument (array of ids)
@@ -228,24 +197,15 @@ export const SimpleCanvas = ({
     };
   }
 
-  // ...existing code...
-
+  // Unified effect: batch draw stage and reset pan on zoom reset
   useEffect(() => {
-    if (!layerControls || !stageRef.current) {
-      return;
+    if (stageRef.current) {
+      stageRef.current.batchDraw();
     }
-
-    stageRef.current.batchDraw();
-  }, [layerControls, layersRevision, selectModeActive]);
-
-  useEffect(() => {
     if (zoom === 0 && (panOffsetRef.current.x !== 0 || panOffsetRef.current.y !== 0)) {
       setPanOffset({ x: 0, y: 0 });
     }
-  }, [zoom]);
-    // ...existing code...
-
-  // ...existing code...
+  }, [layerControls, layersRevision, selectModeActive, zoom]);
 
   const captureSelectionTransformState = useCallback(() => {
     const proxy = selectionProxyRef.current;
@@ -406,137 +366,29 @@ export const SimpleCanvas = ({
   }, [finalizeSelectionTransform]);
 
 
-  useEffect(() => {
-    refreshBoundsFromSelection();
-  }, [refreshBoundsFromSelection, layersRevision, scale]);
-
+  // Unified effect for selection bounds refresh
   useEffect(() => {
     if (!selectModeActive) {
       setSelectedLayerBounds(null);
       return;
     }
-
+    // Always refresh on these triggers
     refreshBoundsFromSelection();
-  }, [selectModeActive, refreshBoundsFromSelection]);
+  }, [selectModeActive, refreshBoundsFromSelection, layersRevision, scale, selectedLayerIds]);
 
-  // Ensure bounds are refreshed when selection changes
-  useEffect(() => {
-    if (selectModeActive && selectedLayerIds.length > 0) {
-      refreshBoundsFromSelection();
-    }
-  }, [selectModeActive, selectedLayerIds, refreshBoundsFromSelection]);
-
-  // Calculate scale based on zoom and container size
-  useLayoutEffect(() => {
-    const updateScale = () => {
-      if (!containerRef.current) return;
-
-      const container = containerRef.current;
-      const containerWidth = container.clientWidth;
-      const containerHeight = container.clientHeight;
-
-      if (containerWidth === 0 || containerHeight === 0) {
-        return;
-      }
-
-      // Update container dimensions state
-      setContainerDimensions({ width: containerWidth, height: containerHeight });
-
-      // Calculate fit-to-container scale
-      const scaleX = containerWidth / width;
-      const scaleY = containerHeight / height;
-      const fitScale = Math.min(scaleX, scaleY);
-
-      // Apply zoom adjustment
-      // zoom = 0 means use fitScale
-      // zoom > 0 means zoom in (increase scale)
-      // zoom < 0 means zoom out (decrease scale)
-      const zoomFactor = 1 + internalZoom / 100;
-      const finalScale = Math.max(fitScale * zoomFactor, MIN_EFFECTIVE_SCALE);
-
-      if (Number.isFinite(finalScale)) {
-        setScale(finalScale);
-      }
-    };
-
-    updateScale();
-
-    // Update on resize events
-    window.addEventListener('resize', updateScale);
-
-    let resizeObserver: ResizeObserver | undefined;
-    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
-      resizeObserver = new ResizeObserver(() => updateScale());
-      resizeObserver.observe(containerRef.current);
-    }
-
-    return () => {
-      window.removeEventListener('resize', updateScale);
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-      }
-    };
-  }, [width, height, internalZoom]);
-
-  // Notify when stage is ready
-  useEffect(() => {
-    if (stageRef.current && onStageReady) {
-      onStageReady(stageRef.current);
-    }
-  }, [onStageReady]);
-
-  // Update stage scale when it changes
+  // Unified effect: handle stage ready, scale, and zoom sync
   useEffect(() => {
     if (stageRef.current) {
+      if (onStageReady) onStageReady(stageRef.current);
       stageRef.current.scale({ x: scale, y: scale });
       stageRef.current.batchDraw();
     }
-  }, [scale]);
-
-  // Sync internal zoom when parent-controlled zoom updates
-  useEffect(() => {
     setInternalZoom(zoom);
-  }, [zoom]);
+  }, [onStageReady, scale, zoom]);
 
-  const updateZoom = useCallback(
-    (
-      updater: (previousZoom: number) => number,
-      options?: { threshold?: number }
-    ) => {
-      const threshold = options?.threshold ?? 0;
-
-      setInternalZoom((previousZoom) => {
-        const nextZoom = clampZoomValue(updater(previousZoom));
-
-        if (threshold > 0 && Math.abs(nextZoom - previousZoom) < threshold) {
-          return previousZoom;
-        }
-
-        if (nextZoom !== previousZoom) {
-          if (onZoomChange) {
-            onZoomChange(nextZoom);
-          }
-          return nextZoom;
-        }
-
-        return previousZoom;
-      });
-    },
-    [onZoomChange]
-  );
-
-  const applyZoomDelta = useCallback(
-    (delta: number, threshold?: number) => {
-      if (!delta) return;
-
-      updateZoom((previousZoom) => previousZoom + delta, {
-        threshold,
-      });
-    },
-    [updateZoom]
-  );
-
-  
+  // Zoom useCallback hooks
+  const updateZoom = useUpdateZoom(onZoomChange);
+  const applyZoomDelta = useApplyZoomDelta(updateZoom);
 
   const handleTransformerTransformStart = useCallback(() => {
     isSelectionTransformingRef.current = true;
@@ -669,15 +521,6 @@ export const SimpleCanvas = ({
       setSelectedLayerBounds(null);
     }
   }, [layerControls]);
-
-  const handleStageMouseDown = useCallback((event: KonvaEventObject<MouseEvent | TouchEvent>) => {
-    if (!selectModeActive || !layerControls) return;
-
-    // If the click is on the stage itself (i.e. not on any shape), clear selection
-    if (event.target.getStage && event.target === event.target.getStage()) {
-      clearSelection();
-    }
-  }, [selectModeActive, layerControls, clearSelection]);
 
   // Deselect when clicking anywhere outside the canvas container
   useEffect(() => {
@@ -1113,40 +956,29 @@ export const SimpleCanvas = ({
     transformer.getLayer()?.batchDraw();
   }, [selectModeActive, selectedLayerBounds, layerControls, selectedLayerIds, overlaySelectionBox, isInteractingWithSelection, resolveSelectionRotation]);
 
+  // Unified effect: sync transformer to selection and handle rotation
   useEffect(() => {
     syncTransformerToSelection();
-  }, [layersRevision, syncTransformerToSelection]);
-
-  useEffect(() => {
-    if (!selectModeActive || isSelectionTransformingRef.current) {
-      return;
-    }
-
+    if (!selectModeActive || isSelectionTransformingRef.current) return;
     const nextRotation = resolveSelectionRotation();
     const normalizedRotation = Number.isFinite(nextRotation) ? nextRotation : 0;
-
     if (selectionProxyRotationRef.current !== normalizedRotation) {
       selectionProxyRotationRef.current = normalizedRotation;
       syncTransformerToSelection();
     }
-  }, [resolveSelectionRotation, selectModeActive, syncTransformerToSelection]);
+  }, [layersRevision, syncTransformerToSelection, resolveSelectionRotation, selectModeActive]);
 
+  // Unified effect: handle pending selection and reset transform state
   useEffect(() => {
-    if (!pendingSelectionRef.current) {
-      return;
+    if (pendingSelectionRef.current) {
+      const pending = pendingSelectionRef.current;
+      if (pending.length === selectedLayerIds.length) {
+        const matches = pending.every((id, index) => id === selectedLayerIds[index]);
+        if (matches) {
+          pendingSelectionRef.current = null;
+        }
+      }
     }
-
-    const pending = pendingSelectionRef.current;
-    if (pending.length !== selectedLayerIds.length) {
-      return;
-    }
-
-    const matches = pending.every((id, index) => id === selectedLayerIds[index]);
-    if (matches) {
-      pendingSelectionRef.current = null;
-    }
-  }, [selectedLayerIds]);
-  useEffect(() => {
     selectionTransformStateRef.current = null;
   }, [selectedLayerIds]);
 
@@ -1296,8 +1128,8 @@ export const SimpleCanvas = ({
           selectModeActive={selectModeActive}
           scaleX={1 / safeScale}
           scaleY={1 / safeScale}
-          stageViewportOffsetX={selectedLayerLiveData ? selectedLayerLiveData.x : stageViewportOffsetX}
-          stageViewportOffsetY={selectedLayerLiveData ? selectedLayerLiveData.y : stageViewportOffsetY}
+          stageViewportOffsetX={stageViewportOffsetX}
+          stageViewportOffsetY={stageViewportOffsetY}
           hasSelection={Boolean(selectedLayerBounds && selectedLayerIds.length > 0)}
           isInteracting={isInteractingWithSelection}
           selectionProxyRef={selectionProxyRef}
