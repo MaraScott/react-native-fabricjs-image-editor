@@ -137,10 +137,10 @@ export const applyTransformToNode = (
    */
   if (transform.offsetY !== undefined && Number.isFinite(transform.offsetY)) {
     /**
-     * offsetY - Auto-generated summary; refine if additional context is needed.
-     *
-     * @returns {transform.offsetY} Refer to the implementation for the precise returned value.
-     */
+ * getNodeAbsoluteTransform Component
+ * 
+ * Renders the getNodeAbsoluteTransform component.
+ */
     node.offsetY(transform.offsetY);
   }
 };
@@ -159,12 +159,10 @@ export const getNodeAbsoluteTransform = (node: any): Konva.Transform => {
 };
 
 /**
- * Calculate rotation bounding box dimensions
- /**
-  * local - Auto-generated documentation stub.
-  *
-  * @returns {unrotated} Result produced by local.
-  */
+ * calculateRotatedDimensions Component
+ * 
+ * Renders the calculateRotatedDimensions component.
+ */
  * Given a rotated rectangle, calculate the local (unrotated) dimensions
  * that would produce the given axis-aligned bounding box when rotated
  */

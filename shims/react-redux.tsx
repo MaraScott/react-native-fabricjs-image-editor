@@ -27,6 +27,12 @@ export function Provider({ store, children }: { store: Store; children: React.Re
 /**
  * Hook to access the Redux store
  */
+/**
+ * useStore Hook
+ * 
+ * Custom hook for store.
+ * @returns {Store<S, A>} Return value description
+ */
 export function useStore<S = any, A extends Action = Action>(): Store<S, A> {
   /**
    * useContext - Auto-generated summary; refine if additional context is needed.
@@ -51,10 +57,10 @@ export function useStore<S = any, A extends Action = Action>(): Store<S, A> {
      * @returns {'useStore must be used within a Provider'} Refer to the implementation for the precise returned value.
      */
     /**
-     * Error - Auto-generated documentation stub.
-     *
-     * @returns {'useStore must be used within a Provider'} Result produced by Error.
-     */
+ * useDispatch Hook
+ * 
+ * Custom hook for dispatch.
+ */
     throw new Error('useStore must be used within a Provider');
   }
   return store as Store<S, A>;
@@ -159,8 +165,13 @@ export function useSelector<S = any, R = any>(selector: (state: S) => R): R {
      * checkForUpdates - Auto-generated summary; refine if additional context is needed.
      */
     /**
-     * checkForUpdates - Auto-generated documentation stub.
-     */
+ * connect
+ * 
+ * Function to connect.
+ * 
+ * @param {(state: any) => SP} mapStateToProps? - Parameter description
+ * @param {((dispatch: any) => DP) | DP} mapDispatchToProps? - Parameter description
+ */
     checkForUpdates();
 
     return unsubscribe;
@@ -222,10 +233,12 @@ export function connect<SP = {}, DP = {}>(
       if (typeof mapDispatchToProps === 'function') {
         dispatchProps = mapDispatchToProps(dispatch);
       /**
-       * if - Auto-generated summary; refine if additional context is needed.
-       *
-       * @returns {mapDispatchToProps} Refer to the implementation for the precise returned value.
-       */
+ * createSelectorHook
+ * 
+ * Function to create selector hook.
+ * 
+ * @param {any} context - Parameter description
+ */
       } else if (mapDispatchToProps) {
         dispatchProps = mapDispatchToProps;
       } else {
@@ -358,8 +371,12 @@ export function createSelectorHook(context = ReactReduxContext) {
        */
       const unsubscribe = store.subscribe(checkForUpdates);
       /**
-       * checkForUpdates - Auto-generated summary; refine if additional context is needed.
-       */
+ * batch
+ * 
+ * Function to batch.
+ * 
+ * @param {() => void} fn - Parameter description
+ */
       checkForUpdates();
 
       return unsubscribe;
@@ -390,8 +407,14 @@ export function createSelectorHook(context = ReactReduxContext) {
  */
 export function batch(fn: () => void) {
   /**
-   * fn - Auto-generated summary; refine if additional context is needed.
-   */
+ * shallowEqual
+ * 
+ * Function to shallow equal.
+ * 
+ * @param {any} objA - Parameter description
+ * @param {any} objB - Parameter description
+ * @returns {boolean} Return value description
+ */
   fn();
 }
 

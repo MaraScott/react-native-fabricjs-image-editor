@@ -36,6 +36,11 @@ export type PayloadAction<P = void, T extends string = string, M = never, E = ne
 /**
  * CaseReducer interface - Generated documentation block.
  */
+/**
+ * CaseReducer Interface
+ * 
+ * Type definition for CaseReducer.
+ */
 export interface CaseReducer<S = any, A extends Action = AnyAction> {
   (state: S, action: A): S | void;
 }
@@ -108,10 +113,10 @@ export interface Slice<
    * @returns {State;} Refer to the implementation for the precise returned value.
    */
   /**
-   * getInitialState - Auto-generated documentation stub.
-   *
-   * @returns {State;} Result produced by getInitialState.
-   */
+ * CreateSliceOptions Interface
+ * 
+ * Type definition for CreateSliceOptions.
+ */
   getInitialState(): State;
 }
 
@@ -220,10 +225,10 @@ export function createSlice<
        * @param {*} result !== undefined ? result - Parameter derived from the static analyzer.
        */
       /**
-       * return - Auto-generated documentation stub.
-       *
-       * @param {*} result !== undefined ? result - Parameter forwarded to return.
-       */
+ * ConfigureStoreOptions Interface
+ * 
+ * Type definition for ConfigureStoreOptions.
+ */
       return (result !== undefined ? result : state) as State;
     }
     return state;
@@ -376,12 +381,22 @@ export function configureStore<S = any, A extends Action = AnyAction>(
 /**
  * Create an action creator
  */
+/**
+ * createAction
+ * 
+ * Function to create action.
+ * 
+ * @param {T} type - Parameter description
+ * @returns {ActionCreator<P, T>} Return value description
+ */
 export function createAction<P = void, T extends string = string>(
   type: T
 ): ActionCreator<P, T> {
   /**
-   * actionCreator - Auto-generated summary; refine if additional context is needed.
-   */
+ * thunkMiddleware Component
+ * 
+ * Renders the thunkMiddleware component.
+ */
   const actionCreator = ((payload: P) => ({
     type,
     payload,
@@ -428,10 +443,10 @@ export const thunkMiddleware =
      * @returns {action} Refer to the implementation for the precise returned value.
      */
     /**
-     * next - Auto-generated documentation stub.
-     *
-     * @returns {action} Result produced by next.
-     */
+ * ActionReducerMapBuilder Interface
+ * 
+ * Type definition for ActionReducerMapBuilder.
+ */
     return next(action);
   };
 

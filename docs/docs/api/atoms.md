@@ -119,8 +119,9 @@ import { Layer } from '@Canvas/Layer';
 
 ## Button
 
-Button Atom - Reusable button component
-Provides consistent styling and behavior across the application
+Button Component
+
+Renders the Button component.
 
 ### Import
 

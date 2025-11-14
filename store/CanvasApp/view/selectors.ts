@@ -128,6 +128,11 @@ function getElementBounds(element: AnyElement): ElementBounds | null {
  * element. Components can render this rectangle as a marquee without having to
  * duplicate the math.
  */
+/**
+ * selectSelectionRect Component
+ * 
+ * Renders the selectSelectionRect component.
+ */
 export const selectSelectionRect = (state: RootState, elements: AnyElement[]) => {
     const viewState = state.view as unknown as ViewState;
     const selectedIds = viewState.select.selectedIds;
@@ -238,13 +243,10 @@ export const selectSelectionRect = (state: RootState, elements: AnyElement[]) =>
          */
         width: Math.max(1, maxX - minX),
         /**
-         * max - Auto-generated documentation stub.
-         *
-         * @param {*} 1 - Parameter forwarded to max.
-         * @param {*} maxY - minY - Parameter forwarded to max.
-         *
-         * @returns {1, maxY - minY} Result produced by max.
-         */
+ * selectSelectedElementsWithBounds Component
+ * 
+ * Renders the selectSelectedElementsWithBounds component.
+ */
         height: Math.max(1, maxY - minY),
     };
 };
@@ -267,10 +269,10 @@ export const selectSelectedElementsWithBounds = (state: RootState, elements: Any
     return selectedElements.map(element => ({
         element,
         /**
-         * getElementBounds - Auto-generated documentation stub.
-         *
-         * @returns {element} Result produced by getElementBounds.
-         */
+ * selectHasSelection Component
+ * 
+ * Renders the selectHasSelection component.
+ */
         bounds: getElementBounds(element),
     }));
 };
@@ -282,7 +284,9 @@ export const selectSelectedElementsWithBounds = (state: RootState, elements: Any
  * Indicates whether the user currently has at least one element selected.
  */
 /**
- * selectHasSelection - Auto-generated documentation stub.
+ * selectSelectionCount Component
+ * 
+ * Renders the selectSelectionCount component.
  */
 export const selectHasSelection = (state: RootState) => {
     const viewState = state.view as unknown as ViewState;
@@ -296,7 +300,9 @@ export const selectHasSelection = (state: RootState) => {
  * Returns the number of elements that are part of the active selection.
  */
 /**
- * selectSelectionCount - Auto-generated documentation stub.
+ * selectIsElementSelected Component
+ * 
+ * Renders the selectIsElementSelected component.
  */
 export const selectSelectionCount = (state: RootState) => {
     const viewState = state.view as unknown as ViewState;

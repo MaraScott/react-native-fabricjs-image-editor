@@ -45,10 +45,10 @@ export interface ZoomableCanvasContainerProps {
   */
  * - Keyboard zoom (+ and - keys)
  /**
-  * zoom - Auto-generated summary; refine if additional context is needed.
-  *
-  * @returns {two-finger gesture on mobile} Refer to the implementation for the precise returned value.
-  */
+ * ZoomableCanvasContainer Component
+ * 
+ * Renders the ZoomableCanvasContainer component.
+ */
  * - Touch pinch zoom (two-finger gesture on mobile)
  */
 export const ZoomableCanvasContainer = ({
@@ -99,7 +99,6 @@ export const ZoomableCanvasContainer = ({
      *
      * @returns {'Canvas stage ready:', stageInstance} Result produced by log.
      */
-    console.log('Canvas stage ready:', stageInstance);
 
     /**
      * if - Auto-generated summary; refine if additional context is needed.

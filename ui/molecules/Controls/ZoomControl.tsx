@@ -3,7 +3,13 @@
  * Zoom controls for the canvas
  */
 
+/**
+ * ZoomControlProps Interface
+ * 
+ * Type definition for ZoomControlProps.
+ */
 export interface ZoomControlProps {
+  key?: string;
   zoom: number;
   onZoomChange: (zoom: number) => void;
   minZoom?: number;
@@ -147,6 +153,7 @@ export const ZoomControl = ({
 
   return (
     <div
+      key="zoom-control"
       style={{
         display: 'flex',
         alignItems: 'center',

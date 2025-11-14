@@ -14,12 +14,10 @@ const clampZoomValue = (value: number): number => {
    * @param {*} value - Parameter derived from the static analyzer.
    */
   /**
-   * max - Auto-generated documentation stub.
-   *
-   * @param {*} MIN_ZOOM - Parameter forwarded to max.
-   * @param {*} Math.min(MAX_ZOOM - Parameter forwarded to max.
-   * @param {*} value - Parameter forwarded to max.
-   */
+ * UseZoomControlsProps Interface
+ * 
+ * Type definition for UseZoomControlsProps.
+ */
   return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
 };
 

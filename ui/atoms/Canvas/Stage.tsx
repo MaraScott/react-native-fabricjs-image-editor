@@ -34,6 +34,7 @@ export const Stage = forwardRef<Konva.Stage, StageProps>(
       height: `${height}px`,
       flexShrink: 0,
       flexGrow: 0,
+      background: '#ffffff',
       ...style,
     };
 

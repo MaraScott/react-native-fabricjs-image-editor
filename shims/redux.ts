@@ -3,6 +3,11 @@
  * Provides core Redux functionality for state management
  */
 
+/**
+ * Reducer Type
+ * 
+ * Type definition for Reducer.
+ */
 export type Reducer<S = any, A = any> = (state: S | undefined, action: A) => S;
 
 export interface Action<T = any> {
@@ -57,20 +62,19 @@ export interface Store<S = any, A extends Action = AnyAction> {
    * @returns {void;} Refer to the implementation for the precise returned value.
    */
   /**
-   * replaceReducer - Auto-generated documentation stub.
-   *
-   * @param {*} nextReducer - Parameter forwarded to replaceReducer.
-   * @param {*} A> - Parameter forwarded to replaceReducer.
-   *
-   * @returns {void;} Result produced by replaceReducer.
-   */
+ * StoreEnhancer Interface
+ * 
+ * Type definition for StoreEnhancer.
+ */
   replaceReducer(nextReducer: Reducer<S, A>): void;
 }
 
 export type PreloadedState<S> = Partial<S>;
 
 /**
- * StoreEnhancer interface - Auto-generated interface summary; customize as needed.
+ * PreloadedState Type
+ * 
+ * Type definition for PreloadedState.
  */
 /**
  * StoreEnhancer interface - Generated documentation block.
@@ -150,6 +154,16 @@ export function combineReducers<S>(
 
 /**
  * Create a Redux store
+ */
+/**
+ * createStore
+ * 
+ * Function to create store.
+ * 
+ * @param {Reducer<S, A>} reducer - Parameter description
+ * @param {PreloadedState<S> | StoreEnhancer} preloadedState? - Parameter description
+ * @param {StoreEnhancer} enhancer? - Parameter description
+ * @returns {Store<S, A>} Return value description
  */
 export function createStore<S = any, A extends Action = AnyAction>(
   reducer: Reducer<S, A>,
@@ -232,10 +246,10 @@ export function createStore<S = any, A extends Action = AnyAction>(
    */
   if (typeof reducer !== 'function') {
     /**
-     * Error - Auto-generated summary; refine if additional context is needed.
-     *
-     * @returns {'Expected the reducer to be a function.'} Refer to the implementation for the precise returned value.
-     */
+ * ensureCanMutateNextListeners
+ * 
+ * Function to ensure can mutate next listeners.
+ */
     throw new Error('Expected the reducer to be a function.');
   }
 
@@ -263,8 +277,11 @@ export function createStore<S = any, A extends Action = AnyAction>(
        * slice - Auto-generated summary; refine if additional context is needed.
        */
       /**
-       * slice - Auto-generated documentation stub.
-       */
+ * getState
+ * 
+ * Function to get state.
+ * @returns {S} Return value description
+ */
       nextListeners = currentListeners.slice();
     }
   }
@@ -293,8 +310,12 @@ export function createStore<S = any, A extends Action = AnyAction>(
     if (isDispatching) {
       throw new Error(
         /**
-         * getState - Auto-generated summary; refine if additional context is needed.
-         */
+ * subscribe
+ * 
+ * Function to subscribe.
+ * 
+ * @param {() => void} listener - Parameter description
+ */
         'You may not call store.getState() while the reducer is executing. ' +
           'The reducer has already received the state as an argument. ' +
           'Pass it down from the top reducer instead of reading it from the store.'
@@ -428,13 +449,12 @@ export function createStore<S = any, A extends Action = AnyAction>(
        * @returns {index, 1} Refer to the implementation for the precise returned value.
        */
       /**
-       * splice - Auto-generated documentation stub.
-       *
-       * @param {*} index - Parameter forwarded to splice.
-       * @param {*} 1 - Parameter forwarded to splice.
-       *
-       * @returns {index, 1} Result produced by splice.
-       */
+ * dispatch
+ * 
+ * Function to dispatch.
+ * 
+ * @param {A} action - Parameter description
+ */
       nextListeners.splice(index, 1);
       currentListeners = [];
     };
@@ -528,8 +548,12 @@ export function createStore<S = any, A extends Action = AnyAction>(
        * listener - Auto-generated summary; refine if additional context is needed.
        */
       /**
-       * listener - Auto-generated documentation stub.
-       */
+ * replaceReducer
+ * 
+ * Function to replace reducer.
+ * 
+ * @param {Reducer<S, A>} nextReducer - Parameter description
+ */
       listener();
     }
 
@@ -593,12 +617,13 @@ export function createStore<S = any, A extends Action = AnyAction>(
    * @returns {{ type: '@@redux/INIT' } as A} Refer to the implementation for the precise returned value.
    */
   /**
-   * dispatch - Auto-generated documentation stub.
-   *
-   * @param {*} { type - Parameter forwarded to dispatch.
-   *
-   * @returns {{ type: '@@redux/INIT' } as A} Result produced by dispatch.
-   */
+ * compose
+ * 
+ * Function to compose.
+ * 
+ * @param {Function[]} funcs - Parameter description
+ * @returns {Function} Return value description
+ */
   dispatch({ type: '@@redux/INIT' } as A);
 
   return {
@@ -631,8 +656,13 @@ export function compose(...funcs: Function[]): Function {
   }
 
   /**
-   * if - Auto-generated summary; refine if additional context is needed.
-   */
+ * applyMiddleware
+ * 
+ * Function to apply middleware.
+ * 
+ * @param {any[]} middlewares - Parameter description
+ * @returns {StoreEnhancer} Return value description
+ */
   if (funcs.length === 1) {
     return funcs[0];
   }

@@ -35,7 +35,6 @@ export interface KonvaSelectionBoxProps {
  * All transformations apply to the Group, affecting both UI and content together
  */
 export const KonvaSelectionBox = (props: KonvaSelectionBoxProps): JSX.Element => {
-  console.log('[DEBUG KonvaSelectionBox] RAW PROPS:', props);
   
   const {
     box,
@@ -54,44 +53,24 @@ export const KonvaSelectionBox = (props: KonvaSelectionBoxProps): JSX.Element =>
   const rotateHandleDistance = 50;
   const groupRef = useRef<Konva.Group>(null);
   
-  console.log('[DEBUG KonvaSelectionBox] After destructure - stageScale:', stageScale);
   
   // Apply inverse scale to compensate for Stage scale
   // This keeps the selection box UI at 1:1 screen scale
   const inverseScale = 1 / stageScale;
   
-  console.log('[DEBUG KonvaSelectionBox] Calculated inverseScale:', inverseScale);
 
   useEffect(() => {
     if (groupRef.current) {
       const group = groupRef.current;
-      console.log('[DEBUG KonvaSelectionBox useEffect] Group mounted/updated');
-      console.log('[DEBUG KonvaSelectionBox useEffect] Group position:', group.position());
-      console.log('[DEBUG KonvaSelectionBox useEffect] Group size:', { width: group.width(), height: group.height() });
-      console.log('[DEBUG KonvaSelectionBox useEffect] Group rotation:', group.rotation());
-      console.log('[DEBUG KonvaSelectionBox useEffect] Group offset:', group.offset());
-      console.log('[DEBUG KonvaSelectionBox useEffect] Group absoluteTransform:', group.getAbsoluteTransform().m);
-      console.log('[DEBUG KonvaSelectionBox useEffect] Group visible:', group.visible());
-      console.log('[DEBUG KonvaSelectionBox useEffect] Group opacity:', group.opacity());
-      console.log('[DEBUG KonvaSelectionBox useEffect] Group listening:', group.listening());
       const stage = group.getStage();
       if (stage) {
-        console.log('[DEBUG KonvaSelectionBox useEffect] Stage size:', { width: stage.width(), height: stage.height() });
       }
     }
-  });
-
-  console.log('[DEBUG KonvaSelectionBox] Rendering with props:', {
-    x, y, width, height, rotation,
-    handleSize, rotateHandleDistance, stageScale, inverseScale
   });
   
   // Position the Group at center (like the Transformer proxy) with offset
   const centerX = x + width / 2;
   const centerY = y + height / 2;
-  console.log('[DEBUG KonvaSelectionBox] Group props (center-based positioning):', {
-    centerX, centerY, width, height, rotation, offsetX: width / 2, offsetY: height / 2, inverseScale
-  });
   
   // Scale UI elements (handles, stroke) by inverse scale to maintain screen size
   const uiStrokeWidth = 6 * inverseScale;

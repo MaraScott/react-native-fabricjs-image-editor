@@ -18,7 +18,7 @@ import { CanvasApp } from '@pages/Canvas';
  */
 const bootstrap = (window as any).__EDITOR_BOOTSTRAP__ || {};
 const width = bootstrap.width || 800;
-const height = bootstrap.height || 600;
+const height = bootstrap.height || 800;
 const backgroundColor = bootstrap.backgroundColor || '#ffffff';
 
 // Mount the application

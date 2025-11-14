@@ -75,13 +75,10 @@ export const computeNodeBounds = (node: Konva.Node): Bounds | null => {
      * @returns {'Failed to compute node bounds:', error} Refer to the implementation for the precise returned value.
      */
     /**
-     * warn - Auto-generated documentation stub.
-     *
-     * @param {*} 'Failed to compute node bounds - Parameter forwarded to warn.
-     * @param {*} error - Parameter forwarded to warn.
-     *
-     * @returns {'Failed to compute node bounds:', error} Result produced by warn.
-     */
+ * areBoundsEqual Component
+ * 
+ * Renders the areBoundsEqual component.
+ */
     console.warn('Failed to compute node bounds:', error);
     return null;
   }
@@ -155,10 +152,10 @@ export const areBoundsEqual = (
      * @returns {a.height - b.height} Refer to the implementation for the precise returned value.
      */
     /**
-     * abs - Auto-generated documentation stub.
-     *
-     * @returns {a.height - b.height} Result produced by abs.
-     */
+ * clamp Component
+ * 
+ * Renders the clamp component.
+ */
     Math.abs(a.height - b.height) < 0.01
   );
 };
@@ -175,12 +172,10 @@ export const clamp = (value: number, min: number, max: number): number => {
    * @param {*} value - Parameter derived from the static analyzer.
    */
   /**
-   * max - Auto-generated documentation stub.
-   *
-   * @param {*} min - Parameter forwarded to max.
-   * @param {*} Math.min(max - Parameter forwarded to max.
-   * @param {*} value - Parameter forwarded to max.
-   */
+ * clampZoomValue Component
+ * 
+ * Renders the clampZoomValue component.
+ */
   return Math.max(min, Math.min(max, value));
 };
 
@@ -198,14 +193,10 @@ export const clampZoomValue = (value: number, min: number = -100, max: number = 
    * @returns {value, min, max} Refer to the implementation for the precise returned value.
    */
   /**
-   * clamp - Auto-generated documentation stub.
-   *
-   * @param {*} value - Parameter forwarded to clamp.
-   * @param {*} min - Parameter forwarded to clamp.
-   * @param {*} max - Parameter forwarded to clamp.
-   *
-   * @returns {value, min, max} Result produced by clamp.
-   */
+ * calculateScaleFromZoom Component
+ * 
+ * Renders the calculateScaleFromZoom component.
+ */
   return clamp(value, min, max);
 };
 
@@ -280,10 +271,10 @@ export const calculateScaleFromZoom = (
    * @returns {finalScale} Refer to the implementation for the precise returned value.
    */
   /**
-   * isFinite - Auto-generated documentation stub.
-   *
-   * @returns {finalScale} Result produced by isFinite.
-   */
+ * screenToStageCoordinates Component
+ * 
+ * Renders the screenToStageCoordinates component.
+ */
   return Number.isFinite(finalScale) ? finalScale : 1;
 };
 
@@ -304,13 +295,10 @@ export const screenToStageCoordinates = (
    * @returns {scale, 0.0001} Refer to the implementation for the precise returned value.
    */
   /**
-   * max - Auto-generated documentation stub.
-   *
-   * @param {*} scale - Parameter forwarded to max.
-   * @param {*} 0.0001 - Parameter forwarded to max.
-   *
-   * @returns {scale, 0.0001} Result produced by max.
-   */
+ * calculateSelectionCenter Component
+ * 
+ * Renders the calculateSelectionCenter component.
+ */
   const safeScale = Math.max(scale, 0.0001);
   return {
     x: screenX / safeScale,

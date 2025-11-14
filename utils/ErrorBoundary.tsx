@@ -6,6 +6,11 @@ import React, { type ReactNode } from 'react';
 /**
  * ErrorBoundaryProps interface - Generated documentation block.
  */
+/**
+ * ErrorBoundaryProps Interface
+ * 
+ * Type definition for ErrorBoundaryProps.
+ */
 interface ErrorBoundaryProps {
     fallback: ReactNode;
     children: ReactNode;
@@ -49,10 +54,13 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
          * @returns {props} Refer to the implementation for the precise returned value.
          */
         /**
-         * super - Auto-generated documentation stub.
-         *
-         * @returns {props} Result produced by super.
-         */
+ * getDerivedStateFromError
+ * 
+ * Function to get derived state from error.
+ * 
+ * @param {Error} error - Parameter description
+ * @returns {ErrorBoundaryState} Return value description
+ */
         super(props);
         this.props = props;
     }
@@ -65,12 +73,13 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
      * @returns {ErrorBoundaryState} Refer to the implementation for the precise returned value.
      */
     /**
-     * getDerivedStateFromError - Auto-generated documentation stub.
-     *
-     * @param {*} error - Parameter forwarded to getDerivedStateFromError.
-     *
-     * @returns {ErrorBoundaryState} Result produced by getDerivedStateFromError.
-     */
+ * componentDidCatch
+ * 
+ * Function to component did catch.
+ * 
+ * @param {Error} error - Parameter description
+ * @param {React.ErrorInfo} info - Parameter description
+ */
     static getDerivedStateFromError(error: Error): ErrorBoundaryState {
         return { hasError: true }
     }
@@ -101,13 +110,10 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
          * @returns {error, info} Refer to the implementation for the precise returned value.
          */
         /**
-         * log - Auto-generated documentation stub.
-         *
-         * @param {*} error - Parameter forwarded to log.
-         * @param {*} info - Parameter forwarded to log.
-         *
-         * @returns {error, info} Result produced by log.
-         */
+ * render
+ * 
+ * Function to render.
+ */
         console.log(error, info);
     }
 

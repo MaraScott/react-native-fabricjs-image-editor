@@ -117,11 +117,10 @@ export const drawReducer = createReducer(initialState, (builder) => {
             state.currentPath = null;
         })
         /**
-         * addCase - Auto-generated documentation stub.
-         *
-         * @param {*} 'view/draw/cancelDrawing' - Parameter forwarded to addCase.
-         * @param {*} (state - Parameter forwarded to addCase.
-         */
+ * drawActions
+ * 
+ * Function to draw actions.
+ */
         .addCase('view/draw/cancelDrawing', (state) => {
             state.isDrawing = false;
             state.currentPath = null;

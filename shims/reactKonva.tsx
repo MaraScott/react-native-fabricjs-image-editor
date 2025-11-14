@@ -49,15 +49,12 @@ const EVENT_MAP: Record<string, string> = {
  * @returns {['children', 'ref', 'key', 'style', 'className']} Refer to the implementation for the precise returned value.
  */
 /**
- * Set - Auto-generated documentation stub.
- *
- * @param {*} ['children' - Parameter forwarded to Set.
- * @param {*} 'ref' - Parameter forwarded to Set.
- * @param {*} 'key' - Parameter forwarded to Set.
- * @param {*} 'style' - Parameter forwarded to Set.
- * @param {*} 'className'] - Parameter forwarded to Set.
- *
- * @returns {['children', 'ref', 'key', 'style', 'className']} Result produced by Set.
+ * filterProps
+ * 
+ * Function to filter props.
+ * 
+ * @param {Record<string, any> | undefined} props - Parameter description
+ * @returns {Record<string, any>} Return value description
  */
 const RESERVED_PROPS = new Set(['children', 'ref', 'key', 'style', 'className']);
 
@@ -93,8 +90,13 @@ function filterProps(props: Record<string, any> | undefined): Record<string, any
      * if - Auto-generated summary; refine if additional context is needed.
      */
     /**
-     * if - Auto-generated documentation stub.
-     */
+ * filterConfig
+ * 
+ * Function to filter config.
+ * 
+ * @param {Record<string, any> | undefined} props - Parameter description
+ * @returns {Record<string, any>} Return value description
+ */
     if (value === undefined) continue;
     next[key] = value;
   }
@@ -149,8 +151,14 @@ function filterConfig(props: Record<string, any> | undefined): Record<string, an
      * if - Auto-generated summary; refine if additional context is needed.
      */
     /**
-     * if - Auto-generated documentation stub.
-     */
+ * applyNodeProps
+ * 
+ * Function to apply node props.
+ * 
+ * @param {Konva.Node} node - Parameter description
+ * @param {Record<string, any>} newProps - Parameter description
+ * @param {Record<string, any>} oldProps - Parameter description
+ */
     if (value === undefined) continue;
     next[key] = value;
   }
@@ -402,8 +410,10 @@ function applyNodeProps(node: Konva.Node, newProps: Record<string, any>, oldProp
     batchDraw.call(node);
   } else {
     /**
-     * getLayer - Auto-generated summary; refine if additional context is needed.
-     */
+ * useKonvaParent Hook
+ * 
+ * Custom hook for konva parent.
+ */
     node.getLayer()?.batchDraw();
   }
 }
@@ -440,10 +450,10 @@ function useKonvaParent() {
      * @returns {'Konva nodes must be rendered inside a Stage or Layer.'} Refer to the implementation for the precise returned value.
      */
     /**
-     * Error - Auto-generated documentation stub.
-     *
-     * @returns {'Konva nodes must be rendered inside a Stage or Layer.'} Result produced by Error.
-     */
+ * StageProps Type
+ * 
+ * Type definition for StageProps.
+ */
     throw new Error('Konva nodes must be rendered inside a Stage or Layer.');
   }
   return parent;
@@ -649,8 +659,18 @@ export const Stage = forwardRef<Konva.Stage | null, StageProps>((props, forwarde
 
 Stage.displayName = 'Stage';
 
+/**
+ * LayerProps Type
+ * 
+ * Type definition for LayerProps.
+ */
 type LayerProps = PropsWithChildren<Record<string, any>>;
 
+/**
+ * Layer Component
+ * 
+ * Renders the Layer component.
+ */
 export const Layer = forwardRef<Konva.Layer | null, LayerProps>(({ children, ...rest }, forwardedRef) => {
   /**
    * useKonvaParent - Auto-generated summary; refine if additional context is needed.
@@ -771,10 +791,10 @@ export const Layer = forwardRef<Konva.Layer | null, LayerProps>(({ children, ...
    * @returns {!ready} Refer to the implementation for the precise returned value.
    */
   /**
-   * if - Auto-generated documentation stub.
-   *
-   * @returns {!ready} Result produced by if.
-   */
+ * NodeProps Type
+ * 
+ * Type definition for NodeProps.
+ */
   if (!ready) {
     return null;
   }
@@ -889,10 +909,10 @@ function createKonvaComponent<T extends Konva.Node>(factory: NodeFactory<T>) {
     useEffect(() => {
       const node = nodeRef.current;
       /**
-       * if - Auto-generated summary; refine if additional context is needed.
-       *
-       * @returns {!node} Refer to the implementation for the precise returned value.
-       */
+ * Rect
+ * 
+ * Function to rect.
+ */
       if (!node) return;
       const newProps = filterProps(props);
       applyNodeProps(node, newProps, prevPropsRef.current);
@@ -909,56 +929,72 @@ function createKonvaComponent<T extends Konva.Node>(factory: NodeFactory<T>) {
  * createKonvaComponent - Auto-generated summary; refine if additional context is needed.
  */
 /**
- * createKonvaComponent - Auto-generated documentation stub.
+ * Circle
+ * 
+ * Function to circle.
  */
 export const Rect = createKonvaComponent(() => new Konva.Rect());
 /**
  * createKonvaComponent - Auto-generated summary; refine if additional context is needed.
  */
 /**
- * createKonvaComponent - Auto-generated documentation stub.
+ * Ellipse
+ * 
+ * Function to ellipse.
  */
 export const Circle = createKonvaComponent(() => new Konva.Circle());
 /**
  * createKonvaComponent - Auto-generated summary; refine if additional context is needed.
  */
 /**
- * createKonvaComponent - Auto-generated documentation stub.
+ * Line
+ * 
+ * Function to line.
  */
 export const Ellipse = createKonvaComponent(() => new Konva.Ellipse());
 /**
  * createKonvaComponent - Auto-generated summary; refine if additional context is needed.
  */
 /**
- * createKonvaComponent - Auto-generated documentation stub.
+ * RegularPolygon
+ * 
+ * Function to regular polygon.
  */
 export const Line = createKonvaComponent(() => new Konva.Line());
 /**
  * createKonvaComponent - Auto-generated summary; refine if additional context is needed.
  */
 /**
- * createKonvaComponent - Auto-generated documentation stub.
+ * Text
+ * 
+ * Function to text.
  */
 export const RegularPolygon = createKonvaComponent(() => new Konva.RegularPolygon({ sides: 3, radius: 0 }));
 /**
  * createKonvaComponent - Auto-generated summary; refine if additional context is needed.
  */
 /**
- * createKonvaComponent - Auto-generated documentation stub.
+ * Transformer
+ * 
+ * Function to transformer.
  */
 export const Text = createKonvaComponent(() => new Konva.Text());
 /**
  * createKonvaComponent - Auto-generated summary; refine if additional context is needed.
  */
 /**
- * createKonvaComponent - Auto-generated documentation stub.
+ * Image
+ * 
+ * Function to image.
  */
 export const Transformer = createKonvaComponent(() => new Konva.Transformer());
 /**
  * createKonvaComponent - Auto-generated summary; refine if additional context is needed.
  */
 /**
- * createKonvaComponent - Auto-generated documentation stub.
+ * Group
+ * 
+ * Function to group.
  */
 export const Image = createKonvaComponent(() => new Konva.Image());
 /**

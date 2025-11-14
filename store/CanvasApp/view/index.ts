@@ -61,6 +61,11 @@ const initialState: ViewState = {
  * @param {*} initialState - Parameter forwarded to createReducer.
  * @param {*} (builder - Parameter forwarded to createReducer.
  */
+/**
+ * viewReducer Component
+ * 
+ * Renders the viewReducer component.
+ */
 export const viewReducer = createReducer(initialState, (builder) => {
     // Active tool management
     builder
@@ -823,13 +828,10 @@ export const viewReducer = createReducer(initialState, (builder) => {
          */
         .addCase('view/crop/cancelCrop', (state, action) => {
             /**
-             * cropReducer - Auto-generated documentation stub.
-             *
-             * @param {*} state.crop - Parameter forwarded to cropReducer.
-             * @param {*} action - Parameter forwarded to cropReducer.
-             *
-             * @returns {state.crop, action} Result produced by cropReducer.
-             */
+ * viewActions
+ * 
+ * Function to view actions.
+ */
             cropReducer(state.crop, action);
         });
 });

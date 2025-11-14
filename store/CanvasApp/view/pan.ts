@@ -86,12 +86,10 @@ export const panReducer = createReducer(initialState, (builder) => {
             state.isPanning = false;
         })
         /**
-         * addCase - Auto-generated documentation stub.
-         *
-         * @param {*} 'view/pan/setSpacePressedMode' - Parameter forwarded to addCase.
-         * @param {*} (state - Parameter forwarded to addCase.
-         * @param {*} action - Parameter forwarded to addCase.
-         */
+ * panActions
+ * 
+ * Function to pan actions.
+ */
         .addCase('view/pan/setSpacePressedMode', (state, action: PayloadAction<boolean>) => {
             state.spacePressedMode = action.payload;
         });

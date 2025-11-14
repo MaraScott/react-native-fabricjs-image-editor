@@ -74,6 +74,11 @@ const getSizeStyles = (size: ButtonSize): CSSProperties => {
  * Button Atom - Reusable button component
  * Provides consistent styling and behavior across the application
  */
+/**
+ * Button Component
+ * 
+ * Renders the Button component.
+ */
 export const Button = ({
   children,
   variant = 'secondary',

@@ -1,7 +1,17 @@
 import React from 'react';
 
+/**
+ * Props Type
+ * 
+ * Type definition for Props.
+ */
 type Props = Record<string, unknown> & { children?: any };
 
+/**
+ * Key Type
+ * 
+ * Type definition for Key.
+ */
 type Key = string | number | null;
 
 /**
@@ -12,6 +22,15 @@ type Key = string | number | null;
  * @param {*} key - Parameter derived from the static analyzer.
  *
  * @returns {type: any, props: Props | null, key: Key} Refer to the implementation for the precise returned value.
+ */
+/**
+ * createElement
+ * 
+ * Function to create element.
+ * 
+ * @param {any} type - Parameter description
+ * @param {Props | null} props - Parameter description
+ * @param {Key} key - Parameter description
  */
 function createElement(type: any, props: Props | null, key: Key) {
   const finalProps = props ? { ...props } : {};
@@ -33,13 +52,10 @@ function createElement(type: any, props: Props | null, key: Key) {
    * @returns {type, finalProps} Refer to the implementation for the precise returned value.
    */
   /**
-   * createElement - Auto-generated documentation stub.
-   *
-   * @param {*} type - Parameter forwarded to createElement.
-   * @param {*} finalProps - Parameter forwarded to createElement.
-   *
-   * @returns {type, finalProps} Result produced by createElement.
-   */
+ * jsx
+ * 
+ * Function to jsx.
+ */
   return React.createElement(type, finalProps);
 }
 

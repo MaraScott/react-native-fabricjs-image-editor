@@ -64,11 +64,10 @@ export const rubberReducer = createReducer(initialState, (builder) => {
             state.isErasing = true;
         })
         /**
-         * addCase - Auto-generated documentation stub.
-         *
-         * @param {*} 'view/rubber/stopErasing' - Parameter forwarded to addCase.
-         * @param {*} (state - Parameter forwarded to addCase.
-         */
+ * rubberActions
+ * 
+ * Function to rubber actions.
+ */
         .addCase('view/rubber/stopErasing', (state) => {
             state.isErasing = false;
         });

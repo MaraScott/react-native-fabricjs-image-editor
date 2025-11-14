@@ -21,10 +21,10 @@
  *
  * ## Benefits
  /**
-  * place - Auto-generated documentation stub.
-  *
-  * @returns {Redux} Result produced by place.
-  */
+ * REFACTORING_NOTES
+ * 
+ * Function to r e f a c t o r i n g_ n o t e s.
+ */
  * - Tool state lives in a single predictable place (Redux).
  * - Redux DevTools can replay tool changes for debugging.
  * - Unit tests can exercise reducers without rendering components.

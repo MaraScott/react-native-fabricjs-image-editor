@@ -4,11 +4,13 @@
  */
 
 import { useState, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '@store/CanvasApp';
-import { viewActions } from '@store/CanvasApp/view';
+import { useSelector } from 'react-redux';
 import { CanvasLayout } from '@templates/Canvas';
 import { CanvasContainer } from '@organisms/Canvas';
+import { HeaderLeft } from '@organisms/Header';
+import { Footer } from '@organisms/Footer';
+import { SideBarLeft } from '@organisms/SideBar';
 import type { CanvasLayerDefinition } from '@organisms/Canvas';
 import { ZoomControl } from '@molecules/Controls';
 import { Rect, Circle, Text } from 'react-konva';
@@ -19,7 +21,13 @@ import { Rect, Circle, Text } from 'react-konva';
 /**
  * CanvasAppProps interface - Generated documentation block.
  */
+/**
+ * CanvasAppProps Interface
+ * 
+ * Type definition for CanvasAppProps.
+ */
 export interface CanvasAppProps {
+  key: string;
   width?: number;
   height?: number;
   backgroundColor?: string;
@@ -40,13 +48,6 @@ export const CanvasApp = ({
   initialZoom = 0,
 }: CanvasAppProps) => {
   /**
-   * useDispatch - Auto-generated summary; refine if additional context is needed.
-   */
-  /**
-   * useDispatch - Auto-generated documentation stub.
-   */
-  const dispatch = useDispatch();
-  /**
    * useState - Auto-generated summary; refine if additional context is needed.
    *
    * @returns {initialZoom} Refer to the implementation for the precise returned value.
@@ -58,30 +59,6 @@ export const CanvasApp = ({
    */
   const [zoom, setZoom] = useState(initialZoom);
   
-  // Get tool states from Redux store
-  /**
-   * useSelector - Auto-generated summary; refine if additional context is needed.
-   *
-   * @param {*} (state - Parameter derived from the static analyzer.
-   */
-  /**
-   * useSelector - Auto-generated documentation stub.
-   *
-   * @param {*} (state - Parameter forwarded to useSelector.
-   */
-  const isPanToolActive = useSelector((state: RootState) => state.view.pan.active);
-  /**
-   * useSelector - Auto-generated summary; refine if additional context is needed.
-   *
-   * @param {*} (state - Parameter derived from the static analyzer.
-   */
-  /**
-   * useSelector - Auto-generated documentation stub.
-   *
-   * @param {*} (state - Parameter forwarded to useSelector.
-   */
-  const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
-  
   const initialCanvasLayers = useMemo<CanvasLayerDefinition[]>(() => [
     {
       id: 'layer-text',
@@ -90,6 +67,7 @@ export const CanvasApp = ({
       position: { x: 0, y: 0 },
       render: () => (
         <Text
+          key="text"
           x={100}
           y={400}
           text="Simple Canvas Ready!"
@@ -120,172 +98,65 @@ export const CanvasApp = ({
       position: { x: 0, y: 0 },
       render: () => (
         <>
-        <Rect
-          x={100}
-          y={100}
-          width={200}
-          height={200}
-          fill="#4A90E2"
-          cornerRadius={8}
-        />
-                <Text
-          x={100}
-          y={200}
-          text="I'm the rect!"
-          fontSize={48}
-          fill="#333333"
-          fontFamily="system-ui, sans-serif"
-        />
+          <Rect
+            key="rect"
+            x={100}
+            y={100}
+            width={200}
+            height={200}
+            fill="#4A90E2"
+            cornerRadius={8}
+          />
+          <Text
+            key="rect-label"
+            x={100}
+            y={200}
+            text="I'm the rect!"
+            fontSize={48}
+            fill="#333333"
+            fontFamily="system-ui, sans-serif"
+          />
         </>
       ),
     },
   ], []);
 
+  // Get tool states from Redux store
   /**
-   * togglePanTool - Auto-generated summary; refine if additional context is needed.
+   * useSelector - Auto-generated summary; refine if additional context is needed.
+   *
+   * @param {*} (state - Parameter derived from the static analyzer.
    */
   /**
-   * togglePanTool - Auto-generated documentation stub.
+   * useSelector - Auto-generated documentation stub.
+   *
+   * @param {*} (state - Parameter forwarded to useSelector.
    */
-  const togglePanTool = () => {
-    /**
-     * if - Auto-generated summary; refine if additional context is needed.
-     *
-     * @returns {isPanToolActive} Refer to the implementation for the precise returned value.
-     */
-    if (isPanToolActive) {
-      // Switch to select tool when disabling pan
-      /**
-       * dispatch - Auto-generated summary; refine if additional context is needed.
-       */
-      dispatch(viewActions.setActiveTool('select'));
-    } else {
-      // Enable pan tool
-      /**
-       * dispatch - Auto-generated summary; refine if additional context is needed.
-       */
-      dispatch(viewActions.setActiveTool('pan'));
-    }
-  };
+  const isPanToolActive = useSelector((state: RootState) => state.view.pan.active);
+  /**
+   * useSelector - Auto-generated summary; refine if additional context is needed.
+   *
+   * @param {*} (state - Parameter derived from the static analyzer.
+   */
+  /**
+   * useSelector - Auto-generated documentation stub.
+   *
+   * @param {*} (state - Parameter forwarded to useSelector.
+   */
+  const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
+  
 
-  /**
-   * toggleSelectTool - Auto-generated summary; refine if additional context is needed.
-   */
-  const toggleSelectTool = () => {
-    /**
-     * if - Auto-generated summary; refine if additional context is needed.
-     *
-     * @returns {isSelectToolActive} Refer to the implementation for the precise returned value.
-     */
-    if (isSelectToolActive) {
-      // Switch to pan tool when disabling select
-      /**
-       * dispatch - Auto-generated summary; refine if additional context is needed.
-       */
-      dispatch(viewActions.setActiveTool('pan'));
-    } else {
-      // Enable select tool
-      /**
-       * dispatch - Auto-generated summary; refine if additional context is needed.
-       */
-      dispatch(viewActions.setActiveTool('select'));
-    }
-  };
 
   return (
     <CanvasLayout
-      headerLeft={
-        <div>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>
-            Simple Canvas Editor
-          </h1>
-          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: '#666' }}>
-            Built with Konva and Atomic Design Pattern - {width}x{height}px canvas
-          </p>
-        </div>
-      }
-      headerCenter={
-        <ZoomControl zoom={zoom} onZoomChange={setZoom} />
-      }
-      sidebarLeft={
-        <div
-          style={{
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.75rem',
-          }}
-        >
-          <button
-            type="button"
-            onClick={togglePanTool}
-            aria-pressed={isPanToolActive}
-            aria-label={isPanToolActive ? 'Disable pan tool' : 'Enable pan tool'}
-            title={isPanToolActive ? 'Pan tool active' : 'Enable pan tool'}
-            style={{
-              width: '100%',
-              border: `1px solid ${isPanToolActive ? '#333333' : '#d0d0d0'}`,
-              backgroundColor: isPanToolActive ? '#333333' : '#f8f8f8',
-              color: isPanToolActive ? '#ffffff' : '#333333',
-              borderRadius: '8px',
-              padding: '0.75rem 0.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.25rem',
-              cursor: 'pointer',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              userSelect: 'none',
-              transition: 'background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease',
-            }}
-          >
-            <span aria-hidden="true" style={{ fontSize: '1.5rem', lineHeight: 1 }}>
-              {'\u270B'}
-            </span>
-            <span>Pan</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={toggleSelectTool}
-            aria-pressed={isSelectToolActive}
-            aria-label={isSelectToolActive ? 'Disable select tool' : 'Enable select tool'}
-            title={isSelectToolActive ? 'Select tool active' : 'Enable select tool'}
-            style={{
-              width: '100%',
-              border: `1px solid ${isSelectToolActive ? '#333333' : '#d0d0d0'}`,
-              backgroundColor: isSelectToolActive ? '#333333' : '#f8f8f8',
-              color: isSelectToolActive ? '#ffffff' : '#333333',
-              borderRadius: '8px',
-              padding: '0.75rem 0.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.25rem',
-              cursor: 'pointer',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              userSelect: 'none',
-              transition: 'background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease',
-            }}
-          >
-            <span aria-hidden="true" style={{ fontSize: '1.5rem', lineHeight: 1 }}>
-              {'\u261D'}
-            </span>
-            <span>Select</span>
-          </button>
-        </div>
-      }
-      footer={
-        <div style={{ textAlign: 'center' }}>
-          Canvas ready for further development
-        </div>
-      }
+      key={`canvasapp`}
+      headerLeft={<HeaderLeft key={`headerleft`} width={width} height={height} />}
+      headerCenter={<ZoomControl key={`headercenter`}  zoom={zoom} onZoomChange={setZoom} />}
+      sidebarLeft={<SideBarLeft key={`sidebarleft`}  isPanToolActive={isPanToolActive} isSelectToolActive={isSelectToolActive} />}
+      footer={<Footer key={`footer`}  />}
     >
       <CanvasContainer
+        key="canvas-container"
         width={width}
         height={height}
         backgroundColor={backgroundColor}

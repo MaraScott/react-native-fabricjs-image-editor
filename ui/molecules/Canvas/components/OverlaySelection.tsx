@@ -1,6 +1,11 @@
 import React from 'react';
 import type { CSSProperties } from 'react';
 
+/**
+ * OverlayBox Type
+ * 
+ * Type definition for OverlayBox.
+ */
 export type OverlayBox = {
   x: number;
   y: number;
@@ -14,6 +19,11 @@ export type OverlayBox = {
  */
 /**
  * Props interface - Generated documentation block.
+ */
+/**
+ * Props Interface
+ * 
+ * Type definition for Props.
  */
 interface Props {
   box: OverlayBox;
@@ -49,15 +59,10 @@ const handleStyle: CSSProperties = {
   transform: 'translate(-50%, -50%)',
   zIndex: 16,
   /**
-   * rgba - Auto-generated summary; refine if additional context is needed.
-   *
-   * @param {*} 0 - Parameter derived from the static analyzer.
-   * @param {*} 0 - Parameter derived from the static analyzer.
-   * @param {*} 0 - Parameter derived from the static analyzer.
-   * @param {*} 0.2 - Parameter derived from the static analyzer.
-   *
-   * @returns {0,0,0,0.2} Refer to the implementation for the precise returned value.
-   */
+ * OverlaySelection Component
+ * 
+ * Renders the OverlaySelection component.
+ */
   boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
 };
 

@@ -1,46 +1,91 @@
 import type { ReactNode, CSSProperties } from 'react';
 import type Konva from 'konva';
 
+/**
+ * PanOffset Type
+ * 
+ * Type definition for PanOffset.
+ */
 export type PanOffset = { 
   x: number; 
   y: number; 
 };
 
+/**
+ * ScaleVector Type
+ * 
+ * Type definition for ScaleVector.
+ */
 export type ScaleVector = { 
   x: number; 
   y: number;
 };
 
+/**
+ * PointerPanState Type
+ * 
+ * Type definition for PointerPanState.
+ */
 export type PointerPanState = {
   pointerId: number;
   start: { x: number; y: number };
   origin: PanOffset;
 };
 
+/**
+ * TouchPanState Type
+ * 
+ * Type definition for TouchPanState.
+ */
 export type TouchPanState = {
   center: { x: number; y: number };
   origin: PanOffset;
   touchCount: number;
 };
 
+/**
+ * SelectionDragState Type
+ * 
+ * Type definition for SelectionDragState.
+ */
 export type SelectionDragState = {
   anchorLayerId: string;
   initialPositions: Map<string, PanOffset>;
 };
 
+/**
+ * SelectionNodeSnapshot Type
+ * 
+ * Type definition for SelectionNodeSnapshot.
+ */
 export type SelectionNodeSnapshot = {
   id: string;
   node: Konva.Layer;
   transform: Konva.Transform;
 };
 
+/**
+ * SelectionTransformSnapshot Type
+ * 
+ * Type definition for SelectionTransformSnapshot.
+ */
 export type SelectionTransformSnapshot = {
   proxyTransform: Konva.Transform;
   nodes: SelectionNodeSnapshot[];
 };
 
+/**
+ * LayerMoveDirection Type
+ * 
+ * Type definition for LayerMoveDirection.
+ */
 export type LayerMoveDirection = 'up' | 'down' | 'top' | 'bottom';
 
+/**
+ * LayerSelectionMode Type
+ * 
+ * Type definition for LayerSelectionMode.
+ */
 export type LayerSelectionMode = 'replace' | 'append' | 'toggle' | 'range';
 
 /**
@@ -48,6 +93,11 @@ export type LayerSelectionMode = 'replace' | 'append' | 'toggle' | 'range';
  */
 /**
  * LayerSelectionOptions interface - Generated documentation block.
+ */
+/**
+ * LayerSelectionOptions Interface
+ * 
+ * Type definition for LayerSelectionOptions.
  */
 export interface LayerSelectionOptions {
   mode?: LayerSelectionMode;
@@ -119,6 +169,11 @@ export interface LayerControlHandlers {
  */
 /**
  * Bounds interface - Generated documentation block.
+ */
+/**
+ * Bounds Interface
+ * 
+ * Type definition for Bounds.
  */
 export interface Bounds {
   x: number;

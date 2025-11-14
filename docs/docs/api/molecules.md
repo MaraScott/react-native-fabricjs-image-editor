@@ -48,8 +48,10 @@ import { SelectionBox } from '@Selection/SelectionBox';
 
 ## KonvaSelectionBox
 
-KonvaSelectionBox Molecule - Renders a selection box with transform handles in Konva
-All handles are Konva shapes for proper event handling
+KonvaSelectionBox Molecule - Renders a unified Group containing:
+1. Selection UI (border, handles)
+2. Element content (passed as children)
+All transformations apply to the Group, affecting both UI and content together
 
 ### Import
 
@@ -62,6 +64,7 @@ import { KonvaSelectionBox } from '@Selection/KonvaSelectionBox';
 | Prop | Type | Default | Required | Description |
 |------|------|---------|----------|-------------|
 | `box` | `KonvaOverlayBox` | - | ✓ |  |
+| `stageScale` | `number` | - |  |  |
 | `onPointerDown` | `(e: KonvaEventObject<PointerEvent>) => void` | - |  |  |
 | `onPointerMove` | `(e: KonvaEventObject<PointerEvent>) => void` | - |  |  |
 | `onPointerUp` | `(e: KonvaEventObject<PointerEvent>) => void` | - |  |  |

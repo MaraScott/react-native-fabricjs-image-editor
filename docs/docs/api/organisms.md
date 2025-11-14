@@ -8,8 +8,60 @@ Complex UI components composed of molecules and atoms
 
 ## Components
 
+- [SideBarLeft](#sidebarleft)
+- [HeaderLeft](#headerleft)
 - [ZoomableCanvasContainer](#zoomablecanvascontainer)
 - [CanvasContainer](#canvascontainer)
+
+---
+
+## SideBarLeft
+
+SideBarLeft Component
+
+Renders the SideBarLeft component.
+
+### Import
+
+```tsx
+import { SideBarLeft } from '@SideBar/SideBarLeft';
+```
+
+### Props
+
+| Prop | Type | Default | Required | Description |
+|------|------|---------|----------|-------------|
+| `isPanToolActive` | `boolean` | - | ✓ |  |
+| `isSelectToolActive` | `boolean` | - | ✓ |  |
+
+### Example
+
+```tsx
+<SideBarLeft />
+```
+
+---
+
+## HeaderLeft
+
+### Import
+
+```tsx
+import { HeaderLeft } from '@Header/HeaderLeft';
+```
+
+### Props
+
+| Prop | Type | Default | Required | Description |
+|------|------|---------|----------|-------------|
+| `width` | `number` | - | ✓ |  |
+| `height` | `number` | - | ✓ |  |
+
+### Example
+
+```tsx
+<HeaderLeft />
+```
 
 ---
 

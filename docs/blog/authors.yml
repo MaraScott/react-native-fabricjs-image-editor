@@ -23,3 +23,17 @@ slorber:
     linkedin: sebastienlorber
     github: slorber
     newsletter: https://thisweekinreact.com
+
+marascott:
+  name: David Asquiedge
+  title: TinyArtist maintainer
+  url: https://www.marascott.ai
+  image_url: https://media.licdn.com/dms/image/v2/C4D03AQG1DfiC1qYVIg/profile-displayphoto-shrink_200_200/profile-displayphoto-shrink_200_200/0/1576251195797?e=1764806400&v=beta&t=ht3yx_rIhTLs5G73NVe6LpZ2_YXshuLXiHZBajwdP0k
+  page:
+    # customize the url of the author page at /blog/authors/<permalink>
+    permalink: '/all-david-asquiedge-articles'
+  socials:
+    # x: marascottai
+    linkedin: marascottai
+    github: marascott
+    # newsletter: https://news.marascottai.ai

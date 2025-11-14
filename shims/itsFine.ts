@@ -1,5 +1,10 @@
 import * as React from 'react';
 
+/**
+ * StartTransitionType Type
+ * 
+ * Type definition for StartTransitionType.
+ */
 type StartTransitionType = typeof React.startTransition extends undefined
   ? (callback: () => void) => void
   : NonNullable<typeof React.startTransition>;
@@ -19,8 +24,10 @@ const startTransition: StartTransitionType =
     ? React.startTransition.bind(React)
     : (callback: () => void) => {
         /**
-         * callback - Auto-generated summary; refine if additional context is needed.
-         */
+ * UseInsertionEffectType Type
+ * 
+ * Type definition for UseInsertionEffectType.
+ */
         callback();
       };
 
@@ -42,15 +49,18 @@ const useInsertionEffect: UseInsertionEffectType =
      */
     ? React.useInsertionEffect.bind(React)
     /**
-     * bind - Auto-generated summary; refine if additional context is needed.
-     *
-     * @returns {React} Refer to the implementation for the precise returned value.
-     */
+ * Thenable Type
+ * 
+ * Type definition for Thenable.
+ */
     /**
-     * bind - Auto-generated documentation stub.
-     *
-     * @returns {React} Result produced by bind.
-     */
+ * isThenable
+ * 
+ * Function to is thenable.
+ * 
+ * @param {unknown} value - Parameter description
+ * @returns {value is Thenable<T>} Return value description
+ */
     : React.useLayoutEffect.bind(React);
 
 type Thenable<T> = {
@@ -70,12 +80,13 @@ function isThenable<T>(value: unknown): value is Thenable<T> {
      * @returns {value as { then?: unknown }} Refer to the implementation for the precise returned value.
      */
     /**
-     * typeof - Auto-generated documentation stub.
-     *
-     * @param {*} value as { then? - Parameter forwarded to typeof.
-     *
-     * @returns {value as { then?: unknown }} Result produced by typeof.
-     */
+ * use Hook
+ * 
+ * Custom hook for .
+ * 
+ * @param {T | Thenable<T>} usable - Parameter description
+ * @returns {T} Return value description
+ */
     typeof (value as { then?: unknown }).then === 'function'
   );
 }
@@ -85,8 +96,10 @@ function use<T>(usable: T | Thenable<T>): T {
    * if - Auto-generated summary; refine if additional context is needed.
    */
   /**
-   * if - Auto-generated documentation stub.
-   */
+ * UseSyncExternalStoreType Type
+ * 
+ * Type definition for UseSyncExternalStoreType.
+ */
   if (isThenable<T>(usable)) {
     throw usable;
   }
@@ -179,8 +192,10 @@ const useSyncExternalStoreImpl: UseSyncExternalStoreType =
              * setState - Auto-generated summary; refine if additional context is needed.
              */
             /**
-             * setState - Auto-generated documentation stub.
-             */
+ * UseDeferredValueType Type
+ * 
+ * Type definition for UseDeferredValueType.
+ */
             setState(getSnapshotRef.current());
           });
         }, [subscribe]);
@@ -200,10 +215,10 @@ const useDeferredValueImpl: UseDeferredValueType =
      * @returns {React} Refer to the implementation for the precise returned value.
      */
     /**
-     * bind - Auto-generated documentation stub.
-     *
-     * @returns {React} Result produced by bind.
-     */
+ * UseIdType Type
+ * 
+ * Type definition for UseIdType.
+ */
     ? React.useDeferredValue.bind(React)
     : ((value) => value);
 
@@ -226,8 +241,10 @@ const useIdImpl: UseIdType =
      * random - Auto-generated summary; refine if additional context is needed.
      */
     /**
-     * random - Auto-generated documentation stub.
-     */
+ * UseTransitionType Type
+ * 
+ * Type definition for UseTransitionType.
+ */
     : () => `its-fine-${Math.random().toString(36).slice(2)}`;
 
 type UseTransitionType = typeof React.useTransition extends undefined
@@ -253,11 +270,18 @@ const useTransitionImpl: UseTransitionType =
          */
         const start = (callback: () => void) => {
           /**
-           * callback - Auto-generated summary; refine if additional context is needed.
-           */
+ * ContextBridgeComponent Type
+ * 
+ * Type definition for ContextBridgeComponent.
+ */
           /**
-           * callback - Auto-generated documentation stub.
-           */
+ * useContextBridgeImpl Hook
+ * 
+ * Custom hook for context bridge impl.
+ * 
+ * @param {Array<React.Context<unknown>>} contexts - Parameter description
+ * @returns {ContextBridgeComponent} Return value description
+ */
           callback();
         };
         return [false, start] as const;
@@ -359,6 +383,11 @@ function useContextBridgeImpl(...contexts: Array<React.Context<unknown>>): Conte
   );
 }
 
+/**
+ * FiberProvider
+ * 
+ * Function to fiber provider.
+ */
 export const FiberProvider = FiberContext.Provider;
 
 export { startTransition, useInsertionEffect, use, useSyncExternalStoreImpl as useSyncExternalStore };
@@ -369,20 +398,25 @@ export { useDeferredValueImpl as useDeferredValue, useIdImpl as useId, useTransi
  * @returns {React} Refer to the implementation for the precise returned value.
  */
 /**
- * bind - Auto-generated documentation stub.
- *
- * @returns {React} Result produced by bind.
+ * useLayoutEffect Hook
+ * 
+ * Custom hook for layout effect.
  */
-export const useEffect = React.useEffect.bind(React);
+export const useEffect = React./**
+ * useEffect Hook
+ * 
+ * Custom hook for effect.
+ */
+useEffect.bind(React);
 /**
  * bind - Auto-generated summary; refine if additional context is needed.
  *
  * @returns {React} Refer to the implementation for the precise returned value.
  */
 /**
- * bind - Auto-generated documentation stub.
- *
- * @returns {React} Result produced by bind.
+ * useRef Hook
+ * 
+ * Custom hook for ref.
  */
 export const useLayoutEffect = React.useLayoutEffect.bind(React);
 /**
@@ -391,9 +425,9 @@ export const useLayoutEffect = React.useLayoutEffect.bind(React);
  * @returns {React} Refer to the implementation for the precise returned value.
  */
 /**
- * bind - Auto-generated documentation stub.
- *
- * @returns {React} Result produced by bind.
+ * useMemo Hook
+ * 
+ * Custom hook for memo.
  */
 export const useRef = React.useRef.bind(React);
 /**
@@ -402,9 +436,9 @@ export const useRef = React.useRef.bind(React);
  * @returns {React} Refer to the implementation for the precise returned value.
  */
 /**
- * bind - Auto-generated documentation stub.
- *
- * @returns {React} Result produced by bind.
+ * useCallback Hook
+ * 
+ * Custom hook for callback.
  */
 export const useMemo = React.useMemo.bind(React);
 /**
@@ -413,9 +447,9 @@ export const useMemo = React.useMemo.bind(React);
  * @returns {React} Refer to the implementation for the precise returned value.
  */
 /**
- * bind - Auto-generated documentation stub.
- *
- * @returns {React} Result produced by bind.
+ * useState Hook
+ * 
+ * Custom hook for state.
  */
 export const useCallback = React.useCallback.bind(React);
 /**
@@ -424,9 +458,9 @@ export const useCallback = React.useCallback.bind(React);
  * @returns {React} Refer to the implementation for the precise returned value.
  */
 /**
- * bind - Auto-generated documentation stub.
- *
- * @returns {React} Result produced by bind.
+ * useReducer Hook
+ * 
+ * Custom hook for reducer.
  */
 export const useState = React.useState.bind(React);
 /**
@@ -435,9 +469,9 @@ export const useState = React.useState.bind(React);
  * @returns {React} Refer to the implementation for the precise returned value.
  */
 /**
- * bind - Auto-generated documentation stub.
- *
- * @returns {React} Result produced by bind.
+ * useImperativeHandle Hook
+ * 
+ * Custom hook for imperative handle.
  */
 export const useReducer = React.useReducer.bind(React);
 /**
@@ -446,9 +480,9 @@ export const useReducer = React.useReducer.bind(React);
  * @returns {React} Refer to the implementation for the precise returned value.
  */
 /**
- * bind - Auto-generated documentation stub.
- *
- * @returns {React} Result produced by bind.
+ * useContext Hook
+ * 
+ * Custom hook for context.
  */
 export const useImperativeHandle = React.useImperativeHandle.bind(React);
 /**
@@ -457,9 +491,9 @@ export const useImperativeHandle = React.useImperativeHandle.bind(React);
  * @returns {React} Refer to the implementation for the precise returned value.
  */
 /**
- * bind - Auto-generated documentation stub.
- *
- * @returns {React} Result produced by bind.
+ * useDebugValue Hook
+ * 
+ * Custom hook for debug value.
  */
 export const useContext = React.useContext.bind(React);
 /**
@@ -468,9 +502,9 @@ export const useContext = React.useContext.bind(React);
  * @returns {React} Refer to the implementation for the precise returned value.
  */
 /**
- * bind - Auto-generated documentation stub.
- *
- * @returns {React} Result produced by bind.
+ * useContextBridge Hook
+ * 
+ * Custom hook for context bridge.
  */
 export const useDebugValue = React.useDebugValue.bind(React);
 export const useContextBridge = useContextBridgeImpl;

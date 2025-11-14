@@ -104,6 +104,11 @@ export const selectReducer = createReducer(initialState, (builder) => {
 /**
  * Convenience action creators that keep action type strings in one place.
  */
+/**
+ * selectActions
+ * 
+ * Function to select actions.
+ */
 export const selectActions = {
     activate: () => ({ type: 'view/select/activate' as const }),
     deactivate: () => ({ type: 'view/select/deactivate' as const }),

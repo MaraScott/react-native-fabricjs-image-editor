@@ -17,3 +17,8 @@ hola:
   label: Hola
   permalink: /hola
   description: Hola tag description
+
+tinyartist:
+  label: TinyArtist
+  permalink: /
+  description: TinyArtist tag description

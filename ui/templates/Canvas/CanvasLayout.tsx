@@ -6,6 +6,7 @@
 import type { ReactNode } from 'react';
 
 export interface CanvasLayoutProps {
+  key?: string;
   children: ReactNode;
   headerLeft?: ReactNode;
   headerCenter?: ReactNode;

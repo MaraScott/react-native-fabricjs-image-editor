@@ -47,8 +47,10 @@ export function ToolSwitcher() {
             
             <button 
                 /**
-                 * dispatch - Auto-generated documentation stub.
-                 */
+ * PanControls
+ * 
+ * Function to pan controls.
+ */
                 onClick={() => dispatch(viewActions.setActiveTool('draw'))}
                 disabled={activeTool === 'draw'}
             >
@@ -126,6 +128,11 @@ export function PanControls() {
 /**
  * DrawSettings - Auto-generated documentation stub.
  */
+/**
+ * DrawSettings
+ * 
+ * Function to draw settings.
+ */
 export function DrawSettings() {
     const dispatch = useDispatch<AppDispatch>();
     /**
@@ -201,8 +208,10 @@ export function DrawSettings() {
                     step="0.1"
                     value={drawState.brushOpacity}
                     /**
-                     * handleOpacityChange - Auto-generated documentation stub.
-                     */
+ * SelectionManager
+ * 
+ * Function to selection manager.
+ */
                     onChange={(e) => handleOpacityChange(Number(e.target.value))}
                 />
             </div>
@@ -302,6 +311,11 @@ export function SelectionManager() {
  */
 /**
  * CropTool - Auto-generated documentation stub.
+ */
+/**
+ * CropTool
+ * 
+ * Function to crop tool.
  */
 export function CropTool() {
     const dispatch = useDispatch<AppDispatch>();
@@ -412,10 +426,10 @@ export function CropTool() {
                 </div>
             ) : (
                 /**
-                 * handleStartCrop - Auto-generated documentation stub.
-                 *
-                 * @returns {'element-123'} Result produced by handleStartCrop.
-                 */
+ * AdvancedToolManager
+ * 
+ * Function to advanced tool manager.
+ */
                 <button onClick={() => handleStartCrop('element-123')}>
                     Start Cropping
                 </button>

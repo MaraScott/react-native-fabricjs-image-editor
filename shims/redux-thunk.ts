@@ -53,10 +53,13 @@ const thunk: ThunkMiddleware = ({ dispatch, getState }) => (next) => (action) =>
   }
 
   /**
-   * next - Auto-generated documentation stub.
-   *
-   * @returns {action} Result produced by next.
-   */
+ * createThunkMiddleware
+ * 
+ * Function to create thunk middleware.
+ * 
+ * @param {E} extraArgument? - Parameter description
+ * @returns {ThunkMiddleware<S, A, E>} Return value description
+ */
   return next(action);
 };
 
@@ -119,10 +122,10 @@ export function createThunkMiddleware<S = any, A extends AnyAction = AnyAction, 
      * @returns {action} Refer to the implementation for the precise returned value.
      */
     /**
-     * next - Auto-generated documentation stub.
-     *
-     * @returns {action} Result produced by next.
-     */
+ * withExtraArgument
+ * 
+ * Function to with extra argument.
+ */
     return next(action);
   };
 }

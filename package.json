@@ -6,7 +6,11 @@
     "build": "node scripts/build.js",
     "watch": "node scripts/watch.js",
     "add-jsdoc": "node scripts/add-jsdoc-comments.js",
-    "index-code": "node scripts/index-code-jsdoc.js"
+    "index-code": "node scripts/index-code-jsdoc.js",
+    "docs:generate": "node scripts/generateJSDoc.js",
+    "docs:generate:dry-run": "node scripts/generateJSDoc.js --dry-run",
+    "docs:generate:ui": "node scripts/generateJSDoc.js --path ui",
+    "docs:generate:store": "node scripts/generateJSDoc.js --path store"
   },
   "dependencies": {},
   "devDependencies": {

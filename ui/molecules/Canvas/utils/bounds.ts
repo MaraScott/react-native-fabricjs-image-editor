@@ -7,9 +7,18 @@ import type { Bounds } from '../types/canvas.types';
  * @returns {value} Refer to the implementation for the precise returned value.
  */
 /**
- * isFinite - Auto-generated documentation stub.
- *
- * @returns {value} Result produced by isFinite.
+ * normaliseBounds Component
+ * 
+ * Renders the normaliseBounds component.
+ */
+
+/**
+ * isFiniteNumber
+ * 
+ * Function to check if a value is a finite number.
+ * 
+ * @param {number} value - The value to check
+ * @returns {boolean} True if the value is finite
  */
 export const isFiniteNumber = (value: number): boolean => Number.isFinite(value);
 
@@ -79,13 +88,10 @@ export const normaliseBounds = (rect: Bounds | null | undefined): Bounds | null 
      * @returns {0, height} Refer to the implementation for the precise returned value.
      */
     /**
-     * max - Auto-generated documentation stub.
-     *
-     * @param {*} 0 - Parameter forwarded to max.
-     * @param {*} height - Parameter forwarded to max.
-     *
-     * @returns {0, height} Result produced by max.
-     */
+ * computeNodeBounds Component
+ * 
+ * Renders the computeNodeBounds component.
+ */
     height: Math.max(0, height),
   };
 };
@@ -122,10 +128,10 @@ export const computeNodeBounds = (node: Konva.Node | null): Bounds | null => {
    * @returns {rect} Refer to the implementation for the precise returned value.
    */
   /**
-   * normaliseBounds - Auto-generated documentation stub.
-   *
-   * @returns {rect} Result produced by normaliseBounds.
-   */
+ * areBoundsEqual Component
+ * 
+ * Renders the areBoundsEqual component.
+ */
   return normaliseBounds(rect);
 };
 

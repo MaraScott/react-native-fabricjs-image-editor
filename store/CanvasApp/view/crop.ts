@@ -98,11 +98,10 @@ export const cropReducer = createReducer(initialState, (builder) => {
             state.cropArea = null;
         })
         /**
-         * addCase - Auto-generated documentation stub.
-         *
-         * @param {*} 'view/crop/cancelCrop' - Parameter forwarded to addCase.
-         * @param {*} (state - Parameter forwarded to addCase.
-         */
+ * cropActions
+ * 
+ * Function to crop actions.
+ */
         .addCase('view/crop/cancelCrop', (state) => {
             state.targetElementId = null;
             state.cropArea = null;
