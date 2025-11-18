@@ -1046,7 +1046,7 @@ export const SimpleCanvas = ({
         />
       )}
 
-      <Stage
+      {/* <Stage
         ref={stageRef}
         width={containerDimensions.width}
         height={containerDimensions.height}
@@ -1054,7 +1054,7 @@ export const SimpleCanvas = ({
           cursor: baseCursor,
         }}
       >
-        {/* Content Layers - Positioned relative to stage mimic */}
+        {/* Content Layers - Positioned relative to stage mimic * /}
         {renderableLayers && renderableLayers.length > 0 ? (
           renderableLayers.map((layer) => {
       const layerIsSelected = selectedLayerSet.has(layer.id);
@@ -1111,16 +1111,16 @@ export const SimpleCanvas = ({
           </KonvaLayer>
         )}
 
-        {/* Grey Overlay with transparent stage window - shows selections outside stage */}
+        {/* Grey Overlay with transparent stage window - shows selections outside stage * /}
         <KonvaLayer listening={false}>
-          {/* Create a clipping mask using globalCompositeOperation */}
+          {/* Create a clipping mask using globalCompositeOperation * /}
           <FullContainerBackground
             key="canvas-background"
             width={containerDimensions.width / safeScale}
             height={containerDimensions.height / safeScale}
             fill={containerBackground}
           />
-          {/* Cut out the stage area by rendering it with destination-out */}
+          {/* Cut out the stage area by rendering it with destination-out * /}
           <Rect
             key="canvas-cutout"
             x={stageViewportOffsetX}
@@ -1131,8 +1131,8 @@ export const SimpleCanvas = ({
             globalCompositeOperation="destination-out"
           />
         </KonvaLayer>
-        {/* Top: Selection & Transform Layer - always visible */}
-        {/* Debug: log selectionTransform in render */}
+        {/* Top: Selection & Transform Layer - always visible * /}
+        {/* Debug: log selectionTransform in render * /}
         {(() => {
           // eslint-disable-next-line no-console
           console.log('[SimpleCanvas] selectedLayerNodeRefs in render:', selectedLayerNodeRefs.current, selectedLayerIds[0]);
@@ -1162,7 +1162,7 @@ export const SimpleCanvas = ({
           onTransformEnd={handleTransformerTransformEnd}
         />
         
-      </Stage>
+      </Stage> */}
     </div>
   );
 };

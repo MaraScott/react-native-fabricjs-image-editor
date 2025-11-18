@@ -153,8 +153,7 @@ export const CanvasApp = ({
       sidebarLeft={<SideBarLeft isPanToolActive={isPanToolActive} isSelectToolActive={isSelectToolActive} />}
       footer={<Footer />}
     >
-        <div key={`test`}>test</div>
-      {/* <CanvasContainer
+      <CanvasContainer
         key="canvas-container"
         width={width}
         height={height}
@@ -165,7 +164,7 @@ export const CanvasApp = ({
         panModeActive={isPanToolActive}
         selectModeActive={isSelectToolActive}
         initialLayers={initialCanvasLayers}
-      /> */}
+      />
     </CanvasLayout>
   );
 };

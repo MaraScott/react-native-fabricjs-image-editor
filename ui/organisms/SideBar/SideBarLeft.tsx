@@ -41,7 +41,6 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
 
     return (
         <div
-            key="sidebar-left"
             className="sidebar left"
         >
             <button
@@ -53,10 +52,10 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 aria-label={isPanToolActive ? 'Disable pan tool' : 'Enable pan tool'}
                 title={isPanToolActive ? 'Pan tool active' : 'Enable pan tool'}
             >
-                <span aria-hidden="true">
+                <span key="pan-icon" aria-hidden="true">
                     {'\u270B'}
                 </span>
-                <span>Pan</span>
+                <span key="pan-label">Pan</span>
             </button>
 
             <button
@@ -68,10 +67,10 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 aria-label={isSelectToolActive ? 'Disable select tool' : 'Enable select tool'}
                 title={isSelectToolActive ? 'Select tool active' : 'Enable select tool'}
             >
-                <span aria-hidden="true">
+                <span key="select-icon" aria-hidden="true">
                     {'\u261D'}
                 </span>
-                <span>Select</span>
+                <span key="select-label">Select</span>
             </button>
         </div>
     )
