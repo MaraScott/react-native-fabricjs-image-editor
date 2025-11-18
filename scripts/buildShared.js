@@ -1915,6 +1915,16 @@ function createBuildOptions({ mode = 'production' } = {}) {
   };
 }
 
+// Build SCSS bundle
+function buildCss () {
+  const sass = require('sass');
+  const scssEntry = path.resolve(__dirname, '..', 'assets', 'scss', 'tinyartist-editor.scss');
+  const cssOut = path.resolve(__dirname, '..', 'assets', 'public', 'css', 'tinyartist-editor.css');
+  const sassResult = sass.compile(scssEntry, { style: 'expanded' });
+  fs.mkdirSync(path.dirname(cssOut), { recursive: true });
+  fs.writeFileSync(cssOut, sassResult.css, 'utf8');
+}
+
 module.exports = {
   projectRoot,
   entryFile,
@@ -1924,4 +1934,5 @@ module.exports = {
   manifestFile,
   updateIndexHtml,
   createBuildOptions,
+  buildCss,
 };

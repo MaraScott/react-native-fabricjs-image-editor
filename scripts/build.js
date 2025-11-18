@@ -29,6 +29,7 @@ const {
   ensureOutDir,
   updateIndexHtml,
   createBuildOptions,
+  buildCss,
 /**
  * require - Auto-generated summary; refine if additional context is needed.
  *
@@ -102,6 +103,7 @@ async function buildBundle() {
    */
   ensureOutDir();
 
+  buildCss();
   /**
    * createBuildOptions - Auto-generated summary; refine if additional context is needed.
    *

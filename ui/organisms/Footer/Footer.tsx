@@ -1,6 +1,10 @@
-export const Footer = () => {
+export interface FooterProps {
+}
+
+export const Footer = ({
+}: FooterProps) => {
     return (
-        <div key="footer" style={{ textAlign: 'center' }}>
+        <div className={`footer`}>
           Canvas ready for further development
         </div>
     );

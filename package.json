@@ -12,8 +12,8 @@
     "docs:generate:ui": "node scripts/generateJSDoc.js --path ui",
     "docs:generate:store": "node scripts/generateJSDoc.js --path store"
   },
-  "dependencies": {},
   "devDependencies": {
-    "esbuild": "^0.19.12"
+    "esbuild": "^0.19.12",
+    "sass": "^1.94.1"
   }
 }

@@ -63,6 +63,7 @@ const {
   ensureOutDir,
   updateIndexHtml,
   createBuildOptions,
+  buildCss,
 /**
  * require - Auto-generated summary; refine if additional context is needed.
  *
@@ -779,6 +780,14 @@ async function startWatch() {
    */
   ensureOutDir();
 
+  // 🔹 Initial CSS build
+  try {
+    buildCss();
+    console.log('Initial CSS build completed.');
+  } catch (error) {
+    console.error('Initial CSS build failed:', error);
+  }
+
   /**
    * startDevServer - Auto-generated summary; refine if additional context is needed.
    */
@@ -794,6 +803,32 @@ async function startWatch() {
    */
   const options = createBuildOptions({ mode });
   let isInitialBuild = true;
+
+  // 🔹 Watch SCSS files and rebuild CSS on change
+  let scssWatcher;
+  try {
+    const scssDir = path.resolve(__dirname, '..', 'assets', 'scss');
+
+    scssWatcher = fs.watch(
+      scssDir,
+      { recursive: true },
+      (eventType, filename) => {
+        if (!filename || !filename.endsWith('.scss')) return;
+
+        try {
+          buildCss();
+          console.log(`Rebuilt CSS due to change in ${filename}`);
+          if (!isInitialBuild) {
+            server.broadcastReload();
+          }
+        } catch (error) {
+          console.error('CSS rebuild failed:', error);
+        }
+      }
+    );
+  } catch (error) {
+    console.warn('SCSS watcher could not be started:', error);
+  }
 
   options.plugins = [
     ...options.plugins,

@@ -46,6 +46,7 @@ if (container) {
             <ErrorBoundary fallback="Error">
                 <Provider store={CanvasAppStore}>
                     <CanvasApp
+                        id={`tae`}
                         width={width}
                         height={height}
                         backgroundColor={backgroundColor}

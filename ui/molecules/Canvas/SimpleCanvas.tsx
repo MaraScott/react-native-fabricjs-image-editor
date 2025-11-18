@@ -381,7 +381,7 @@ export const SimpleCanvas = ({
   }, [onStageReady, scale, zoom]);
 
   // Zoom useCallback hooks
-  const updateZoom = useUpdateZoom(onZoomChange);
+  const updateZoom = useUpdateZoom(onZoomChange, setInternalZoom);
   const applyZoomDelta = useApplyZoomDelta(updateZoom);
 
   const handleTransformerTransformStart = useCallback(() => {
@@ -1166,4 +1166,3 @@ export const SimpleCanvas = ({
     </div>
   );
 };
-

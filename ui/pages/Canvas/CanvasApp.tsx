@@ -27,7 +27,7 @@ import { Rect, Circle, Text } from 'react-konva';
  * Type definition for CanvasAppProps.
  */
 export interface CanvasAppProps {
-  key: string;
+  id: string;
   width?: number;
   height?: number;
   backgroundColor?: string;
@@ -41,6 +41,7 @@ export interface CanvasAppProps {
  * Default size is 1024x1024 that fits container via zoom
  */
 export const CanvasApp = ({
+  id = 'tiny-artist-editor',
   width = 1024,
   height = 1024,
   backgroundColor = '#ffffff',
@@ -145,17 +146,15 @@ export const CanvasApp = ({
    */
   const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
   
-
-
   return (
     <CanvasLayout
-      key={`canvasapp`}
-      headerLeft={<HeaderLeft key={`headerleft`} width={width} height={height} />}
-      headerCenter={<ZoomControl key={`headercenter`}  zoom={zoom} onZoomChange={setZoom} />}
-      sidebarLeft={<SideBarLeft key={`sidebarleft`}  isPanToolActive={isPanToolActive} isSelectToolActive={isSelectToolActive} />}
-      footer={<Footer key={`footer`}  />}
+      headerLeft={<HeaderLeft width={width} height={height} />}
+      headerCenter={<ZoomControl zoom={zoom} onZoomChange={setZoom} />}
+      sidebarLeft={<SideBarLeft isPanToolActive={isPanToolActive} isSelectToolActive={isSelectToolActive} />}
+      footer={<Footer />}
     >
-      <CanvasContainer
+        <div key={`test`}>test</div>
+      {/* <CanvasContainer
         key="canvas-container"
         width={width}
         height={height}
@@ -166,7 +165,7 @@ export const CanvasApp = ({
         panModeActive={isPanToolActive}
         selectModeActive={isSelectToolActive}
         initialLayers={initialCanvasLayers}
-      />
+      /> */}
     </CanvasLayout>
   );
 };

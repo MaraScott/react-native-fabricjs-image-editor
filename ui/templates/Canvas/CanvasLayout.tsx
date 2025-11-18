@@ -3,16 +3,18 @@
  * Layout template for the canvas application with three-zone header
  */
 
+import React, { isValidElement } from 'react';
 import type { ReactNode } from 'react';
+import '../../../assets/public/css/tinyartist-editor.css';
 
 export interface CanvasLayoutProps {
-  key?: string;
-  children: ReactNode;
-  headerLeft?: ReactNode;
-  headerCenter?: ReactNode;
-  headerRight?: ReactNode;
-  sidebarLeft?: ReactNode;
-  footer?: ReactNode;
+    classNameId?: string;
+    children: ReactNode;
+    headerLeft?: ReactNode;
+    headerCenter?: ReactNode;
+    headerRight?: ReactNode;
+    sidebarLeft?: ReactNode;
+    footer?: ReactNode;
 }
 
 /**
@@ -22,108 +24,85 @@ export interface CanvasLayoutProps {
   *
   * @returns {for zoom controls} Refer to the implementation for the precise returned value.
   */
- /**
-  * center - Auto-generated documentation stub.
-  */
+/**
+ * center - Auto-generated documentation stub.
+ */
 /**
  * Header has three zones: left, center (for zoom controls), and right
  */
 export const CanvasLayout = ({
-  children,
-  headerLeft,
-  headerCenter,
-  headerRight,
-  sidebarLeft,
-  footer,
+    classNameId = "canvas-layout",
+    children,
+    headerLeft,
+    headerCenter,
+    headerRight,
+    sidebarLeft,
+    footer,
 }: CanvasLayoutProps) => {
-  return (
-    <div
-      style={{
-        width: '100vw',
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-      }}
-    >
-      {(headerLeft || headerCenter || headerRight) && (
-        <div
-          style={{
-            padding: '1rem',
-            borderBottom: '1px solid #e0e0e0',
-            backgroundColor: '#ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-          }}
+    return (
+        <div className={`${classNameId}`}
         >
-          {/* Left zone */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-            {headerLeft}
-          </div>
+            {(headerLeft || headerCenter || headerRight) && (
+                <div
+                    key={`${classNameId}_header`}
+                    className={`header`}
+                >
+                    {/* Left zone */}
+                    <div
+                        key={`${classNameId}_header_left`}
+                        className={`left`}
+                    >
+                        {isValidElement(headerLeft)
+                            ? React.cloneElement(headerLeft, { classNameId })
+                            : headerLeft}
+                    </div>
 
-          {/* Center zone - for zoom controls */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {headerCenter}
-          </div>
+                    {/* Center zone - for zoom controls */}
+                    <div
+                        key={`${classNameId}_header_center`}
+                        className={`center`}
+                    >
+                        {headerCenter}
+                    </div>
 
-          {/* Right zone */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-            {headerRight}
-          </div>
+                    {/* Right zone */}
+                    <div
+                        key={`${classNameId}_header_right`}
+                        className={`right`}
+                    >
+                        {headerRight}
+                    </div>
+                </div>
+            )}
+
+            <div
+                key={`${classNameId}_main`}
+                className={`main`}
+            >
+                {sidebarLeft && (
+                    <aside
+                        key={`${classNameId}_sidebar_left`} 
+                        className={`sidebar left`}  
+                    >
+                        {sidebarLeft}
+                    </aside>
+                )}
+
+                <div
+                    key={`${classNameId}_content`}
+                    className={`content`}
+                >
+                    {children}
+                </div>
+            </div>
+
+            {footer && (
+                <div key={`${classNameId}_footer`}>
+                    {isValidElement(footer)
+                        ? React.cloneElement(footer, { classNameId })
+                        : footer}
+                </div>
+            )}
         </div>
-      )}
-
-      <div
-        style={{
-          flex: 1,
-          overflow: 'hidden',
-          display: 'flex',
-        }}
-      >
-        {sidebarLeft && (
-          <aside
-            style={{
-              width: '64px',
-              borderRight: '1px solid #e0e0e0',
-              backgroundColor: '#ffffff',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              padding: '1rem 0.5rem',
-              gap: '0.75rem',
-            }}
-          >
-            {sidebarLeft}
-          </aside>
-        )}
-
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            width: '100%',
-            height: '100%',
-          }}
-        >
-          {children}
-        </div>
-      </div>
-
-      {footer && (
-        <div
-          style={{
-            padding: '0.5rem 1rem',
-            borderTop: '1px solid #e0e0e0',
-            backgroundColor: '#ffffff',
-            fontSize: '0.875rem',
-            color: '#666',
-          }}
-        >
-          {footer}
-        </div>
-      )}
-    </div>
-  );
+    );
 };
