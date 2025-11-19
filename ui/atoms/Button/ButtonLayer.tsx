@@ -1,16 +1,14 @@
 import type { ReactNode, ButtonHTMLAttributes } from 'react';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-    key?: string;
     children: ReactNode;
-    action: string;
+    action?: string;
     id?: string;
     className?: string;
     title?: string;
 }
 
 export const ButtonLayer = ({
-    key,
     children,
     action = 'default',
     id,
@@ -18,24 +16,17 @@ export const ButtonLayer = ({
     title,
     ...props
 }: ButtonProps) => {
-    title = title || `${action} layer panel`;
-    if (className === undefined) {
-        if (id !== undefined) {
-            className = `${id}-${action}`;
-        } else {
-            className = `${action}`;
-        }
-    }
-    key = key ? `layer-panel-${key}-button` : `layer-panel-${className}-button`;
+    const computedTitle = title ?? `${action} layer panel`;
+    const computedClassName = className ?? (id ? `${id}-${action}` : action);
+
     return (
         <button
-            key={key}
             id={id}
-            className={className}
+            className={computedClassName}
             type="button"
             onPointerDown={(event) => event.stopPropagation()}
-            aria-label={title}
-            title={title}
+            aria-label={computedTitle}
+            title={computedTitle}
             {...props}
         >
             {children}

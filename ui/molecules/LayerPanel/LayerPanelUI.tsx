@@ -99,15 +99,18 @@ export const LayerPanelUI = ({
                                 No layers yet. Add one to get started.
                             </div>
                         ) : (
-                            layerControls.layers.map((layer, index) => (
-                                <Layer
-                                    key={layer.id} 
-                                    index={index}
-                                    data={layer} 
-                                    layerControls={layerControls}
-                                    pendingSelectionRef={pendingSelectionRef}
-                                />
-                            ))
+                            layerControls.layers.map((layer, index) => {
+                                const layerKey = layer.id ?? `layer-${index}`;
+                                return (
+                                    <Layer
+                                        key={`${layerKey}-${index}`}
+                                        index={index}
+                                        data={layer}
+                                        layerControls={layerControls}
+                                        pendingSelectionRef={pendingSelectionRef}
+                                    />
+                                );
+                            })
                         )}
                         {layerControls.layers.length > 0 && (
                             <div
