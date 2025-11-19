@@ -1,9 +1,10 @@
 import { useCallback, useMemo, type MutableRefObject } from 'react';
 import type { DragEvent } from 'react';
 import type { KonvaEventObject } from 'konva/lib/Node';
-import type { LayerControlHandlers } from '@molecules/Canvas/types/canvas.types';
 import { ButtonLayer as Button } from '@atoms/Button/ButtonLayer';
 import { useLayerStore } from '@store/Layer';
+import { useSimpleCanvasStore } from '@store/SimpleCanvas';
+import type { LayerControlHandlers } from '@molecules/Canvas/types/canvas.types';
 
 interface LayerData {
     id: string;
@@ -14,7 +15,6 @@ interface LayerData {
 interface LayerProps {
     index: number;
     data: LayerData;
-    layerControls: LayerControlHandlers;
     pendingSelectionRef: MutableRefObject<string[] | null>;
 }
 const resolveDropPosition = (event: DragEvent<HTMLDivElement>): 'above' | 'below' => {
@@ -162,10 +162,13 @@ const getActionButtonConfigs = ({
 export const Layer = ({ 
     index,
     data: layer, 
-    layerControls,
     pendingSelectionRef,
 }: LayerProps) => {
 
+    const layerControls = useSimpleCanvasStore((state) => state.layerControls);
+    if (!layerControls) {
+        return null;
+    }
     const dragOverLayer = useLayerStore((state) => state.dragOverLayer);
     const setDragOverLayer = useLayerStore((state) => state.setDragOverLayer);
     const draggingLayerId = useLayerStore((state) => state.draggingLayerId);

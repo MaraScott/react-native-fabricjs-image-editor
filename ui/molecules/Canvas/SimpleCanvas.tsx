@@ -21,6 +21,7 @@ import {
   LayerPanelUI,
   FullContainerBackground,
 } from '@molecules/LayerPanel';
+import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 import type {
   PanOffset,
   PointerPanState,
@@ -43,10 +44,10 @@ export const SimpleCanvas = ({
   onStageReady,
   onZoomChange,
   panModeActive = false,
-  layerControls,
   layersRevision = 0,
   selectModeActive = false,
 }: SimpleCanvasProps) => {
+  const layerControls = useSimpleCanvasStore((state) => state.layerControls);
   const dispatch = useDispatch();
   const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
   // Read selectionTransform from Redux
@@ -1044,7 +1045,6 @@ export const SimpleCanvas = ({
     >
       {layerControls && isSelectToolActive && (
         <LayerPanelUI
-          layerControls={layerControls}
           isOpen={isLayerPanelOpen}
           onToggle={() => setIsLayerPanelOpen((previous) => !previous)}
           onClose={() => setIsLayerPanelOpen(false)}
@@ -1082,7 +1082,6 @@ export const SimpleCanvas = ({
                 draggable={Boolean(selectModeActive)}
                 selectModeActive={selectModeActive}
                 isSelected={layerIsSelected}
-                layerControls={layerControls}
                 stageViewportOffsetX={stageViewportOffsetX}
                 stageViewportOffsetY={stageViewportOffsetY}
                 baseCursor={baseCursor}

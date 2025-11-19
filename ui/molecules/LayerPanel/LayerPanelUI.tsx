@@ -1,14 +1,13 @@
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import { ButtonLayer as Button } from '@atoms/Button/ButtonLayer';
 import { Layer } from '@molecules/LayerPanel/LayerPanelUI/Layer';
-import type { LayerControlHandlers } from '@molecules/Canvas/types/canvas.types';
 import { useLayerStore } from '@store/Layer';
+import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 
 interface LayerPanelUIProps {
     isOpen: boolean;
     onToggle: () => void;
     onClose: () => void;
-    layerControls: LayerControlHandlers;
     pendingSelectionRef: MutableRefObject<string[] | null>;
 }
 
@@ -16,10 +15,10 @@ export const LayerPanelUI = ({
     isOpen,
     onToggle,
     onClose,
-    layerControls,
     pendingSelectionRef,
 }: LayerPanelUIProps) => {
 
+    const layerControls = useSimpleCanvasStore((state) => state.layerControls);
     const dragOverLayer = useLayerStore((state) => state.dragOverLayer);
     const setDragOverLayer = useLayerStore((state) => state.setDragOverLayer);
     const draggingLayerId = useLayerStore((state) => state.draggingLayerId);
@@ -39,6 +38,10 @@ export const LayerPanelUI = ({
             resetDragState();
         };
     }, [isOpen, resetDragState]);
+
+    if (!layerControls) {
+        return null;
+    }
 
     const bottomLayerId = layerControls.layers[layerControls.layers.length - 1]?.id ?? null;
 
@@ -106,7 +109,6 @@ export const LayerPanelUI = ({
                                         key={`${layerKey}-${index}`}
                                         index={index}
                                         data={layer}
-                                        layerControls={layerControls}
                                         pendingSelectionRef={pendingSelectionRef}
                                     />
                                 );

@@ -2,6 +2,7 @@ import { Layer as KonvaLayer } from '@atoms/Canvas';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { ReactNode } from 'react';
 import type { DragEvent } from 'react';
+import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 
 interface LayerProps {
   id: string;
@@ -15,7 +16,6 @@ interface LayerProps {
   draggable: boolean;
   selectModeActive: boolean;
   isSelected: boolean;
-  layerControls: any;
   stageViewportOffsetX: number;
   stageViewportOffsetY: number;
   baseCursor: string;
@@ -45,7 +45,6 @@ export const Layer = ({
   draggable,
   selectModeActive,
   isSelected,
-  layerControls,
   stageViewportOffsetX,
   stageViewportOffsetY,
   baseCursor,
@@ -58,6 +57,10 @@ export const Layer = ({
   syncTransformerToSelection,
   setIsInteractingWithSelection,
 }: LayerProps) => {
+  const layerControls = useSimpleCanvasStore((state) => state.layerControls);
+  if (!layerControls) {
+    return null;
+  }
   return (
     <KonvaLayer
       ref={(node) => {

@@ -3,12 +3,13 @@
  * Full-featured canvas container with state management, zoom controls, and layer panel
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { SimpleCanvas } from '@molecules/Canvas';
 import type { LayerControlHandlers } from '@molecules/Canvas';
 import { useLayerManagement } from '@molecules/LayerPanel';
 import type { CanvasLayerDefinition } from '@molecules/LayerPanel';
+import { setSimpleCanvasLayerControls } from '@store/SimpleCanvas';
 
 /**
  * CanvasContainerProps interface - Auto-generated interface summary; customize as needed.
@@ -136,6 +137,13 @@ export const CanvasContainer = ({
     updateLayerTransform,
   ]);
 
+  useEffect(() => {
+    setSimpleCanvasLayerControls(layerControls);
+    return () => {
+      setSimpleCanvasLayerControls(null);
+    };
+  }, [layerControls]);
+
   /**
    * handleStageReady - Auto-generated summary; refine if additional context is needed.
    */
@@ -209,7 +217,6 @@ export const CanvasContainer = ({
         onStageReady={handleStageReady}
         onZoomChange={onZoomChange}
         panModeActive={panModeActive}
-        layerControls={layerControls}
         layersRevision={layersRevision}
         selectModeActive={selectModeActive}
       />

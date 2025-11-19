@@ -176,7 +176,6 @@ export interface SimpleCanvasProps {
   onStageReady?: (stage: Konva.Stage) => void;
   onZoomChange?: (zoom: number) => void;
   panModeActive?: boolean;
-  layerControls?: LayerControlHandlers;
   layersRevision?: number;
   selectModeActive?: boolean;
 }
