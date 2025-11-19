@@ -82,28 +82,6 @@ export type SelectionTransformSnapshot = {
 export type LayerMoveDirection = 'up' | 'down' | 'top' | 'bottom';
 
 /**
- * LayerSelectionMode Type
- * 
- * Type definition for LayerSelectionMode.
- */
-export type LayerSelectionMode = 'replace' | 'append' | 'toggle' | 'range';
-
-/**
- * LayerSelectionOptions interface - Auto-generated interface summary; customize as needed.
- */
-/**
- * LayerSelectionOptions interface - Generated documentation block.
- */
-/**
- * LayerSelectionOptions Interface
- * 
- * Type definition for LayerSelectionOptions.
- */
-export interface LayerSelectionOptions {
-  mode?: LayerSelectionMode;
-}
-
-/**
  * LayerDescriptor interface - Auto-generated interface summary; customize as needed.
  */
 export interface LayerDescriptor {
