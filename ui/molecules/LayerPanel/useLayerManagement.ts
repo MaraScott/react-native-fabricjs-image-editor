@@ -201,6 +201,49 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
     }
   }, [layers.length, initialLayerState]);
 
+  const updateLayerById = useCallback((layerId: string, transformer: (layer: LayerDescriptor) => LayerDescriptor) => {
+    let changed = false;
+    setLayers((previousLayers) => {
+      let localChange = false;
+      const nextLayers = previousLayers.map((layer) => {
+        if (layer.id !== layerId) {
+          return layer;
+        }
+        const updatedLayer = transformer(layer);
+        if (updatedLayer !== layer) {
+          localChange = true;
+        }
+        return updatedLayer;
+      });
+      if (!localChange) {
+        return previousLayers;
+      }
+      changed = true;
+      return nextLayers;
+    });
+    return changed;
+  }, []);
+
+  const mapAllLayers = useCallback((transformer: (layer: LayerDescriptor) => LayerDescriptor) => {
+    let changed = false;
+    setLayers((previousLayers) => {
+      let localChange = false;
+      const nextLayers = previousLayers.map((layer) => {
+        const updatedLayer = transformer(layer);
+        if (updatedLayer !== layer) {
+          localChange = true;
+        }
+        return updatedLayer;
+      });
+      if (!localChange) {
+        return previousLayers;
+      }
+      changed = true;
+      return nextLayers;
+    });
+    return changed;
+  }, []);
+
   // Clear selection
   const clearSelection = useCallback(() => {
     setSelectedLayerIds([]);
@@ -414,13 +457,10 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
 
   // Toggle layer visibility
   const toggleVisibility = useCallback<LayerControlHandlers['toggleVisibility']>((layerId) => {
-    setLayers((previousLayers) =>
-      previousLayers.map((layer) =>
-        layer.id === layerId ? { ...layer, visible: !layer.visible } : layer
-      )
-    );
-    bumpLayersRevision();
-  }, [bumpLayersRevision]);
+    if (updateLayerById(layerId, (layer) => ({ ...layer, visible: !layer.visible }))) {
+      bumpLayersRevision();
+    }
+  }, [updateLayerById, bumpLayersRevision]);
 
   // Reorder layer
   const reorderLayer = useCallback<LayerControlHandlers['reorderLayer']>((sourceId, targetId, position) => {
@@ -448,58 +488,43 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
 
   // Ensure all layers are visible
   const ensureAllVisible = useCallback(() => {
-    setLayers((previousLayers) =>
-      previousLayers.map((layer) => ({ ...layer, visible: true }))
-    );
-    bumpLayersRevision();
-  }, [bumpLayersRevision]);
+    if (mapAllLayers((layer) => (layer.visible ? layer : { ...layer, visible: true }))) {
+      bumpLayersRevision();
+    }
+  }, [mapAllLayers, bumpLayersRevision]);
 
   // Update layer position
   const updateLayerPosition = useCallback<LayerControlHandlers['updateLayerPosition']>((layerId, position) => {
-    setLayers((previousLayers) =>
-      previousLayers.map((layer) =>
-        layer.id === layerId ? { ...layer, position } : layer
-      )
-    );
-    bumpLayersRevision();
-  }, [bumpLayersRevision]);
+    if (updateLayerById(layerId, (layer) => ({ ...layer, position }))) {
+      bumpLayersRevision();
+    }
+  }, [updateLayerById, bumpLayersRevision]);
 
   // Update layer rotation
   const updateLayerRotation = useCallback<NonNullable<LayerControlHandlers['updateLayerRotation']>>((layerId, rotation) => {
-    setLayers((previousLayers) =>
-      previousLayers.map((layer) =>
-        layer.id === layerId ? { ...layer, rotation } : layer
-      )
-    );
-    bumpLayersRevision();
-  }, [bumpLayersRevision]);
+    if (updateLayerById(layerId, (layer) => ({ ...layer, rotation }))) {
+      bumpLayersRevision();
+    }
+  }, [updateLayerById, bumpLayersRevision]);
 
   // Update layer scale
   const updateLayerScale = useCallback<NonNullable<LayerControlHandlers['updateLayerScale']>>((layerId, scale) => {
-    setLayers((previousLayers) =>
-      previousLayers.map((layer) =>
-        layer.id === layerId ? { ...layer, scale } : layer
-      )
-    );
-    bumpLayersRevision();
-  }, [bumpLayersRevision]);
+    if (updateLayerById(layerId, (layer) => ({ ...layer, scale }))) {
+      bumpLayersRevision();
+    }
+  }, [updateLayerById, bumpLayersRevision]);
 
   // Update layer transform (position, rotation, scale)
   const updateLayerTransform = useCallback<NonNullable<LayerControlHandlers['updateLayerTransform']>>((layerId, transform) => {
-    setLayers((previousLayers) =>
-      previousLayers.map((layer) =>
-        layer.id === layerId
-          ? {
-              ...layer,
-              position: transform.position,
-              rotation: transform.rotation,
-              scale: transform.scale,
-            }
-          : layer
-      )
-    );
-    bumpLayersRevision();
-  }, [bumpLayersRevision]);
+    if (updateLayerById(layerId, (layer) => ({
+      ...layer,
+      position: transform.position,
+      rotation: transform.rotation,
+      scale: transform.scale,
+    }))) {
+      bumpLayersRevision();
+    }
+  }, [updateLayerById, bumpLayersRevision]);
 
   return {
     layers,
