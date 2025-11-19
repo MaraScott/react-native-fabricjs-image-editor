@@ -183,7 +183,6 @@ export const SelectionLayer = ({
         strokeWidth={2}
       />
       {/* Use Redux selectionTransform for the proxy */}
-      {console.log('$Rendering SelectionLayer with selectionTransform:', selectionTransform)}
       {selectionTransform ? (
         <Rect
           ref={selectionProxyRef}

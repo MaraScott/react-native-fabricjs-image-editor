@@ -84,7 +84,9 @@ export const SimpleCanvas = ({
   const selectedLayerNodeRefs = useRef<Map<string, Konva.Layer>>(new Map());
 
   // Move these above the utilities so they are defined before use
-  const renderableLayers = layerControls ? [...layerControls.layers].reverse() : null;
+  // Layer descriptors are stored bottom-to-top. Render them in the same order so
+  // Konva paints the earliest layers first and later entries remain on top.
+  const renderableLayers = layerControls ? [...layerControls.layers] : null;
   const selectedLayerIds = layerControls?.selectedLayerIds ?? [];
   const selectedLayerSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds]);
 

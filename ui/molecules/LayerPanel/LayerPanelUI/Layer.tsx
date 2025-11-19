@@ -38,7 +38,6 @@ const getHeaderButtonConfigs = ({
         key: `${layer.id}-visibility`,
         props: {
             action: 'visibility',
-            id: layer.id,
             className: `visibility ${layer.visible ? 'visible' : ''}`,
             title: layer.visible ? 'Hide layer' : 'Show layer',
             onClick: () => layerControls.toggleVisibility(layer.id),
@@ -49,7 +48,6 @@ const getHeaderButtonConfigs = ({
         key: `${layer.id}-select`,
         props: {
             action: 'select',
-            id: layer.id,
             className: `select${isSelected ? ' selected' : ''}`,
             title: layer.visible ? 'Hide layer' : 'Show layer',
             onClick: () => {
@@ -80,7 +78,6 @@ const getActionButtonConfigs = ({
         key: `${layer.id}-copy`,
         props: {
             action: 'copy',
-            id: layer.id,
             className: `visibility ${layer.visible ? 'visible' : ''}`,
             onClick: () => handleCopyLayer(layer.id),
         },
@@ -228,13 +225,14 @@ export const Layer = ({
 
     const handleDragStart = useCallback((event: KonvaEventObject<DragEvent>) => {
         event.stopPropagation();
+        pendingSelectionRef.current = layerControls.selectLayer(layer.id, { mode: 'replace' });
         setDraggingLayerId(layer.id);
         setDragOverLayer(null);
         if (event.dataTransfer) {
             event.dataTransfer.effectAllowed = 'move';
             event.dataTransfer.setData('text/plain', layer.id);
         }
-    }, [layer.id, setDragOverLayer, setDraggingLayerId]);
+    }, [layerControls, layer.id, pendingSelectionRef, setDragOverLayer, setDraggingLayerId]);
 
     const handleDragEnd = useCallback((event: KonvaEventObject<DragEvent>) => {
         event.stopPropagation();

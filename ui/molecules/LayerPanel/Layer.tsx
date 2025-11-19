@@ -22,9 +22,9 @@ interface LayerProps {
   children: ReactNode;
   
   // Refs and state setters
-  layerNodeRefs: React.MutableRefObject<Map<string, Konva.Layer>>;
-  pendingSelectionRef: React.MutableRefObject<string[] | null>;
-  selectionDragStateRef: React.MutableRefObject<any>;
+  layerNodeRefs: React.RefObject<Map<string, Konva.Layer>>;
+  pendingSelectionRef: React.RefObject<string[] | null>;
+  selectionDragStateRef: React.RefObject<any>;
   
   // Callbacks
   onRefChange: (node: Konva.Layer | null) => void;

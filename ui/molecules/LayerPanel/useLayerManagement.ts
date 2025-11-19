@@ -405,6 +405,8 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
 
   // Move layer within stack
   const moveLayer = useCallback<LayerControlHandlers['moveLayer']>((layerId, direction) => {
+    let didMove = false;
+
     setLayers((previousLayers) => {
       const currentIndex = previousLayers.findIndex((layer) => layer.id === layerId);
 
@@ -449,10 +451,15 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
       }
 
       nextLayers.splice(insertIndex, 0, moved);
+      didMove = true;
       return nextLayers;
     });
 
-    bumpLayersRevision();
+    if (didMove) {
+      setSelectedLayerIds([layerId]);
+      setPrimaryLayerId(layerId);
+      bumpLayersRevision();
+    }
   }, [bumpLayersRevision]);
 
   // Toggle layer visibility
@@ -476,7 +483,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
       const [movedLayer] = nextLayers.splice(sourceIndex, 1);
 
       const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
-      const insertIndex = position === 'above' ? adjustedTargetIndex : adjustedTargetIndex + 1;
+      const insertIndex = position === 'above' ? adjustedTargetIndex + 1  : adjustedTargetIndex;
 
       nextLayers.splice(insertIndex, 0, movedLayer);
 
