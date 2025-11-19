@@ -1,8 +1,9 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo, type MutableRefObject } from 'react';
 import type { DragEvent } from 'react';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { LayerControlHandlers } from '@molecules/Canvas/types/canvas.types';
 import { ButtonLayer as Button } from '@atoms/Button/ButtonLayer';
+import { useLayerStore } from '@store/Layer';
 
 interface LayerData {
     id: string;
@@ -10,22 +11,11 @@ interface LayerData {
     visible: boolean;
 }
 
-export interface DragOverLayer {
-    id: string;
-    position: 'above' | 'below';
-}
-
 interface LayerProps {
-    key: string;
     index: number;
     data: LayerData;
     layerControls: LayerControlHandlers;
-    pendingSelectionRef: React.RefObject<string[] | null>;
-    setCopyFeedback: (message: string | null) => void;
-    draggingLayerId: string | null;
-    setDraggingLayerId: React.Dispatch<React.SetStateAction<string | null>>;
-    dragOverLayer: DragOverLayer | null;
-    setDragOverLayer: React.Dispatch<React.SetStateAction<DragOverLayer | null>>;
+    pendingSelectionRef: MutableRefObject<string[] | null>;
 }
 const resolveDropPosition = (event: DragEvent<HTMLDivElement>): 'above' | 'below' => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -34,17 +24,17 @@ const resolveDropPosition = (event: DragEvent<HTMLDivElement>): 'above' | 'below
 };
 
 export const Layer = ({ 
-    key,
     index,
     data: layer, 
     layerControls,
     pendingSelectionRef,
-    setCopyFeedback,
-    draggingLayerId, 
-    setDraggingLayerId,
-    dragOverLayer, 
-    setDragOverLayer,
 }: LayerProps) => {
+
+    const dragOverLayer = useLayerStore((state) => state.dragOverLayer);
+    const setDragOverLayer = useLayerStore((state) => state.setDragOverLayer);
+    const draggingLayerId = useLayerStore((state) => state.draggingLayerId);
+    const setDraggingLayerId = useLayerStore((state) => state.setDraggingLayerId);
+    const setCopyFeedback = useLayerStore((state) => state.setCopyFeedback);
 
     const primaryLayerId = layerControls.primaryLayerId;
 
@@ -75,7 +65,7 @@ export const Layer = ({
                 setCopyFeedback('Unable to copy layer');
             }
         },
-        [layerControls]
+        [layerControls, setCopyFeedback]
     );
 
     const layerItemClass = ({
@@ -99,7 +89,6 @@ export const Layer = ({
 
     return (
         <div
-            key={key}
             className={layerItemClass({ isSelected, isDragging, isPrimary, dropPosition })}
             draggable
             onDragStart={(event: KonvaEventObject<DragEvent>) => {

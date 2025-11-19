@@ -1,14 +1,15 @@
-import { useState, useRef } from 'react';
+import { useEffect, useRef, type MutableRefObject } from 'react';
 import { ButtonLayer as Button } from '@atoms/Button/ButtonLayer';
 import { Layer } from '@molecules/LayerPanel/LayerPanelUI/Layer';
-import { DragOverLayer } from '@molecules/LayerPanel/LayerPanelUI/Layer';
 import type { LayerControlHandlers } from '@molecules/Canvas/types/canvas.types';
+import { useLayerStore } from '@store/Layer';
 
 interface LayerPanelUIProps {
     isOpen: boolean;
     onToggle: () => void;
     onClose: () => void;
     layerControls: LayerControlHandlers;
+    pendingSelectionRef: MutableRefObject<string[] | null>;
 }
 
 export const LayerPanelUI = ({
@@ -16,13 +17,28 @@ export const LayerPanelUI = ({
     onToggle,
     onClose,
     layerControls,
+    pendingSelectionRef,
 }: LayerPanelUIProps) => {
 
-    const [dragOverLayer, setDragOverLayer] = useState<DragOverLayer | null>(null);
+    const dragOverLayer = useLayerStore((state) => state.dragOverLayer);
+    const setDragOverLayer = useLayerStore((state) => state.setDragOverLayer);
+    const draggingLayerId = useLayerStore((state) => state.draggingLayerId);
+    const setDraggingLayerId = useLayerStore((state) => state.setDraggingLayerId);
+    const copyFeedback = useLayerStore((state) => state.copyFeedback);
+    const resetDragState = useLayerStore((state) => state.resetDragState);
+
     const layerButtonRef = useRef<HTMLButtonElement | null>(null);
     const layerPanelRef = useRef<HTMLDivElement | null>(null);
-    const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
-    const [draggingLayerId, setDraggingLayerId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isOpen) {
+            resetDragState();
+        }
+
+        return () => {
+            resetDragState();
+        };
+    }, [isOpen, resetDragState]);
 
     const bottomLayerId = layerControls.layers[layerControls.layers.length - 1]?.id ?? null;
 
@@ -89,12 +105,7 @@ export const LayerPanelUI = ({
                                     index={index}
                                     data={layer} 
                                     layerControls={layerControls}
-                                    pendingSelectionRef={null}
-                                    setCopyFeedback={setCopyFeedback} 
-                                    draggingLayerId={draggingLayerId} 
-                                    setDraggingLayerId={setDraggingLayerId}
-                                    dragOverLayer={dragOverLayer} 
-                                    setDragOverLayer={setDragOverLayer}
+                                    pendingSelectionRef={pendingSelectionRef}
                                 />
                             ))
                         )}
