@@ -360,25 +360,52 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
     return layerId;
   }, []);
 
-  // Move layer up or down
+  // Move layer within stack
   const moveLayer = useCallback<LayerControlHandlers['moveLayer']>((layerId, direction) => {
     setLayers((previousLayers) => {
       const currentIndex = previousLayers.findIndex((layer) => layer.id === layerId);
 
-      if (currentIndex === -1) {
+      if (currentIndex === -1 || previousLayers.length < 2) {
         return previousLayers;
       }
 
-      const targetIndex = direction === 'up' ? currentIndex + 1 : currentIndex - 1;
+      const isAtTop = currentIndex === previousLayers.length - 1;
+      const isAtBottom = currentIndex === 0;
 
-      if (targetIndex < 0 || targetIndex >= previousLayers.length) {
+      if (
+        (direction === 'up' && isAtTop) ||
+        (direction === 'top' && isAtTop) ||
+        (direction === 'down' && isAtBottom) ||
+        (direction === 'bottom' && isAtBottom)
+      ) {
         return previousLayers;
       }
 
       const nextLayers = [...previousLayers];
       const [moved] = nextLayers.splice(currentIndex, 1);
-      nextLayers.splice(targetIndex, 0, moved);
 
+      let insertIndex = currentIndex;
+      switch (direction) {
+        case 'up':
+          insertIndex = Math.min(currentIndex + 1, nextLayers.length);
+          break;
+        case 'down':
+          insertIndex = Math.max(currentIndex - 1, 0);
+          break;
+        case 'top':
+          insertIndex = nextLayers.length;
+          break;
+        case 'bottom':
+          insertIndex = 0;
+          break;
+        default: {
+          const fallbackIndex = Math.min(currentIndex, nextLayers.length);
+          nextLayers.splice(fallbackIndex, 0, moved);
+          return nextLayers;
+        }
+      }
+
+      nextLayers.splice(insertIndex, 0, moved);
       return nextLayers;
     });
 

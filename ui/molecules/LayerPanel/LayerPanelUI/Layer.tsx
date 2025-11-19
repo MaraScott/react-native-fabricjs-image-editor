@@ -193,7 +193,7 @@ export const Layer = ({
             >
                 <Button
                     key={`${layer.id}-copy`}
-                    action={`copy`}
+                    action="copy"
                     id={layer.id}
                     className={`visibility ${layer.visible ? 'visible' : ''}`}
                     onClick={() => handleCopyLayer(layer.id)}
@@ -201,77 +201,71 @@ export const Layer = ({
                     ⧉
                 </Button>
 
-                <button
+                <Button
                     key={`layer-panel-layer-${layer.id}-duplicate-button`}
+                    action="duplicate"
                     className="duplicate"
-                    type="button"
-                    onPointerDown={(event) => event.stopPropagation()}
                     onClick={() => layerControls.duplicateLayer(layer.id)}
                     title="Duplicate layer"
                     aria-label="Duplicate layer"
                 >
                     ⧺
-                </button>
-                <button
+                </Button>
+                <Button
                     key={`layer-panel-layer-${layer.id}-move-up-button`}
-                    className={`move-up`}
-                    type="button"
-                    onPointerDown={(event) => event.stopPropagation()}
+                    action="move-up"
+                    className="move-up"
                     onClick={() => layerControls.moveLayer(layer.id, 'up')}
                     title="Move layer up"
                     aria-label="Move layer up"
                     disabled={isTop}
                 >
                     ▲
-                </button>
-                <button
+                </Button>
+                <Button
                     key={`layer-panel-layer-${layer.id}-move-down-button`}
-                    className={`move-down`}
-                    type="button"
-                    onPointerDown={(event) => event.stopPropagation()}
+                    action="move-down"
+                    className="move-down"
                     onClick={() => layerControls.moveLayer(layer.id, 'down')}
                     title="Move layer down"
                     aria-label="Move layer down"
                     disabled={isBottom}
                 >
                     ▼
-                </button>
-                <button
+                </Button>
+                <Button
                     key={`layer-panel-layer-${layer.id}-move-top-button`}
-                    className={`move-top`}
-                    type="button"
-                    onPointerDown={(event) => event.stopPropagation()}
+                    action="move-top"
+                    className="move-top"
                     onClick={() => layerControls.moveLayer(layer.id, 'top')}
                     title="Send layer to top"
                     aria-label="Send layer to top"
                     disabled={isTop}
                 >
                     ⤒
-                </button>
-                <button
+                </Button>
+                <Button
                     key={`layer-panel-layer-${layer.id}-move-bottom-button`}
-                    className={`move-bottom`}
-                    type="button"
-                    onPointerDown={(event) => event.stopPropagation()}
+                    action="move-bottom"
+                    className="move-bottom"
                     onClick={() => layerControls.moveLayer(layer.id, 'bottom')}
                     title="Send layer to bottom"
                     aria-label="Send layer to bottom"
                     disabled={isBottom}
                 >
                     ⤓
-                </button>
-                <button
+                </Button>
+                <Button
                     key={`layer-panel-layer-${layer.id}-remove-button`}
+                    action="remove"
                     className="remove"
-                    type="button"
-                    onPointerDown={(event) => event.stopPropagation()}
                     onClick={() => layerControls.removeLayer(layer.id)}
                     title="Remove layer"
                     aria-label="Remove layer"
                     disabled={layerControls.layers.length <= 1}
                 >
                     🗑
-                </button>
+                </Button>
             </div>
         </div>
     );

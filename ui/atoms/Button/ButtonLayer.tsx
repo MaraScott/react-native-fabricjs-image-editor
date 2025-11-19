@@ -21,6 +21,7 @@ export const ButtonLayer = ({
 
     return (
         <button
+            key={id}
             id={id}
             className={computedClassName}
             type="button"

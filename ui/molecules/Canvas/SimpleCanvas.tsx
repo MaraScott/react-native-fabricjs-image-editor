@@ -461,6 +461,12 @@ export const SimpleCanvas = ({
     if (!container) return;
 
     const handleWheel = (event: WheelEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && target.closest('.layer-panel-ui')) {
+        // Let the layer panel handle its own scrolling
+        return;
+      }
+
       event.preventDefault();
 
       if (event.deltaY === 0) return;

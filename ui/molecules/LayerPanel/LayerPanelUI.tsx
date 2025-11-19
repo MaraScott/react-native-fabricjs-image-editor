@@ -99,7 +99,7 @@ export const LayerPanelUI = ({
                                 No layers yet. Add one to get started.
                             </div>
                         ) : (
-                            layerControls.layers.map((layer, index) => {
+                            [...layerControls.layers].reverse().map((layer, index) => {
                                 const layerKey = layer.id ?? `layer-${index}`;
                                 return (
                                     <Layer
