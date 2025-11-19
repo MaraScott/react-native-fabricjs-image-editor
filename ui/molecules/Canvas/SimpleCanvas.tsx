@@ -1052,7 +1052,7 @@ export const SimpleCanvas = ({
         />
       )}
 
-      {/* <Stage
+      <Stage
         ref={stageRef}
         width={containerDimensions.width}
         height={containerDimensions.height}
@@ -1060,16 +1060,13 @@ export const SimpleCanvas = ({
           cursor: baseCursor,
         }}
       >
-        {/* Content Layers - Positioned relative to stage mimic * /}
         {renderableLayers && renderableLayers.length > 0 ? (
           renderableLayers.map((layer) => {
-      const layerIsSelected = selectedLayerSet.has(layer.id);
-      // Use selectionTransform for selected layers, otherwise use layer's own transform
-      const isSelected = layerIsSelected && selectionTransform;
-      if (isSelected) {
-        // Correctly set the selectedLayerNodeRefs for this layer
-        selectedLayerNodeRefs.current.set(layer.id, layerNodeRefs.current.get(layer.id) || null);
-      }
+            const layerIsSelected = selectedLayerSet.has(layer.id);
+            const isSelected = layerIsSelected && selectionTransform;
+            if (isSelected) {
+                selectedLayerNodeRefs.current.set(layer.id, layerNodeRefs.current.get(layer.id) || null);
+            }
             const LayerAny = Layer as any;
             return (
               <LayerAny
@@ -1117,16 +1114,13 @@ export const SimpleCanvas = ({
           </KonvaLayer>
         )}
 
-        {/* Grey Overlay with transparent stage window - shows selections outside stage * /}
         <KonvaLayer listening={false}>
-          {/* Create a clipping mask using globalCompositeOperation * /}
           <FullContainerBackground
             key="canvas-background"
             width={containerDimensions.width / safeScale}
             height={containerDimensions.height / safeScale}
             fill={containerBackground}
           />
-          {/* Cut out the stage area by rendering it with destination-out * /}
           <Rect
             key="canvas-cutout"
             x={stageViewportOffsetX}
@@ -1137,12 +1131,6 @@ export const SimpleCanvas = ({
             globalCompositeOperation="destination-out"
           />
         </KonvaLayer>
-        {/* Top: Selection & Transform Layer - always visible * /}
-        {/* Debug: log selectionTransform in render * /}
-        {(() => {
-          // eslint-disable-next-line no-console
-          console.log('[SimpleCanvas] selectedLayerNodeRefs in render:', selectedLayerNodeRefs.current, selectedLayerIds[0]);
-        })()}
         <SelectionLayer
           key="selection-layer"
           selectModeActive={selectModeActive}
@@ -1168,7 +1156,7 @@ export const SimpleCanvas = ({
           onTransformEnd={handleTransformerTransformEnd}
         />
         
-      </Stage> */}
+      </Stage>
     </div>
   );
 };
