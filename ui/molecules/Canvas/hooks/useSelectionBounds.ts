@@ -5,7 +5,7 @@ import { computeNodeBounds, areBoundsEqual } from '../utils';
 
 const BOUNDS_RETRY_LIMIT = 4;
 
-interface UseSelectionBoundsParams {
+interface useSelectionBoundsParams {
   selectModeActive: boolean;
   layerControls: LayerControlHandlers | undefined | null;
   stageRef: MutableRefObject<Konva.Stage | null>;
@@ -15,7 +15,7 @@ interface UseSelectionBoundsParams {
   setSelectedLayerBounds: (bounds: Bounds | null | ((prev: Bounds | null) => Bounds | null)) => void;
 }
 
-interface UseSelectionBoundsReturn {
+interface useSelectionBoundsReturn {
   updateBoundsFromLayerIds: (layerIds: string[] | null | undefined, attempt?: number) => void;
   refreshBoundsFromSelection: () => void;
   scheduleBoundsRefresh: () => void;
@@ -36,7 +36,7 @@ export const useSelectionBounds = ({
   pendingSelectionRef,
   transformAnimationFrameRef,
   setSelectedLayerBounds,
-}: UseSelectionBoundsParams): UseSelectionBoundsReturn => {
+}: useSelectionBoundsParams): useSelectionBoundsReturn => {
   const selectedLayerIds = layerControls?.selectedLayerIds ?? [];
 
   /**
@@ -46,12 +46,12 @@ export const useSelectionBounds = ({
   const updateBoundsFromLayerIds = useCallback(
     (layerIds: string[] | null | undefined, attempt: number = 0) => {
       if (!selectModeActive) {
-        setSelectedLayerBounds(null);
+        setSelectedLayerBounds((previous) => (previous === null ? previous : null));
         return;
       }
 
       if (!layerIds || layerIds.length === 0) {
-        setSelectedLayerBounds(null);
+        setSelectedLayerBounds((previous) => (previous === null ? previous : null));
         return;
       }
 
@@ -80,6 +80,8 @@ export const useSelectionBounds = ({
       if (boundsList.length === 0) {
         if (attempt < BOUNDS_RETRY_LIMIT && typeof window !== 'undefined') {
           window.requestAnimationFrame(() => updateBoundsFromLayerIds(layerIds, attempt + 1));
+        } else {
+          setSelectedLayerBounds((previous) => (previous === null ? previous : null));
         }
         return;
       }
@@ -97,6 +99,13 @@ export const useSelectionBounds = ({
           height: Math.max(0, maxY - minY),
         };
       }, boundsList[0]);
+
+      setSelectedLayerBounds((previousBounds) => {
+        if (areBoundsEqual(previousBounds, unifiedBounds)) {
+          return previousBounds;
+        }
+        return unifiedBounds;
+      });
 
       nodes[0]?.getStage()?.batchDraw();
     },

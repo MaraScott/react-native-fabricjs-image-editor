@@ -35,7 +35,7 @@ export const ZoomControl = ({
    * handleZoomIn - Auto-generated documentation stub.
    */
   const handleZoomIn = () => {
-    onZoomChange(newZoom);
+    onZoomChange(zoom);
   };
 
   /**
@@ -45,7 +45,7 @@ export const ZoomControl = ({
    * handleZoomOut - Auto-generated documentation stub.
    */
   const handleZoomOut = () => {
-    onZoomChange(newZoom);
+    onZoomChange(zoom);
   };
 
   /**

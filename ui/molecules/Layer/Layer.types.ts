@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 
 /**
  * ScaleVector Type
@@ -32,6 +33,8 @@ export interface LayerDescriptor {
   rotation?: number;
   /** Optional persisted scale */
   scale?: ScaleVector;
+  /** Last known bounds of the rendered content */
+  bounds?: Bounds | null;
   render: () => ReactNode;
 }
 
@@ -59,13 +62,7 @@ export interface LayerControlHandlers {
   layers: LayerDescriptor[];
   selectedLayerIds: string[];
   primaryLayerId: string | null;
-  selectLayer: (layerId: string) => string[];
-  /**
-   * selection - Auto-generated documentation stub.
-   *
-   * @returns {deselect all} Result produced by selection.
-   */
-  /** Clear any selection (deselect all) */
+  selectLayer: (layerId: string, options?: { mode?: 'append' | 'toggle' |'exclusive' | 'replace' }) => string[];
   clearSelection?: () => void;
   addLayer: () => void;
   removeLayer: (layerId: string) => void;
@@ -86,5 +83,5 @@ export interface LayerControlHandlers {
       rotation: number;
     }
   ) => void;
+  updateLayerBounds?: (layerId: string, bounds: Bounds | null) => void;
 }
-

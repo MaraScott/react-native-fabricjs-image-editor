@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { LayerControlHandlers, LayerDescriptor } from '@molecules/Canvas';
+import type { LayerControlHandlers, LayerDescriptor } from '@molecules/Layer/Layer.types';
 
 interface SimpleCanvasState {
     layerControls: LayerControlHandlers | null;
@@ -24,6 +24,7 @@ const areLayerArraysEqual = (first: LayerDescriptor[], second: LayerDescriptor[]
 };
 
 class SimpleCanvasStore {
+    
     private state: SimpleCanvasState = {
         layerControls: null,
         renderableLayers: [],

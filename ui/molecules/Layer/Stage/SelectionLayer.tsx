@@ -9,8 +9,20 @@ import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { MutableRefObject } from 'react';
 import { useSelector } from 'react-redux';
-import { useEffect } from 'react';
 import { selectSelectionTransform } from '@store/CanvasApp/view/selectors';
+import { useSimpleCanvasStore } from '@store/SimpleCanvas';
+
+const EMPTY_SELECTED_IDS: string[] = [];
+
+type SelectionRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation?: number;
+  scaleX?: number;
+  scaleY?: number;
+};
 
 /**
  * SelectionLayer component props
@@ -19,13 +31,9 @@ export interface SelectionLayerProps {
   selectModeActive: boolean;
   scaleX: number;
   scaleY: number;
-  stageViewportOffsetX: number;
-  stageViewportOffsetY: number;
+  selectionRect: SelectionRect | null;
   borderDash: number[];
   padding: number;
-
-  hasSelection: boolean;
-  isInteracting: boolean;
   selectionProxyRef: MutableRefObject<Konva.Rect | null>;
   transformerRef: MutableRefObject<Konva.Transformer | null>;
   anchorSize: number;
@@ -52,13 +60,9 @@ export const SelectionLayer = ({
   selectModeActive,
   scaleX,
   scaleY,
-  stageViewportOffsetX,
-  stageViewportOffsetY,
+  selectionRect,
   padding,
   borderDash,
-
-  hasSelection,
-  isInteracting,
   selectionProxyRef,
   transformerRef,
   anchorSize,
@@ -74,16 +78,10 @@ export const SelectionLayer = ({
 }: SelectionLayerProps) => {
   // Read selectionTransform from Redux
   const selectionTransform = useSelector(selectSelectionTransform);
-  // Only log when selectionTransform changes, not on every render
-  useEffect(() => {
-    if (isInteracting && selectionTransform) {
-      // eslint-disable-next-line no-console
-      console.log('SelectionLayer selectionTransform (dragging):', selectionTransform);
-    } else if (!isInteracting && selectionTransform) {
-      // eslint-disable-next-line no-console
-      console.log('SelectionLayer selectionTransform (idle):', selectionTransform);
-    }
-  }, [selectionTransform, isInteracting]);
+  const layerControls = useSimpleCanvasStore((state) => state.layerControls);
+  const storeSelectedLayerIds = layerControls?.selectedLayerIds ?? EMPTY_SELECTED_IDS;
+  const shouldRenderSelection = storeSelectedLayerIds.length > 0;
+  const sharedSelectionRect: SelectionRect | null = selectionRect ?? (selectionTransform ?? null);
 
   if (!selectModeActive) {
     return null;
@@ -93,49 +91,27 @@ export const SelectionLayer = ({
   return (
     <Layer 
         key="selection-layer"
-      listening={true}
-      scaleX={scaleX}
-      scaleY={scaleY}
+        listening={true}
+        scaleX={scaleX}
+        scaleY={scaleY}
     >
-      {/* Debug: Always visible indicator */}
-      <Rect
-        key="debug-lime-indicator"
-        x={stageViewportOffsetX}
-        y={stageViewportOffsetY}
-        width={30}
-        height={30}
-        fill="lime"
-        stroke="black"
-        strokeWidth={2}
-      />
-      {/* Debug: Test red rectangle at same position as lime square */}
-      <Rect
-        x={stageViewportOffsetX + 50}
-        y={stageViewportOffsetY + 10}
-        width={100}
-        height={100}
-        fill="red"
-        stroke="black"
-        strokeWidth={2}
-      />
-      {/* Use Redux selectionTransform for the proxy */}
-      {(selectionTransform || true) ? (
+      {shouldRenderSelection && sharedSelectionRect ? (
         <Rect
           key="selection-proxy"
           ref={selectionProxyRef}
-          x={selectionTransform?.x || 0}
-          y={selectionTransform?.y || 0}
-          width={selectionTransform?.width || 20}
-          height={selectionTransform?.height || 20}
-        //   rotation={selectionTransform?.rotation || 0}
-        //   scaleX={selectionTransform?.scaleX || 0}
-        //   scaleY={selectionTransform?.scaleY || 0}
+          x={sharedSelectionRect.x}
+          y={sharedSelectionRect.y}
+          width={sharedSelectionRect.width || 20}
+          height={sharedSelectionRect.height || 20}
+          rotation={sharedSelectionRect.rotation ?? 0}
+          scaleX={sharedSelectionRect.scaleX ?? 1}
+          scaleY={sharedSelectionRect.scaleY ?? 1}
           opacity={1}
           fill="red"
           stroke="blue"
           strokeWidth={2}
           strokeEnabled={true}
-          listening={hasSelection}
+          listening={shouldRenderSelection}
           draggable
           perfectDrawEnabled={false}
           onDragStart={onProxyDragStart}
@@ -148,10 +124,7 @@ export const SelectionLayer = ({
         ref={transformerRef}
         rotateEnabled
         resizeEnabled
-        visible={Boolean(
-          (isInteracting || hasSelection) &&
-          hasSelection && selectionTransform
-        )}
+        visible={Boolean(shouldRenderSelection && sharedSelectionRect)}
         anchorSize={anchorSize}
         anchorCornerRadius={anchorCornerRadius}
         anchorStroke="#00f6ff"

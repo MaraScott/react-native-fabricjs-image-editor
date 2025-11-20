@@ -2,8 +2,11 @@ import { Layer as KonvaLayer } from '@atoms/Canvas';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { ReactNode } from 'react';
 import type { DragEvent } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import type Konva from 'konva';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
-import { Text } from 'react-konva';
+import type { Bounds } from '@molecules/Canvas/types/canvas.types';
+import { areBoundsEqual } from '@molecules/Canvas/utils/bounds';
 
 interface StageLayerProps {
     layersRevision: number;
@@ -33,7 +36,6 @@ interface StageLayerProps {
     onRefChange: (node: Konva.Layer | null) => void;
     updateBoundsFromLayerIds: (ids: string[]) => void;
     syncTransformerToSelection: () => void;
-    setIsInteractingWithSelection: (value: boolean) => void;
 }
 
 export const StageLayer = ({
@@ -60,30 +62,89 @@ export const StageLayer = ({
     onRefChange,
     updateBoundsFromLayerIds,
     syncTransformerToSelection,
-    setIsInteractingWithSelection,
 }: StageLayerProps) => {
     const layerControls = useSimpleCanvasStore((state) => state.layerControls);
+    const layerRef = useRef<Konva.Layer | null>(null);
+    const lastRecordedBoundsRef = useRef<Bounds | null>(null);
+
+    const measureAndStoreBounds = useCallback((node: Konva.Layer | null) => {
+        if (!layerControls?.updateLayerBounds) {
+            return;
+        }
+
+        if (!node) {
+            lastRecordedBoundsRef.current = null;
+            layerControls.updateLayerBounds(layerId, null);
+            return;
+        }
+
+        const stage = node.getStage();
+        if (!stage) {
+            return;
+        }
+
+        const rect = node.getClientRect({
+            skipTransform: false,
+            relativeTo: stage,
+        });
+
+        if (!rect) {
+            return;
+        }
+
+        const finiteValues = [rect.x, rect.y, rect.width, rect.height].every((value) => Number.isFinite(value));
+        if (!finiteValues) {
+            return;
+        }
+
+        const normalizedBounds: Bounds = {
+            x: rect.x - stageViewportOffsetX,
+            y: rect.y - stageViewportOffsetY,
+            width: rect.width,
+            height: rect.height,
+        };
+
+        if (areBoundsEqual(lastRecordedBoundsRef.current, normalizedBounds)) {
+            return;
+        }
+
+        lastRecordedBoundsRef.current = normalizedBounds;
+        layerControls.updateLayerBounds(layerId, normalizedBounds);
+    }, [layerControls, layerId, stageViewportOffsetX, stageViewportOffsetY]);
+
+    const handleLayerRef = useCallback((node: Konva.Layer | null) => {
+        layerRef.current = node;
+        measureAndStoreBounds(node);
+        onRefChange(node);
+    }, [measureAndStoreBounds, onRefChange]);
+
+    useEffect(() => {
+        measureAndStoreBounds(layerRef.current);
+    }, [measureAndStoreBounds, layersRevision, visible, x, y, scaleX, scaleY]);
+
     if (!layerControls) {
         return null;
+    }
+    const onPointerDown = (event: KonvaEventObject<PointerEvent>) => {
+        console.log('#### StageLayer onPointerDown layerId:', layerId);
+        if (!selectModeActive || !layerControls) {
+            return;
+        }
+
+        pendingSelectionRef.current = layerControls.selectLayer(layerId, { mode: 'replace' });
+        updateBoundsFromLayerIds(pendingSelectionRef.current);
+
+        const stage = event.target.getStage();
+        if (stage) {
+            stage.container().style.cursor = 'pointer';
+        }
+
+        event.cancelBubble = true;
     }
     return (
         <KonvaLayer
             key={`${layersRevision}-${layerId}`}
-            //   ref={(node) => {
-            //     if (node) {
-            //       layerNodeRefs.current.set(layerId, node);
-            //       if (selectModeActive && isSelected) {
-            //         updateBoundsFromLayerIds(pendingSelectionRef.current ?? [layerId]);
-            //       }
-            //     } else {
-            //       layerNodeRefs.current.delete(layerId);
-            //     }
-            //     syncTransformerToSelection();
-            //     if (onRefChange) {
-            //       onRefChange(node);
-            //     }
-            //   }}
-            //   id={id}
+            ref={handleLayerRef}
             visible={visible}
             x={x}
             y={y}
@@ -107,22 +168,8 @@ export const StageLayer = ({
             //     event.cancelBubble = true;
             //     pendingSelectionRef.current = layerControls.selectLayer(layerId, { mode: 'replace' });
             //   }}
-            //   onPointerDown={(event: KonvaEventObject<PointerEvent>) => {
-            //     if (!selectModeActive || !layerControls) {
-            //       return;
-            //     }
-
-            //     pendingSelectionRef.current = layerControls.selectLayer(layerId, { mode: 'replace' });
-            //     setIsInteractingWithSelection(true);
-            //     updateBoundsFromLayerIds(pendingSelectionRef.current);
-
-            //     const stage = event.target.getStage();
-            //     if (stage) {
-            //       stage.container().style.cursor = 'pointer';
-            //     }
-
-            //     event.cancelBubble = true;
-            //   }}
+            onMouseDown={onPointerDown}
+            onTouchStart={onPointerDown}
             //   onPointerEnter={(event: KonvaEventObject<PointerEvent>) => {
             //     const stage = event.target.getStage();
             //     if (!stage) return;
@@ -138,7 +185,6 @@ export const StageLayer = ({
             //       return;
             //     }
 
-            //     setIsInteractingWithSelection(false);
             //     updateBoundsFromLayerIds(pendingSelectionRef.current ?? layerControls.selectedLayerIds);
 
             //     const stage = event.target.getStage();
@@ -223,8 +269,6 @@ export const StageLayer = ({
             onDragEnd={(event: KonvaEventObject<DragEvent>) => {
                 if (!selectModeActive || !layerControls) return;
 
-                // setIsInteractingWithSelection(false);
-
                 const dragState = selectionDragStateRef.current;
                 selectionDragStateRef.current = null;
 
@@ -244,6 +288,8 @@ export const StageLayer = ({
                         y: position.y - stageViewportOffsetY,
                     });
                 });
+
+                measureAndStoreBounds(layerRef.current);
 
                 // layerControls.ensureAllVisible();
                 // updateBoundsFromLayerIds(layerControls.selectedLayerIds);

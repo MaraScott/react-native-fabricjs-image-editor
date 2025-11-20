@@ -1,36 +1,18 @@
 import { useRef, useEffect, useState, useCallback, useMemo, type ReactNode } from 'react';
-import {
-    WHEEL_ZOOM_STEP,
-    KEYBOARD_ZOOM_STEP,
-    PINCH_ZOOM_SENSITIVITY,
-    TOUCH_DELTA_THRESHOLD,
-    useUpdateZoom,
-    useApplyZoomDelta,
-} from './hooks/zoomUtils';
+import { WHEEL_ZOOM_STEP, KEYBOARD_ZOOM_STEP, PINCH_ZOOM_SENSITIVITY, TOUCH_DELTA_THRESHOLD, useUpdateZoom, useApplyZoomDelta } from './hooks/zoomUtils';
 import { useResize } from './hooks/useResize';
 import { useRotation } from './hooks/useRotation';
 import { useSelector, useDispatch } from 'react-redux';
-import type { RootState } from '@store/CanvasApp';
 import { selectActions } from '@store/CanvasApp/view/select';
 import { selectSelectionTransform } from '@store/CanvasApp/view/selectors';
 import { Stage } from '@atoms/Canvas';
-import {
-    SelectionLayer,
-    StageLayer as Layer,
-    LayerPanelUI,
-    BackgroundLayer
-} from '@molecules/Layer';
+import { SelectionLayer, StageLayer as Layer, LayerPanelUI, BackgroundLayer } from '@molecules/Layer';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
-import type {
-    PointerPanState,
-    TouchPanState,
-    SelectionDragState,
-    SelectionNodeSnapshot,
-    SelectionTransformSnapshot,
-    Bounds,
-} from './types/canvas.types';
-import type { PanOffset } from '@molecules/Layer/Layer.types';
 import { useSelectionBounds } from './hooks/useSelectionBounds';
+
+import type { RootState } from '@store/CanvasApp';
+import type { PointerPanState, TouchPanState, SelectionDragState, SelectionNodeSnapshot, SelectionTransformSnapshot, Bounds } from './types/canvas.types';
+import type { PanOffset } from '@molecules/Layer/Layer.types';
 
 export interface SimpleCanvasProps {
     stageWidth?: number;
@@ -72,9 +54,6 @@ export const SimpleCanvas = ({
     const onRefChange = ({ node, layer, layerIsSelected }) => {
         if (node) {
             layerNodeRefs.current.set(layer.id, node);
-            if (selectModeActive && layerIsSelected) {
-                updateBoundsFromLayerIds(pendingSelectionRef.current ?? selectedLayerIds);
-            }
         } else {
             layerNodeRefs.current.delete(layer.id);
         }
@@ -89,14 +68,13 @@ export const SimpleCanvas = ({
     const [internalZoom, setInternalZoom] = useState<number>(zoom);
     const [panOffset, setPanOffset] = useState<PanOffset>({ x: 0, y: 0 });
     // Use useResize hook for containerDimensions and scale (keep single containerRef)
-    const { containerDimensions, scale, setContainerDimensions, setScale } = useResize(containerRef, stageWidth, stageHeight, internalZoom);
+    const { dimensions: containerDimensions, scale, setDimensions: setContainerDimensions, setScale } = useResize(containerRef, stageWidth, stageHeight, internalZoom);
     const panOffsetRef = useRef(panOffset);
     const [spacePressed, setSpacePressed] = useState(false);
     const [isPointerPanning, setIsPointerPanning] = useState(false);
     const [isTouchPanning, setIsTouchPanning] = useState(false);
     const [isLayerPanelOpen, setIsLayerPanelOpen] = useState(false);
     const [selectedLayerBounds, setSelectedLayerBounds] = useState<Bounds | null>(null);
-    const [isInteractingWithSelection, setIsInteractingWithSelection] = useState(false);
     const [overlaySelectionBox, setOverlaySelectionBox] = useState<
         | { x: number; y: number; width: number; height: number; rotation?: number }
         | null
@@ -457,20 +435,6 @@ export const SimpleCanvas = ({
     const handleSelectionProxyDragMove = useCallback(() => {
         if (!selectModeActive) {
             return;
-        }
-        // Real-time debug log: log proxy transform on every drag frame
-        const proxy = selectionProxyRef.current;
-        if (proxy) {
-            // eslint-disable-next-line no-console
-            console.log('SimpleCanvas proxy (dragging):', {
-                x: proxy.x(),
-                y: proxy.y(),
-                width: proxy.width(),
-                height: proxy.height(),
-                rotation: proxy.rotation(),
-                scaleX: proxy.scaleX(),
-                scaleY: proxy.scaleY(),
-            });
         }
         applySelectionTransformDelta();
         scheduleBoundsRefresh();
@@ -870,6 +834,19 @@ export const SimpleCanvas = ({
     const transformerPadding = 0;
     const transformerHitStrokeWidth = Math.max(12 / safeScale, 6);
 
+    const fallbackSelectionRect = (!selectionTransform && selectedLayerBounds)
+        ? {
+            x: selectedLayerBounds.x,
+            y: selectedLayerBounds.y,
+            width: selectedLayerBounds.width,
+            height: selectedLayerBounds.height,
+            rotation: resolveSelectionRotation(),
+            scaleX: 1,
+            scaleY: 1,
+        }
+        : null;
+    const sharedSelectionRect = selectionTransform ?? fallbackSelectionRect;
+
     const baseCursor = (isPointerPanning || isTouchPanning)
         ? 'grabbing'
         : (panModeActive || spacePressed ? 'grab' : 'default');
@@ -927,7 +904,7 @@ export const SimpleCanvas = ({
         }
 
         // Allow transformer to be visible during interaction even without valid bounds yet
-        if (!selectModeActive || (!selectedLayerBounds && !isInteractingWithSelection)) {
+        if (!selectModeActive || (!selectedLayerBounds)) {
             proxy.visible(false);
             transformer.nodes([]);
             transformer.visible(false);
@@ -936,7 +913,7 @@ export const SimpleCanvas = ({
         }
 
         // If we're interacting but don't have bounds yet, keep transformer visible but without nodes
-        if (isInteractingWithSelection && !selectedLayerBounds) {
+        if (!selectedLayerBounds) {
             proxy.visible(false);
             transformer.nodes([]);
             transformer.visible(true);
@@ -1007,7 +984,7 @@ export const SimpleCanvas = ({
         transformer.visible(true);
         transformer.forceUpdate();
         transformer.getLayer()?.batchDraw();
-    }, [selectModeActive, selectedLayerBounds, layerControls, selectedLayerIds, overlaySelectionBox, isInteractingWithSelection, resolveSelectionRotation]);
+    }, [selectModeActive, selectedLayerBounds, layerControls, selectedLayerIds, overlaySelectionBox, resolveSelectionRotation]);
 
     // Unified effect: sync transformer to selection and handle rotation
     useEffect(() => {
@@ -1056,8 +1033,6 @@ export const SimpleCanvas = ({
     }, [selectModeActive, clearSelection]);
     const LayerAny = Layer as any;
 
-    useEffect(() => { console.log('SimpleCanvas committed', renderableLayers.map(l => l.render())); }, [renderableLayers])
-
     return (
         <div
             ref={containerRef}
@@ -1088,20 +1063,22 @@ export const SimpleCanvas = ({
             )}
 
             <Stage
+                className="layer-stage-ui"
                 ref={stageRef}
                 width={containerDimensions.width}
                 height={containerDimensions.height}
                 style={{
                     cursor: baseCursor,
                 }}
-            >
+            >   
+            
                 {layerControls && layersToRender.length > 0 ? (
                     layersToRender.map((layer, index) => {
                         const layerIsSelected = selectedLayerSet.has(layer.id);
-                        const isSelected = layerIsSelected && selectionTransform;
-                        // if (isSelected) {
-                        //     selectedLayerNodeRefs.current.set(layer.id, layerNodeRefs.current.get(layer.id) || null);
-                        // }
+                        const selectionOverride = layerIsSelected ? sharedSelectionRect : null;
+                        const layerBounds = layer.bounds ?? null;
+                        const computedX = stageViewportOffsetX + (layerBounds ? layerBounds.x : layer.position.x);
+                        const computedY = stageViewportOffsetY + (layerBounds ? layerBounds.y : layer.position.y);
                         return (
                             <LayerAny
                                 key={`${layersRevision}-${layer.id}-${index}`}
@@ -1110,11 +1087,11 @@ export const SimpleCanvas = ({
                                 id={`layer-${layer.id}`}
                                 layerId={layer.id}
                                 visible={layer.visible}
-                                x={isSelected ? selectionTransform.x : stageViewportOffsetX + layer.position.x}
-                                y={isSelected ? selectionTransform.y : stageViewportOffsetY + layer.position.y}
-                                rotation={isSelected ? selectionTransform.rotation : (layer.rotation ?? 0)}
-                                scaleX={isSelected ? selectionTransform.scaleX : (layer.scale?.x ?? 1)}
-                                scaleY={isSelected ? selectionTransform.scaleY : (layer.scale?.y ?? 1)}
+                                x={selectionOverride ? selectionOverride.x : computedX}
+                                y={selectionOverride ? selectionOverride.y : computedY}
+                                rotation={selectionOverride ? selectionOverride.rotation : (layer.rotation ?? 0)}
+                                scaleX={selectionOverride ? selectionOverride.scaleX : (layer.scale?.x ?? 1)}
+                                scaleY={selectionOverride ? selectionOverride.scaleY : (layer.scale?.y ?? 1)}
                                 draggable={Boolean(selectModeActive)}
                                 selectModeActive={selectModeActive}
                                 isSelected={layerIsSelected}
@@ -1127,7 +1104,6 @@ export const SimpleCanvas = ({
                                 onRefChange={(node) => onRefChange({ node, layer, layerIsSelected })}
                                 updateBoundsFromLayerIds={updateBoundsFromLayerIds}
                                 syncTransformerToSelection={syncTransformerToSelection}
-                                setIsInteractingWithSelection={setIsInteractingWithSelection}
                             >
                                 {layer.render()}
                             </LayerAny>
@@ -1148,30 +1124,29 @@ export const SimpleCanvas = ({
                     stageViewportOffsetX={stageViewportOffsetX}
                     stageViewportOffsetY={stageViewportOffsetY}
                 />
-                <SelectionLayer
-                    selectModeActive={selectModeActive}
-                    scaleX={1 / safeScale}
-                    scaleY={1 / safeScale}
-                    stageViewportOffsetX={stageViewportOffsetX}
-                    stageViewportOffsetY={stageViewportOffsetY}
-                    padding={transformerPadding}
-                    borderDash={outlineDash}
-                    
-                    hasSelection={Boolean(selectedLayerBounds && selectedLayerIds.length > 0)}
-                    isInteracting={isInteractingWithSelection}
-                    selectionProxyRef={selectionProxyRef}
-                    transformerRef={selectionTransformerRef}
-                    anchorSize={transformerAnchorSize}
-                    anchorCornerRadius={transformerAnchorCornerRadius}
-                    anchorStrokeWidth={transformerAnchorStrokeWidth}
-                    hitStrokeWidth={transformerHitStrokeWidth}
-                    onProxyDragStart={handleSelectionProxyDragStart}
-                    onProxyDragMove={handleSelectionProxyDragMove}
-                    onProxyDragEnd={handleSelectionProxyDragEnd}
-                    onTransformStart={handleTransformerTransformStart}
-                    onTransform={handleTransformerTransform}
-                    onTransformEnd={handleTransformerTransformEnd}
-                />
+                {layerControls && layersToRender.length > 0 ? (
+                    <SelectionLayer
+                        selectModeActive={selectModeActive}
+                        scaleX={1 / safeScale}
+                        scaleY={1 / safeScale}
+                        selectionRect={sharedSelectionRect}
+                        padding={transformerPadding}
+                        borderDash={outlineDash}
+
+                        selectionProxyRef={selectionProxyRef}
+                        transformerRef={selectionTransformerRef}
+                        anchorSize={transformerAnchorSize}
+                        anchorCornerRadius={transformerAnchorCornerRadius}
+                        anchorStrokeWidth={transformerAnchorStrokeWidth}
+                        hitStrokeWidth={transformerHitStrokeWidth}
+                        onProxyDragStart={handleSelectionProxyDragStart}
+                        onProxyDragMove={handleSelectionProxyDragMove}
+                        onProxyDragEnd={handleSelectionProxyDragEnd}
+                        onTransformStart={handleTransformerTransformStart}
+                        onTransform={handleTransformerTransform}
+                        onTransformEnd={handleTransformerTransformEnd}
+                    />
+                ) : null}
 
             </Stage>
         </div>

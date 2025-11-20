@@ -8,20 +8,20 @@ export function useSetScale() {
 }
 import { useState, useLayoutEffect, useRef } from 'react';
 
-export function useResize(containerRef: React.RefObject<HTMLDivElement>, width: number, height: number, internalZoom: number) {
-  const [containerDimensions, setContainerDimensions] = useState({ width: 1024, height: 1024 });
+export function useResize(layerRef: React.RefObject<HTMLDivElement>, width: number, height: number, internalZoom: number) {
+  const [dimensions, setDimensions] = useState({ width: width ?? 1024, height: height ?? 1024 });
   const [scale, setScale] = useState(1);
 
   useLayoutEffect(() => {
     const updateScale = () => {
-      if (!containerRef.current) return;
-      const container = containerRef.current;
-      const containerWidth = container.clientWidth;
-      const containerHeight = container.clientHeight;
-      if (containerWidth === 0 || containerHeight === 0) return;
-      setContainerDimensions({ width: containerWidth, height: containerHeight });
-      const scaleX = containerWidth / width;
-      const scaleY = containerHeight / height;
+      if (!layerRef.current) return;
+      const layer = layerRef.current;
+      const layerWidth = layer.clientWidth;
+      const layerHeight = layer.clientHeight;
+      if (layerWidth === 0 || layerHeight === 0) return;
+      setDimensions({ width: layerWidth, height: layerHeight });
+      const scaleX = layerWidth / width;
+      const scaleY = layerHeight / height;
       const fitScale = Math.min(scaleX, scaleY);
       const zoomFactor = 1 + internalZoom / 100;
       const MIN_EFFECTIVE_SCALE = 0.05;
@@ -31,15 +31,15 @@ export function useResize(containerRef: React.RefObject<HTMLDivElement>, width: 
     updateScale();
     window.addEventListener('resize', updateScale);
     let resizeObserver: ResizeObserver | undefined;
-    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+    if (typeof ResizeObserver !== 'undefined' && layerRef.current) {
       resizeObserver = new ResizeObserver(() => updateScale());
-      resizeObserver.observe(containerRef.current);
+      resizeObserver.observe(layerRef.current);
     }
     return () => {
       window.removeEventListener('resize', updateScale);
       if (resizeObserver) resizeObserver.disconnect();
     };
-  }, [width, height, internalZoom, containerRef]);
+  }, [layerRef, width, height, internalZoom]);
 
-  return { containerDimensions, scale, setContainerDimensions, setScale };
+  return { dimensions, scale, setDimensions, setScale };
 }

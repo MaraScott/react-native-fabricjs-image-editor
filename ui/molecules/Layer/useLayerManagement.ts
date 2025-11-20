@@ -6,6 +6,8 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { LayerDescriptor, LayerControlHandlers, LayerMoveDirection, ScaleVector, PanOffset } from '@molecules/Layer/Layer.types';
+import type { Bounds } from '@molecules/Canvas/types/canvas.types';
+import { areBoundsEqual } from '@molecules/Canvas/utils/bounds';
 import type { CanvasLayerDefinition } from './types';
 import { generateLayerId, normaliseLayerDefinitions, areSelectionsEqual } from './utils';
 
@@ -533,6 +535,30 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
     }
   }, [updateLayerById, bumpLayersRevision]);
 
+  const updateLayerBounds = useCallback<NonNullable<LayerControlHandlers['updateLayerBounds']>>((layerId, bounds) => {
+    setLayers((previousLayers) => {
+      let changed = false;
+      const nextLayers = previousLayers.map((layer) => {
+        if (layer.id !== layerId) {
+          return layer;
+        }
+
+        const currentBounds = layer.bounds ?? null;
+        if (areBoundsEqual(currentBounds, bounds)) {
+          return layer;
+        }
+
+        changed = true;
+        return {
+          ...layer,
+          bounds: bounds ? { ...bounds } : null,
+        };
+      });
+
+      return changed ? nextLayers : previousLayers;
+    });
+  }, []);
+
   return {
     layers,
     selectedLayerIds,
@@ -553,5 +579,6 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
     updateLayerRotation,
     updateLayerScale,
     updateLayerTransform,
+    updateLayerBounds,
   };
 };

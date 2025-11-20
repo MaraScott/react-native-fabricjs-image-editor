@@ -141,11 +141,6 @@ export const CanvasContainer = ({
   ]);
 
   useEffect(() => {
-    // Temporary debug log to track how often layer state is propagated to the canvas store.
-    console.log('[CanvasContainer] setSimpleCanvasLayerState', {
-      layerCount: layers.length,
-      layerIds: layers.map((layer) => layer.id),
-    });
     setSimpleCanvasLayerState(layerControls, layers);
   }, [layerControls, layers]);
 
@@ -156,56 +151,11 @@ export const CanvasContainer = ({
   }, []);
 
   /**
-   * handleStageReady - Auto-generated summary; refine if additional context is needed.
-   */
-  /**
    * handleStageReady - Auto-generated documentation stub.
    */
   const handleStageReady = (stageInstance: Konva.Stage) => {
-    /**
-     * setStage - Auto-generated summary; refine if additional context is needed.
-     *
-     * @returns {stageInstance} Refer to the implementation for the precise returned value.
-     */
     setStage(stageInstance);
-    /**
-     * log - Auto-generated summary; refine if additional context is needed.
-     *
-     * @param {*} 'Canvas stage ready - Parameter derived from the static analyzer.
-     * @param {*} stageInstance - Parameter derived from the static analyzer.
-     *
-     * @returns {'Canvas stage ready:', stageInstance} Refer to the implementation for the precise returned value.
-     */
-    /**
-     * log - Auto-generated documentation stub.
-     *
-     * @param {*} 'Canvas stage ready - Parameter forwarded to log.
-     * @param {*} stageInstance - Parameter forwarded to log.
-     *
-     * @returns {'Canvas stage ready:', stageInstance} Result produced by log.
-     */
-
-    /**
-     * if - Auto-generated summary; refine if additional context is needed.
-     *
-     * @returns {onStageReady} Refer to the implementation for the precise returned value.
-     */
-    /**
-     * if - Auto-generated documentation stub.
-     *
-     * @returns {onStageReady} Result produced by if.
-     */
     if (onStageReady) {
-      /**
-       * onStageReady - Auto-generated summary; refine if additional context is needed.
-       *
-       * @returns {stageInstance} Refer to the implementation for the precise returned value.
-       */
-      /**
-       * onStageReady - Auto-generated documentation stub.
-       *
-       * @returns {stageInstance} Result produced by onStageReady.
-       */
       onStageReady(stageInstance);
     }
   };
