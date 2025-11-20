@@ -1,15 +1,32 @@
 import { useSyncExternalStore } from 'react';
-import type { LayerControlHandlers } from '@molecules/Canvas';
+import type { LayerControlHandlers, LayerDescriptor } from '@molecules/Canvas';
 
 interface SimpleCanvasState {
     layerControls: LayerControlHandlers | null;
+    renderableLayers: LayerDescriptor[];
 }
 
 type Listener = () => void;
 
+const areLayerArraysEqual = (first: LayerDescriptor[], second: LayerDescriptor[]) => {
+    if (first === second) {
+        return true;
+    }
+    if (first.length !== second.length) {
+        return false;
+    }
+    for (let index = 0; index < first.length; index += 1) {
+        if (first[index].id !== second[index].id) {
+            return false;
+        }
+    }
+    return true;
+};
+
 class SimpleCanvasStore {
     private state: SimpleCanvasState = {
         layerControls: null,
+        renderableLayers: [],
     };
 
     private listeners = new Set<Listener>();
@@ -23,16 +40,35 @@ class SimpleCanvasStore {
 
     getSnapshot = () => this.state;
 
-    setLayerControls = (layerControls: LayerControlHandlers | null) => {
-        if (this.state.layerControls === layerControls) {
+    setLayerState = (layerControls: LayerControlHandlers | null, renderableLayers: LayerDescriptor[]) => {
+        const nextRenderable = layerControls ? [...renderableLayers] : [];
+
+        if (
+            this.state.layerControls === layerControls &&
+            areLayerArraysEqual(this.state.renderableLayers, nextRenderable)
+        ) {
             return;
         }
-        this.state = { ...this.state, layerControls };
+
+        this.state = {
+            layerControls,
+            renderableLayers: nextRenderable,
+        };
+
         this.emit();
     };
 
     clear = () => {
-        this.setLayerControls(null);
+        if (!this.state.layerControls && this.state.renderableLayers.length === 0) {
+            return;
+        }
+
+        this.state = {
+            layerControls: null,
+            renderableLayers: [],
+        };
+
+        this.emit();
     };
 
     private emit() {
@@ -42,8 +78,11 @@ class SimpleCanvasStore {
 
 const store = new SimpleCanvasStore();
 
-export const setSimpleCanvasLayerControls = (layerControls: LayerControlHandlers | null) => {
-    store.setLayerControls(layerControls);
+export const setSimpleCanvasLayerState = (
+    layerControls: LayerControlHandlers | null,
+    renderableLayers: LayerDescriptor[]
+) => {
+    store.setLayerState(layerControls, renderableLayers);
 };
 
 export const clearSimpleCanvasLayerControls = () => {

@@ -40,6 +40,7 @@ export const FullContainerBackground = ({
 }: FullContainerBackgroundProps) => {
   return (
     <Rect
+      key="full-container-background"
       x={0}
       y={0}
       width={width}

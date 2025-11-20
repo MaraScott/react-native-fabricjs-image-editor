@@ -5,7 +5,7 @@
  */
 
 import type { LayerDescriptor } from '@molecules/Canvas';
-import type { CanvasLayerDefinition } from './types';
+import type { CanvasLayerDefinition } from '@molecules/Layer/types';
 
 /**
  * Generate a unique layer ID

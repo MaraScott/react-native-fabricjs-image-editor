@@ -68,13 +68,14 @@ export const CanvasApp = ({
       position: { x: 0, y: 0 },
       render: () => (
         <Text
-          key="text"
+          key="title-text"
           x={100}
           y={400}
           text="Simple Canvas Ready!"
           fontSize={48}
           fill="#333333"
           fontFamily="system-ui, sans-serif"
+          visible={true}
         />
       ),
     },
@@ -85,10 +86,12 @@ export const CanvasApp = ({
       position: { x: 0, y: 0 },
       render: () => (
         <Circle
+          key="red-circle"
           x={500}
           y={200}
           radius={100}
           fill="#E24A4A"
+          visible={true}
         />
       ),
     },
@@ -100,22 +103,24 @@ export const CanvasApp = ({
       render: () => (
         <>
           <Rect
-            key="rect"
+            key="blue-rectangle"
             x={100}
             y={100}
             width={200}
             height={200}
             fill="#4A90E2"
+            visible={true}
             cornerRadius={8}
           />
           <Text
-            key="rect-label"
+            key="blue-rectangle-label"
             x={100}
             y={200}
             text="I'm the rect!"
             fontSize={48}
             fill="#333333"
             fontFamily="system-ui, sans-serif"
+            visible={true}
           />
         </>
       ),

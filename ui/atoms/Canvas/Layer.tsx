@@ -17,7 +17,6 @@ import type { ReactNode } from 'react';
  */
 export interface LayerProps extends Partial<LayerConfig> {
   children?: ReactNode;
-  key?: React.Key;
 }
 
 /**

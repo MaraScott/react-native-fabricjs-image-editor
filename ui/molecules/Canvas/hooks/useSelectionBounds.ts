@@ -1,5 +1,6 @@
 import { useCallback, useMemo, MutableRefObject } from 'react';
-import type { Bounds, LayerControlHandlers } from '../types/canvas.types';
+import type { Bounds } from '../types/canvas.types';
+import type { LayerControlHandlers } from '@molecules/Layer/Layer.types';
 import { computeNodeBounds, areBoundsEqual } from '../utils';
 
 const BOUNDS_RETRY_LIMIT = 4;

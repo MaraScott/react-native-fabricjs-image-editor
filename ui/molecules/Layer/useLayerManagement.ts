@@ -5,8 +5,7 @@
  */
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import type { LayerDescriptor, LayerControlHandlers, LayerMoveDirection } from '@molecules/Canvas';
-import type { LayerSelectionOptions, ScaleVector, PanOffset } from '@molecules/Canvas/types/canvas.types';
+import type { LayerDescriptor, LayerControlHandlers, LayerMoveDirection, ScaleVector, PanOffset } from '@molecules/Layer/Layer.types';
 import type { CanvasLayerDefinition } from './types';
 import { generateLayerId, normaliseLayerDefinitions, areSelectionsEqual } from './utils';
 
@@ -408,6 +407,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
     let didMove = false;
 
     setLayers((previousLayers) => {
+        
       const currentIndex = previousLayers.findIndex((layer) => layer.id === layerId);
 
       if (currentIndex === -1 || previousLayers.length < 2) {

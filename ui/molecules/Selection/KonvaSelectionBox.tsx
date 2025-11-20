@@ -90,6 +90,7 @@ export const KonvaSelectionBox = (props: KonvaSelectionBoxProps): JSX.Element =>
     >
       {/* Selection border rectangle - positioned relative to center due to Group offset */}
       <Rect
+        key="selection-border"
         x={-width / 2}
         y={-height / 2}
         width={width}

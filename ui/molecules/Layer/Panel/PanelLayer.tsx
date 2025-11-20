@@ -4,17 +4,17 @@ import type { KonvaEventObject } from 'konva/lib/Node';
 import { ButtonLayer as Button } from '@atoms/Button/ButtonLayer';
 import { useLayerStore } from '@store/Layer';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
-import type { LayerControlHandlers } from '@molecules/Canvas/types/canvas.types';
+import type { LayerControlHandlers } from '@molecules/Layer/Layer.types';
 
-interface LayerData {
+interface PanelLayerData {
     id: string;
     name: string;
     visible: boolean;
 }
 
-interface LayerProps {
+interface PanelLayerProps {
     index: number;
-    data: LayerData;
+    data: PanelLayerData;
     pendingSelectionRef: MutableRefObject<string[] | null>;
 }
 const resolveDropPosition = (event: DragEvent<HTMLDivElement>): 'above' | 'below' => {
@@ -29,7 +29,7 @@ const getHeaderButtonConfigs = ({
     pendingSelectionRef,
     layerControls,
 }: {
-    layer: LayerData;
+    layer: PanelLayerData;
     isSelected: boolean;
     pendingSelectionRef: MutableRefObject<string[] | null>;
     layerControls: LayerControlHandlers;
@@ -68,7 +68,7 @@ const getActionButtonConfigs = ({
     handleCopyLayer,
     layerControls,
 }: {
-    layer: LayerData;
+    layer: PanelLayerData;
     isTop: boolean;
     isBottom: boolean;
     handleCopyLayer: (layerId: string) => void;
@@ -156,11 +156,11 @@ const getActionButtonConfigs = ({
     },
 ];
 
-export const Layer = ({ 
+export const PanelLayer = ({ 
     index,
     data: layer, 
     pendingSelectionRef,
-}: LayerProps) => {
+}: PanelLayerProps) => {
 
     const layerControls = useSimpleCanvasStore((state) => state.layerControls);
     if (!layerControls) {
@@ -209,13 +209,15 @@ export const Layer = ({
         isDragging,
         isPrimary,
         dropPosition,
+        isVisible,
     }: {
         isSelected: boolean;
         isDragging: boolean;
         isPrimary: boolean;
         dropPosition: 'above' | 'below' | null;
+        isVisible: boolean;
     }) => {
-        return `layer-item${isSelected ? ' selected' : ''}${isDragging ? ' dragging' : ''}${isPrimary ? ' primary' : ''}${dropPosition ? ` ${dropPosition}` : ''}`;
+        return `layer-item${isSelected ? ' selected' : ''}${isDragging ? ' dragging' : ''}${isPrimary ? ' primary' : ''}${dropPosition ? ` ${dropPosition}` : ''}${isVisible ? '' : ' hidden'}`;
     }
 
     const isSelected = selectedLayerSet.has(layer.id);
@@ -308,7 +310,7 @@ export const Layer = ({
 
     return (
         <div
-            className={layerItemClass({ isSelected, isDragging, isPrimary, dropPosition })}
+            className={layerItemClass({ isSelected, isDragging, isPrimary, dropPosition, isVisible: layer.visible })}
             draggable
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}

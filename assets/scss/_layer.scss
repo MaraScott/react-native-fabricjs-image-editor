@@ -130,6 +130,10 @@
                     box-shadow: 0 4px 0 0 #4a90e2;
                 }
 
+                &.hidden button {
+                    color: #999999 !important;
+                }
+
                 .layer-header {
                     display: flex;
                     align-items: center;

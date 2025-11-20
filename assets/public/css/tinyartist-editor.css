@@ -274,6 +274,9 @@ body {
 .layer-panel-ui .panel .layers-container .layer-item.below {
   box-shadow: 0 4px 0 0 #4a90e2;
 }
+.layer-panel-ui .panel .layers-container .layer-item.hidden button {
+  color: #999999 !important;
+}
 .layer-panel-ui .panel .layers-container .layer-item .layer-header {
   display: flex;
   align-items: center;

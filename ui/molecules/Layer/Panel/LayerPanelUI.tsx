@@ -1,6 +1,6 @@
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import { ButtonLayer as Button } from '@atoms/Button/ButtonLayer';
-import { Layer } from '@molecules/LayerPanel/LayerPanelUI/Layer';
+import { PanelLayer as Layer } from '@molecules/Layer/Panel/PanelLayer';
 import { useLayerStore } from '@store/Layer';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 

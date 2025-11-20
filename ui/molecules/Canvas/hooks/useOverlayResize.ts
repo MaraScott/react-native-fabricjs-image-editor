@@ -1,5 +1,5 @@
 import { useRef, useCallback } from 'react';
-import type { LayerControlHandlers } from '../types/canvas.types';
+import type { LayerControlHandlers } from '@molecules/Layer/Layer.types';
 
 const MIN_PROXY_DIMENSION = 1;
 

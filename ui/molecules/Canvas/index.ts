@@ -4,9 +4,4 @@
  */
 
 export { SimpleCanvas } from './SimpleCanvas';
-export type {
-  SimpleCanvasProps,
-  LayerDescriptor,
-  LayerControlHandlers,
-  LayerMoveDirection,
-} from './SimpleCanvas';
+export type { SimpleCanvasProps } from './SimpleCanvas';

@@ -11,26 +11,11 @@ import { Rect } from 'react-konva';
  */
 export interface StageMimicProps {
   key?: string;
-  /**
-   * X offset for stage viewport
-   */
   x: number;
-  /**
-   * Y offset for stage viewport
-   */
   y: number;
-  /**
-   * Stage width
-   */
   width: number;
-  /**
-   * Stage height
-   */
   height: number;
-  /**
-   * Background color for the stage
-   */
-  fill: string;
+  fill?: string;
 }
 
 /**
@@ -46,10 +31,11 @@ export const StageMimic = ({
   y,
   width,
   height,
-  fill,
+  fill = 'rgba(0,0,0,1)',
 }: StageMimicProps) => {
   return (
     <Rect
+      key="stage-mimic"
       x={x}
       y={y}
       width={width}
@@ -58,6 +44,7 @@ export const StageMimic = ({
       shadowColor="rgba(0,0,0,0.2)"
       shadowBlur={8}
       shadowOffsetY={2}
+      globalCompositeOperation="destination-out"
     />
   );
 };

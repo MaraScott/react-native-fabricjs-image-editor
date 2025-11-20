@@ -6,10 +6,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { SimpleCanvas } from '@molecules/Canvas';
-import type { LayerControlHandlers } from '@molecules/Canvas';
-import { useLayerManagement } from '@molecules/LayerPanel';
-import type { CanvasLayerDefinition } from '@molecules/LayerPanel';
-import { setSimpleCanvasLayerControls } from '@store/SimpleCanvas';
+import type { LayerControlHandlers } from '@molecules/Layer/Layer.types';
+import { useLayerManagement } from '@molecules/Layer';
+import type { CanvasLayerDefinition } from '@molecules/Layer';
+import {
+  setSimpleCanvasLayerState,
+  clearSimpleCanvasLayerControls,
+} from '@store/SimpleCanvas';
 
 /**
  * CanvasContainerProps interface - Auto-generated interface summary; customize as needed.
@@ -138,11 +141,19 @@ export const CanvasContainer = ({
   ]);
 
   useEffect(() => {
-    setSimpleCanvasLayerControls(layerControls);
+    // Temporary debug log to track how often layer state is propagated to the canvas store.
+    console.log('[CanvasContainer] setSimpleCanvasLayerState', {
+      layerCount: layers.length,
+      layerIds: layers.map((layer) => layer.id),
+    });
+    setSimpleCanvasLayerState(layerControls, layers);
+  }, [layerControls, layers]);
+
+  useEffect(() => {
     return () => {
-      setSimpleCanvasLayerControls(null);
+      clearSimpleCanvasLayerControls();
     };
-  }, [layerControls]);
+  }, []);
 
   /**
    * handleStageReady - Auto-generated summary; refine if additional context is needed.
@@ -209,8 +220,8 @@ export const CanvasContainer = ({
       }}
     >
       <SimpleCanvas
-        width={width}
-        height={height}
+        stageWidth={width}
+        stageHeight={height}
         backgroundColor={backgroundColor}
         containerBackground={containerBackground}
         zoom={zoom}

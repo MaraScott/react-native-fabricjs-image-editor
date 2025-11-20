@@ -16,95 +16,28 @@ import { selectSelectionTransform } from '@store/CanvasApp/view/selectors';
  * SelectionLayer component props
  */
 export interface SelectionLayerProps {
-  key?: string;
-  /**
-   * Whether selection mode is active
-   */
   selectModeActive: boolean;
-  /**
-   * Scale factor (inverse of stage scale)
-   */
   scaleX: number;
-  /**
-   * Scale factor (inverse of stage scale)
-   */
   scaleY: number;
-  /**
-   * Stage viewport X offset for debug indicators
-   */
   stageViewportOffsetX: number;
-  /**
-   * Stage viewport Y offset for debug indicators
-   */
   stageViewportOffsetY: number;
-  /**
-   * Whether selection has valid bounds
-   */
-  hasSelection: boolean;
-  /**
-   * Whether user is interacting with selection
-   */
-  isInteracting: boolean;
-  /**
-   * Ref for selection proxy rectangle
-   */
-  selectionProxyRef: MutableRefObject<Konva.Rect | null>;
-  /**
-   * Ref for transformer
-   */
-  transformerRef: MutableRefObject<Konva.Transformer | null>;
-  /**
-   * Transformer anchor size
-   */
-  anchorSize: number;
-  /**
-   * Transformer anchor corner radius
-   */
-  anchorCornerRadius: number;
-  /**
-   * Transformer anchor stroke width
-   */
-  anchorStrokeWidth: number;
-  /**
-   * Transformer hit stroke width
-   */
-  hitStrokeWidth: number;
-  /**
-   * Border dash array
-   */
   borderDash: number[];
-  /**
-   * Transformer padding
-   */
   padding: number;
-  /**
-   * Selection proxy drag start handler
-   */
+
+  hasSelection: boolean;
+  isInteracting: boolean;
+  selectionProxyRef: MutableRefObject<Konva.Rect | null>;
+  transformerRef: MutableRefObject<Konva.Transformer | null>;
+  anchorSize: number;
+  anchorCornerRadius: number;
+  anchorStrokeWidth: number;
+  hitStrokeWidth: number;
   onProxyDragStart?: (event: KonvaEventObject<DragEvent>) => void;
-  /**
-   * Selection proxy drag move handler
-   */
   onProxyDragMove?: (event: KonvaEventObject<DragEvent>) => void;
-  /**
-   * Selection proxy drag end handler
-   */
   onProxyDragEnd?: (event: KonvaEventObject<DragEvent>) => void;
-  /**
-   * Transformer transform start handler
-   */
   onTransformStart?: (event: KonvaEventObject<Event>) => void;
-  /**
-   * Transformer transform handler
-   */
   onTransform?: (event: KonvaEventObject<Event>) => void;
-  /**
-   * Transformer transform end handler
-   */
   onTransformEnd?: (event: KonvaEventObject<Event>) => void;
-  /**
-   * Live data for selected layers (x, y, rotation, scale, width, height)
-   */
-  // No longer needed: selectedLayerLiveData
 }
 
 /**
@@ -121,6 +54,9 @@ export const SelectionLayer = ({
   scaleY,
   stageViewportOffsetX,
   stageViewportOffsetY,
+  padding,
+  borderDash,
+
   hasSelection,
   isInteracting,
   selectionProxyRef,
@@ -129,8 +65,6 @@ export const SelectionLayer = ({
   anchorCornerRadius,
   anchorStrokeWidth,
   hitStrokeWidth,
-  borderDash,
-  padding,
   onProxyDragStart,
   onProxyDragMove,
   onProxyDragEnd,
@@ -158,12 +92,14 @@ export const SelectionLayer = ({
   // Guard: Don't render selection proxy if selectionTransform is not defined
   return (
     <Layer 
+        key="selection-layer"
       listening={true}
       scaleX={scaleX}
       scaleY={scaleY}
     >
       {/* Debug: Always visible indicator */}
       <Rect
+        key="debug-lime-indicator"
         x={stageViewportOffsetX}
         y={stageViewportOffsetY}
         width={30}
@@ -183,16 +119,17 @@ export const SelectionLayer = ({
         strokeWidth={2}
       />
       {/* Use Redux selectionTransform for the proxy */}
-      {selectionTransform ? (
+      {(selectionTransform || true) ? (
         <Rect
+          key="selection-proxy"
           ref={selectionProxyRef}
-          x={selectionTransform.x}
-          y={selectionTransform.y}
-          width={selectionTransform.width}
-          height={selectionTransform.height}
-          rotation={selectionTransform.rotation}
-          scaleX={selectionTransform.scaleX}
-          scaleY={selectionTransform.scaleY}
+          x={selectionTransform?.x || 0}
+          y={selectionTransform?.y || 0}
+          width={selectionTransform?.width || 20}
+          height={selectionTransform?.height || 20}
+        //   rotation={selectionTransform?.rotation || 0}
+        //   scaleX={selectionTransform?.scaleX || 0}
+        //   scaleY={selectionTransform?.scaleY || 0}
           opacity={1}
           fill="red"
           stroke="blue"
@@ -207,6 +144,7 @@ export const SelectionLayer = ({
         />
       ) : null}
       <Transformer
+        key="selection-transformer"
         ref={transformerRef}
         rotateEnabled
         resizeEnabled
