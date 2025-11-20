@@ -21,7 +21,6 @@ interface StageLayerProps {
     scaleY: number;
     draggable: boolean;
     selectModeActive: boolean;
-    isSelected: boolean;
     stageViewportOffsetX: number;
     stageViewportOffsetY: number;
     baseCursor: string;
@@ -51,7 +50,6 @@ export const StageLayer = ({
     scaleY,
     draggable,
     selectModeActive,
-    isSelected,
     stageViewportOffsetX,
     stageViewportOffsetY,
     baseCursor,

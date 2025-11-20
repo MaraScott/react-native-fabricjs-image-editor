@@ -51,7 +51,7 @@ export const SimpleCanvas = ({
     const pointerPanState = useRef<PointerPanState | null>(null);
     const touchPanState = useRef<TouchPanState | null>(null);
     const selectionDragStateRef = useRef<SelectionDragState | null>(null);
-    const onRefChange = ({ node, layer, layerIsSelected }) => {
+    const onRefChange = ({ node, layer }) => {
         if (node) {
             layerNodeRefs.current.set(layer.id, node);
         } else {
@@ -96,6 +96,10 @@ export const SimpleCanvas = ({
     }, [layerControls?.layers, renderableLayers]);
 
     const selectedLayerIds = layerControls?.selectedLayerIds ?? [];
+    const stableSelectedLayerIds = useMemo(
+        () => selectedLayerIds,
+        [JSON.stringify(selectedLayerIds)]
+    );
     const selectedLayerSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds]);
 
     // Utility: Sync selectedLayerNodeRefs from layerNodeRefs and selectedLayerIds
@@ -379,7 +383,7 @@ export const SimpleCanvas = ({
         }
         // Always refresh on these triggers
         refreshBoundsFromSelection();
-    }, [selectModeActive, refreshBoundsFromSelection, layersRevision, scale, selectedLayerIds]);
+    }, [selectModeActive, layersRevision, scale, JSON.stringify(selectedLayerIds)]);
 
     // Unified effect: handle stage ready, scale, and zoom sync
     useEffect(() => {
@@ -846,6 +850,11 @@ export const SimpleCanvas = ({
         }
         : null;
     const sharedSelectionRect = selectionTransform ?? fallbackSelectionRect;
+    const viewportAdjustedSelectionRect = sharedSelectionRect ? {
+        ...sharedSelectionRect,
+        x: sharedSelectionRect.x + stageViewportOffsetX,
+        y: sharedSelectionRect.y + stageViewportOffsetY,
+    } : null;
 
     const baseCursor = (isPointerPanning || isTouchPanning)
         ? 'grabbing'
@@ -1070,15 +1079,17 @@ export const SimpleCanvas = ({
                 style={{
                     cursor: baseCursor,
                 }}
-            >   
-            
+            >
+
                 {layerControls && layersToRender.length > 0 ? (
                     layersToRender.map((layer, index) => {
                         const layerIsSelected = selectedLayerSet.has(layer.id);
-                        const selectionOverride = layerIsSelected ? sharedSelectionRect : null;
                         const layerBounds = layer.bounds ?? null;
                         const computedX = stageViewportOffsetX + (layerBounds ? layerBounds.x : layer.position.x);
                         const computedY = stageViewportOffsetY + (layerBounds ? layerBounds.y : layer.position.y);
+                        const selectionOverride = (layerIsSelected && isSelectionTransformingRef.current && viewportAdjustedSelectionRect)
+                            ? viewportAdjustedSelectionRect
+                            : null;
                         return (
                             <LayerAny
                                 key={`${layersRevision}-${layer.id}-${index}`}
@@ -1094,14 +1105,13 @@ export const SimpleCanvas = ({
                                 scaleY={selectionOverride ? selectionOverride.scaleY : (layer.scale?.y ?? 1)}
                                 draggable={Boolean(selectModeActive)}
                                 selectModeActive={selectModeActive}
-                                isSelected={layerIsSelected}
                                 stageViewportOffsetX={stageViewportOffsetX}
                                 stageViewportOffsetY={stageViewportOffsetY}
                                 baseCursor={baseCursor}
                                 layerNodeRefs={layerNodeRefs}
                                 pendingSelectionRef={pendingSelectionRef}
                                 selectionDragStateRef={selectionDragStateRef}
-                                onRefChange={(node) => onRefChange({ node, layer, layerIsSelected })}
+                                onRefChange={(node) => onRefChange({ node, layer })}
                                 updateBoundsFromLayerIds={updateBoundsFromLayerIds}
                                 syncTransformerToSelection={syncTransformerToSelection}
                             >
@@ -1129,7 +1139,7 @@ export const SimpleCanvas = ({
                         selectModeActive={selectModeActive}
                         scaleX={1 / safeScale}
                         scaleY={1 / safeScale}
-                        selectionRect={sharedSelectionRect}
+                        selectionRect={viewportAdjustedSelectionRect}
                         padding={transformerPadding}
                         borderDash={outlineDash}
 
