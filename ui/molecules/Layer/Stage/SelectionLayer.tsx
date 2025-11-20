@@ -34,7 +34,6 @@ export interface SelectionLayerProps {
   selectionRect: SelectionRect | null;
   borderDash: number[];
   padding: number;
-  selectionProxyRef: MutableRefObject<Konva.Rect | null>;
   transformerRef: MutableRefObject<Konva.Transformer | null>;
   anchorSize: number;
   anchorCornerRadius: number;
@@ -63,7 +62,6 @@ export const SelectionLayer = ({
   selectionRect,
   padding,
   borderDash,
-  selectionProxyRef,
   transformerRef,
   anchorSize,
   anchorCornerRadius,
@@ -82,6 +80,7 @@ export const SelectionLayer = ({
   const storeSelectedLayerIds = layerControls?.selectedLayerIds ?? EMPTY_SELECTED_IDS;
   const shouldRenderSelection = storeSelectedLayerIds.length > 0;
   const sharedSelectionRect: SelectionRect | null = selectionRect ?? (selectionTransform ?? null);
+  console.log('SelectionLayer render', { selectModeActive, selectionRect, shouldRenderSelection, sharedSelectionRect, render: (shouldRenderSelection && sharedSelectionRect !== null) });
 
   if (!selectModeActive) {
     return null;
@@ -92,31 +91,30 @@ export const SelectionLayer = ({
     <Layer 
         key="selection-layer"
         listening={true}
-        scaleX={scaleX}
-        scaleY={scaleY}
+        // scaleX={scaleX}
+        // scaleY={scaleY}
     >
-      {shouldRenderSelection && sharedSelectionRect ? (
+      {shouldRenderSelection && sharedSelectionRect !== null ? (
         <Rect
           key="selection-proxy"
-          ref={selectionProxyRef}
-          x={sharedSelectionRect.x}
-          y={sharedSelectionRect.y}
-          width={sharedSelectionRect.width || 20}
-          height={sharedSelectionRect.height || 20}
+          x={sharedSelectionRect.x ?? 0}
+          y={sharedSelectionRect.y ?? 0}
+          width={sharedSelectionRect.width ?? 20}
+          height={sharedSelectionRect.height ?? 20}
           rotation={sharedSelectionRect.rotation ?? 0}
           scaleX={sharedSelectionRect.scaleX ?? 1}
           scaleY={sharedSelectionRect.scaleY ?? 1}
           opacity={1}
-          fill="red"
+          fill="transparent"
           stroke="blue"
           strokeWidth={2}
           strokeEnabled={true}
-          listening={shouldRenderSelection}
+          listening={false}
           draggable
           perfectDrawEnabled={false}
-          onDragStart={onProxyDragStart}
-          onDragMove={onProxyDragMove}
-          onDragEnd={onProxyDragEnd}
+        //   onDragStart={onProxyDragStart}
+        //   onDragMove={onProxyDragMove}
+        //   onDragEnd={onProxyDragEnd}
         />
       ) : null}
       <Transformer
