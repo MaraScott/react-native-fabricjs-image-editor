@@ -138,7 +138,112 @@ export const StageLayer = ({
         }
 
         event.cancelBubble = true;
-    }
+    };
+
+    const handleDragStart = useCallback((event: KonvaEventObject<DragEvent>) => {
+        if (!selectModeActive || !layerControls) return;
+
+        event.cancelBubble = true;
+
+        let activeSelection = pendingSelectionRef.current ?? layerControls.selectedLayerIds;
+
+        if (!activeSelection.includes(layerId)) {
+            pendingSelectionRef.current = layerControls.selectLayer(layerId, { mode: 'replace' });
+            activeSelection = pendingSelectionRef.current ?? [layerId];
+        }
+
+        const initialPositions = new Map<string, { x: number; y: number }>();
+        activeSelection.forEach((id) => {
+            const node = id === layerId ? event.target : layerNodeRefs.current.get(id);
+            if (node) {
+                const pos = node.position();
+                initialPositions.set(id, { x: pos.x, y: pos.y });
+            }
+        });
+
+        selectionDragStateRef.current = {
+            anchorLayerId: layerId,
+            initialPositions,
+        };
+
+        updateBoundsFromLayerIds(activeSelection);
+
+        const stage = event.target.getStage();
+        if (stage) {
+            stage.container().style.cursor = 'grabbing';
+        }
+    }, [layerControls, layerId, layerNodeRefs, pendingSelectionRef, selectModeActive, selectionDragStateRef, updateBoundsFromLayerIds]);
+
+    const handleDragMove = useCallback((event: KonvaEventObject<DragEvent>) => {
+        if (!selectModeActive || !layerControls) return;
+
+        const dragState = selectionDragStateRef.current;
+        const activeSelection = pendingSelectionRef.current ?? layerControls.selectedLayerIds;
+
+        if (!dragState || activeSelection.length === 0) {
+            updateBoundsFromLayerIds(activeSelection);
+            return;
+        }
+
+        const anchorInitial = dragState.initialPositions.get(layerId);
+        if (!anchorInitial) {
+            return;
+        }
+
+        const currentPosition = event.target.position();
+        const deltaX = currentPosition.x - anchorInitial.x;
+        const deltaY = currentPosition.y - anchorInitial.y;
+
+        activeSelection.forEach((id) => {
+            if (id === layerId) {
+                return;
+            }
+            const original = dragState.initialPositions.get(id);
+            const node = layerNodeRefs.current.get(id);
+            if (!original || !node) {
+                return;
+            }
+            node.position({
+                x: original.x + deltaX,
+                y: original.y + deltaY,
+            });
+        });
+
+        updateBoundsFromLayerIds(activeSelection);
+        event.target.getStage()?.batchDraw();
+    }, [layerControls, layerId, layerNodeRefs, pendingSelectionRef, selectModeActive, selectionDragStateRef, updateBoundsFromLayerIds]);
+
+    const handleDragEnd = useCallback((event: KonvaEventObject<DragEvent>) => {
+        if (!selectModeActive || !layerControls) return;
+
+        const dragState = selectionDragStateRef.current;
+        selectionDragStateRef.current = null;
+
+        const activeSelection = (pendingSelectionRef.current ?? layerControls.selectedLayerIds).slice();
+        pendingSelectionRef.current = null;
+
+        const idsToUpdate = dragState?.initialPositions ? activeSelection : [layerId];
+
+        idsToUpdate.forEach((id: string) => {
+            const node = id === layerId ? event.target : layerNodeRefs.current.get(id);
+            if (!node) {
+                return;
+            }
+            const position = node.position();
+            layerControls.updateLayerPosition(id, {
+                x: position.x - stageViewportOffsetX,
+                y: position.y - stageViewportOffsetY,
+            });
+        });
+
+        measureAndStoreBounds(layerRef.current);
+        updateBoundsFromLayerIds(layerControls.selectedLayerIds);
+
+        const stage = event.target.getStage();
+        if (stage) {
+            stage.container().style.cursor = baseCursor;
+        }
+    }, [layerControls, layerId, layerNodeRefs, measureAndStoreBounds, pendingSelectionRef, selectModeActive, selectionDragStateRef, stageViewportOffsetX, stageViewportOffsetY]);
     return (
         <KonvaLayer
             key={`${layersRevision}-${layerId}`}
@@ -190,114 +295,9 @@ export const StageLayer = ({
             //       stage.container().style.cursor = 'pointer';
             //     }
             //   }}
-            //   onDragStart={(event: KonvaEventObject<DragEvent>) => {
-            //     if (!selectModeActive || !layerControls) return;
-
-            //     event.cancelBubble = true;
-
-            //     const activeSelection = pendingSelectionRef.current ?? layerControls.selectedLayerIds;
-            //     const selection = activeSelection.includes(layerId) ? activeSelection : [layerId];
-
-            //     const initialPositions = new Map<string, { x: number; y: number }>();
-            //     selection.forEach((id: string) => {
-            //       const descriptor = layerControls.layers.find((entry: any) => entry.id === id);
-            //       if (descriptor) {
-            //         initialPositions.set(id, { ...descriptor.position });
-            //       }
-            //     });
-
-            //     if (!initialPositions.has(layerId)) {
-            //       const layerDescriptor = layerControls.layers.find((entry: any) => entry.id === layerId);
-            //       if (layerDescriptor) {
-            //         initialPositions.set(layerId, { ...layerDescriptor.position });
-            //       }
-            //     }
-
-            //     selectionDragStateRef.current = {
-            //       anchorLayerId: layerId,
-            //       initialPositions,
-            //     };
-
-            //     updateBoundsFromLayerIds(selection);
-
-            //     const stage = event.target.getStage();
-            //     if (stage) {
-            //       stage.container().style.cursor = 'grabbing';
-            //     }
-            //   }}
-            //   onDragMove={(event: KonvaEventObject<DragEvent>) => {
-            //     if (!selectModeActive || !layerControls) return;
-
-            //     const dragState = selectionDragStateRef.current;
-            //     const activeSelection = pendingSelectionRef.current ?? layerControls.selectedLayerIds;
-
-            //     if (!dragState) {
-            //       updateBoundsFromLayerIds(activeSelection);
-            //       event.target.getStage()?.batchDraw();
-            //       return;
-            //     }
-
-            //     const anchorInitial = dragState.initialPositions.get(layerId);
-            //     if (!anchorInitial) {
-            //       return;
-            //     }
-
-            //     const currentPosition = event.target.position();
-            //     const deltaX = currentPosition.x - anchorInitial.x;
-            //     const deltaY = currentPosition.y - anchorInitial.y;
-
-            //     activeSelection.forEach((id: string) => {
-            //       if (id === layerId) {
-            //         return;
-            //       }
-            //       const original = dragState.initialPositions.get(id);
-            //       const node = layerNodeRefs.current.get(id);
-            //       if (!original || !node) {
-            //         return;
-            //       }
-            //       node.position({
-            //         x: original.x + deltaX,
-            //         y: original.y + deltaY,
-            //       });
-            //     });
-
-            //     updateBoundsFromLayerIds(activeSelection);
-            //     event.target.getStage()?.batchDraw();
-            //   }}
-            onDragEnd={(event: KonvaEventObject<DragEvent>) => {
-                if (!selectModeActive || !layerControls) return;
-
-                const dragState = selectionDragStateRef.current;
-                selectionDragStateRef.current = null;
-
-                const activeSelection = (pendingSelectionRef.current ?? layerControls.selectedLayerIds).slice();
-                pendingSelectionRef.current = null;
-
-                const idsToUpdate = dragState?.initialPositions ? activeSelection : [layerId];
-
-                idsToUpdate.forEach((id: string) => {
-                    const node = id === layerId ? event.target : layerNodeRefs.current.get(id);
-                    if (!node) {
-                        return;
-                    }
-                    const position = node.position();
-                    layerControls.updateLayerPosition(id, {
-                        x: position.x - stageViewportOffsetX,
-                        y: position.y - stageViewportOffsetY,
-                    });
-                });
-
-                measureAndStoreBounds(layerRef.current);
-
-                // layerControls.ensureAllVisible();
-                // updateBoundsFromLayerIds(layerControls.selectedLayerIds);
-
-                // const stage = event.target.getStage();
-                // if (stage) {
-                //   stage.container().style.cursor = 'pointer';
-                // }
-                // event.target.getStage()?.batchDraw();
-            }}
+            onDragStart={handleDragStart}
+            onDragMove={handleDragMove}
+            onDragEnd={handleDragEnd}
         >
             {children}
         </KonvaLayer>
