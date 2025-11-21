@@ -12,6 +12,7 @@ export interface ZoomControlProps {
   key?: string;
   zoom: number;
   onZoomChange: (zoom: number) => void;
+  onFit?: () => void;
   minZoom?: number;
   maxZoom?: number;
   step?: number;
@@ -24,38 +25,24 @@ export interface ZoomControlProps {
 export const ZoomControl = ({
   zoom,
   onZoomChange,
+  onFit,
   minZoom = -100,
-  maxZoom = -1 * minZoom,
+  maxZoom = 200,
   step = 10,
 }: ZoomControlProps) => {
-  /**
-   * handleZoomIn - Auto-generated summary; refine if additional context is needed.
-   */
-  /**
-   * handleZoomIn - Auto-generated documentation stub.
-   */
+  const clamp = (value: number) => Math.max(minZoom, Math.min(maxZoom, value));
+
   const handleZoomIn = () => {
-    onZoomChange(zoom);
+    onZoomChange(clamp(zoom + step));
   };
 
-  /**
-   * handleZoomOut - Auto-generated summary; refine if additional context is needed.
-   */
-  /**
-   * handleZoomOut - Auto-generated documentation stub.
-   */
   const handleZoomOut = () => {
-    onZoomChange(zoom);
+    onZoomChange(clamp(zoom - step));
   };
 
-  /**
-   * handleZoomReset - Auto-generated summary; refine if additional context is needed.
-   */
-  /**
-   * handleZoomReset - Auto-generated documentation stub.
-   */
   const handleZoomReset = () => {
     onZoomChange(0);
+    onFit?.();
   };
 
   const isMinZoom = zoom <= minZoom;

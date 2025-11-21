@@ -1,30 +1,34 @@
 import { useCallback } from 'react';
 
 // Zoom-related useCallback hooks
-export function useUpdateZoom(onZoomChange?: (zoom: number) => void) {
+export function useUpdateZoom(
+  onZoomChange?: (zoom: number) => void,
+  setInternalZoom?: (updater: (prev: number) => number) => void,
+) {
   return useCallback(
     (
       updater: (previousZoom: number) => number,
       options?: { threshold?: number }
     ) => {
+      if (!setInternalZoom) {
+        return;
+      }
       const threshold = options?.threshold ?? 0;
-      return (setInternalZoom: (updater: (prev: number) => number) => void) => {
-        setInternalZoom((previousZoom) => {
-          const nextZoom = clampZoomValue(updater(previousZoom));
-          if (threshold > 0 && Math.abs(nextZoom - previousZoom) < threshold) {
-            return previousZoom;
-          }
-          if (nextZoom !== previousZoom) {
-            if (onZoomChange) {
-              onZoomChange(nextZoom);
-            }
-            return nextZoom;
-          }
+      setInternalZoom((previousZoom) => {
+        const nextZoom = clampZoomValue(updater(previousZoom));
+        if (threshold > 0 && Math.abs(nextZoom - previousZoom) < threshold) {
           return previousZoom;
-        });
-      };
+        }
+        if (nextZoom !== previousZoom) {
+          if (onZoomChange) {
+            onZoomChange(nextZoom);
+          }
+          return nextZoom;
+        }
+        return previousZoom;
+      });
     },
-    [onZoomChange]
+    [onZoomChange, setInternalZoom]
   );
 }
 

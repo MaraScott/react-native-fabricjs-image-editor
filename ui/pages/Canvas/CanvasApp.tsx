@@ -59,6 +59,7 @@ export const CanvasApp = ({
    * @returns {initialZoom} Result produced by useState.
    */
   const [zoom, setZoom] = useState(initialZoom);
+  const [fitRequest, setFitRequest] = useState(0);
   
   const initialCanvasLayers = useMemo<CanvasLayerDefinition[]>(() => [
     {
@@ -154,7 +155,7 @@ export const CanvasApp = ({
   return (
     <CanvasLayout
       headerLeft={<HeaderLeft width={width} height={height} />}
-      headerCenter={<ZoomControl zoom={zoom} onZoomChange={setZoom} />}
+      headerCenter={<ZoomControl zoom={zoom} onZoomChange={setZoom} onFit={() => setFitRequest((v) => v + 1)} />}
       sidebarLeft={<SideBarLeft isPanToolActive={isPanToolActive} isSelectToolActive={isSelectToolActive} />}
       footer={<Footer />}
     >
@@ -166,6 +167,7 @@ export const CanvasApp = ({
         containerBackground={containerBackground}
         zoom={zoom}
         onZoomChange={setZoom}
+        fitRequest={fitRequest}
         panModeActive={isPanToolActive}
         selectModeActive={isSelectToolActive}
         initialLayers={initialCanvasLayers}

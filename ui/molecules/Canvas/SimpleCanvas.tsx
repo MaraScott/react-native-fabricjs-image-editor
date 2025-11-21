@@ -23,6 +23,7 @@ export interface SimpleCanvasProps {
     backgroundColor?: string;
     containerBackground?: string;
     zoom?: number;
+    fitRequest?: number;
     children?: ReactNode;
     onStageReady?: (stage: Konva.Stage) => void;
     onZoomChange?: (zoom: number) => void;
@@ -36,6 +37,7 @@ export const SimpleCanvas = ({
     stageHeight = 1024,
     containerBackground = '#cccccc',
     zoom = 0,
+    fitRequest = 0,
     children,
     onStageReady,
     onZoomChange,
@@ -116,6 +118,10 @@ export const SimpleCanvas = ({
     const transformerAnchorCornerRadius = Math.max(2 / safeScale, 1);
     const transformerPadding = 0;
     const transformerHitStrokeWidth = Math.max(12 / safeScale, 6);
+    // Keep pan offset ref in sync for event handlers that read it
+    useEffect(() => {
+        panOffsetRef.current = panOffset;
+    }, [panOffset]);
 
     // Utility: Sync selectedLayerNodeRefs from layerNodeRefs and selectedLayerIds
     const syncSelectedLayerNodeRefs = useCallback(() => {
@@ -215,15 +221,18 @@ export const SimpleCanvas = ({
         }
     }, [selectedLayerIds, selectedLayerBounds, reduxSelectionTransform, dispatch]);
 
-    // Unified effect: batch draw stage and reset pan on zoom reset
+    // Unified effect: batch draw stage
     useEffect(() => {
         if (stageRef.current) {
             stageRef.current.batchDraw();
         }
-        if (zoom === 0 && (panOffsetRef.current.x !== 0 || panOffsetRef.current.y !== 0)) {
-            setPanOffset({ x: 0, y: 0 });
-        }
     }, [layerControls, layersRevision, selectModeActive, zoom]);
+
+    // Recenter-on-fit token from parent (Fit button)
+    useEffect(() => {
+        setPanOffset({ x: 0, y: 0 });
+        panOffsetRef.current = { x: 0, y: 0 };
+    }, [fitRequest]);
 
     const captureSelectionTransformState = useCallback(() => {
 

@@ -27,6 +27,7 @@ export interface CanvasContainerProps {
   backgroundColor?: string;
   containerBackground?: string;
   zoom?: number;
+  fitRequest?: number;
   children?: ReactNode;
   onStageReady?: (stage: Konva.Stage) => void;
   onZoomChange?: (zoom: number) => void;
@@ -45,6 +46,7 @@ export const CanvasContainer = ({
   backgroundColor = '#ffffff',
   containerBackground = '#cccccc',
   zoom = 0,
+  fitRequest = 0,
   children,
   onStageReady,
   onZoomChange,
@@ -175,6 +177,7 @@ export const CanvasContainer = ({
         backgroundColor={backgroundColor}
         containerBackground={containerBackground}
         zoom={zoom}
+        fitRequest={fitRequest}
         onStageReady={handleStageReady}
         onZoomChange={onZoomChange}
         panModeActive={panModeActive}
