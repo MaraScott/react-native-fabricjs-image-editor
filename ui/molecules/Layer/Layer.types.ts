@@ -62,6 +62,7 @@ export interface LayerControlHandlers {
   layers: LayerDescriptor[];
   selectedLayerIds: string[];
   primaryLayerId: string | null;
+  layersRevision: number;
   selectLayer: (layerId: string, options?: { mode?: 'append' | 'toggle' |'exclusive' | 'replace' }) => string[];
   clearSelection?: () => void;
   addLayer: () => void;

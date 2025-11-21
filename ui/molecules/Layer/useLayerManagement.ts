@@ -133,7 +133,6 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
   // Revision counter for layer changes
   const [layersRevision, setLayersRevision] = useState(0);
 
-  // Bump layers revision
   const bumpLayersRevision = useCallback(() => {
     setLayersRevision((previous) => previous + 1);
   }, []);
@@ -180,13 +179,11 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
   // Ensure at least one layer exists
   useEffect(() => {
     if (layers.length === 0) {
+      let seedLayers: LayerDescriptor[] = [];
       if (initialLayerState.length > 0) {
-        setLayers(initialLayerState);
-        const first = initialLayerState[0];
-        setSelectedLayerIds([first.id]);
-        setPrimaryLayerId(first.id);
+        seedLayers = initialLayerState;
       } else {
-        const newLayer: LayerDescriptor = {
+        seedLayers = [{
           id: generateLayerId(),
           name: 'Layer 1',
           visible: true,
@@ -194,11 +191,12 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
           rotation: 0,
           scale: { x: 1, y: 1 },
           render: () => null,
-        };
-        setLayers([newLayer]);
-        setSelectedLayerIds([newLayer.id]);
-        setPrimaryLayerId(newLayer.id);
+        }];
       }
+      const first = seedLayers[0];
+      setLayers(seedLayers);
+      setSelectedLayerIds(first ? [first.id] : []);
+      setPrimaryLayerId(first ? first.id : null);
     }
   }, [layers.length, initialLayerState]);
 
@@ -223,7 +221,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
       return nextLayers;
     });
     return changed;
-  }, []);
+  }, [primaryLayerId, selectedLayerIds]);
 
   const mapAllLayers = useCallback((transformer: (layer: LayerDescriptor) => LayerDescriptor) => {
     let changed = false;
@@ -243,7 +241,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
       return nextLayers;
     });
     return changed;
-  }, []);
+  }, [primaryLayerId, selectedLayerIds]);
 
   // Clear selection
   const clearSelection = useCallback(() => {
@@ -306,7 +304,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
     }
 
     return nextSelection;
-  }, [layerIndexMap, selectedLayerIds]);
+  }, [layerIndexMap, layers, selectedLayerIds]);
 
   // Add new layer
   const addLayer = useCallback(() => {
