@@ -104,6 +104,19 @@ export const SimpleCanvas = ({
     );
     const selectedLayerSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds]);
 
+    // Viewport offsets and transformer scale helpers
+    const renderWidth = Math.max(1, stageWidth * scale);
+    const renderHeight = Math.max(1, stageHeight * scale);
+    const safeScale = Math.max(scale, 0.0001);
+    const stageViewportOffsetX = ((containerDimensions.width - renderWidth) / 2 + panOffset.x) / Math.max(safeScale, 0.000001);
+    const stageViewportOffsetY = ((containerDimensions.height - renderHeight) / 2 + panOffset.y) / Math.max(safeScale, 0.000001);
+    const outlineDash: [number, number] = [8 / safeScale, 4 / safeScale];
+    const transformerAnchorSize = Math.max(8 / safeScale, 6);
+    const transformerAnchorStrokeWidth = Math.max(1 / safeScale, 0.75);
+    const transformerAnchorCornerRadius = Math.max(2 / safeScale, 1);
+    const transformerPadding = 0;
+    const transformerHitStrokeWidth = Math.max(12 / safeScale, 6);
+
     // Utility: Sync selectedLayerNodeRefs from layerNodeRefs and selectedLayerIds
     const syncSelectedLayerNodeRefs = useCallback(() => {
         selectedLayerNodeRefs.current.clear();
@@ -124,15 +137,19 @@ export const SimpleCanvas = ({
             const rot = node.rotation();
             const scaleX = node.scaleX();
             const scaleY = node.scaleY();
+            // Nodes are positioned with viewport offsets applied; store back in layer space.
+            const adjustedX = pos.x - stageViewportOffsetX;
+            const adjustedY = pos.y - stageViewportOffsetY;
+
             if (typeof layerControls.updateLayerTransform === 'function') {
                 layerControls.updateLayerTransform(id, {
-                    position: { x: pos.x, y: pos.y },
+                    position: { x: adjustedX, y: adjustedY },
                     rotation: rot,
                     scale: { x: scaleX, y: scaleY },
                 });
             } else {
                 if (typeof layerControls.updateLayerPosition === 'function') {
-                    layerControls.updateLayerPosition(id, { x: pos.x, y: pos.y });
+                    layerControls.updateLayerPosition(id, { x: adjustedX, y: adjustedY });
                 }
                 if (typeof layerControls.updateLayerRotation === 'function') {
                     layerControls.updateLayerRotation(id, rot);
@@ -142,7 +159,7 @@ export const SimpleCanvas = ({
                 }
             }
         });
-    }, [layerControls]);
+    }, [layerControls, stageViewportOffsetX, stageViewportOffsetY]);
     const layerNodeRefs = useRef<Map<string, Konva.Node>>(new Map());
 
     // Use selection bounds hook (must be before using resolveSelectionRotation)
@@ -697,18 +714,6 @@ export const SimpleCanvas = ({
             container.removeEventListener('touchcancel', handleTouchCancel);
         };
     }, [applyZoomDelta, panModeActive]);
-
-    const renderWidth = Math.max(1, stageWidth * scale);
-    const renderHeight = Math.max(1, stageHeight * scale);
-    const safeScale = Math.max(scale, 0.0001);
-    const stageViewportOffsetX = ((containerDimensions.width - renderWidth) / 2 + panOffset.x) / Math.max(safeScale, 0.000001);
-    const stageViewportOffsetY = ((containerDimensions.height - renderHeight) / 2 + panOffset.y) / Math.max(safeScale, 0.000001);
-    const outlineDash: [number, number] = [8 / safeScale, 4 / safeScale];
-    const transformerAnchorSize = Math.max(8 / safeScale, 6);
-    const transformerAnchorStrokeWidth = Math.max(1 / safeScale, 0.75);
-    const transformerAnchorCornerRadius = Math.max(2 / safeScale, 1);
-    const transformerPadding = 0;
-    const transformerHitStrokeWidth = Math.max(12 / safeScale, 6);
 
     const sharedSelectionRect = selectionTransform ?? null;
 
