@@ -85,4 +85,8 @@ export interface LayerControlHandlers {
     }
   ) => void;
   updateLayerBounds?: (layerId: string, bounds: Bounds | null) => void;
+  undo?: () => void;
+  redo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }

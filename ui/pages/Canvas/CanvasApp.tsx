@@ -14,6 +14,7 @@ import { SideBarLeft } from '@organisms/SideBar';
 import type { CanvasLayerDefinition } from '@organisms/Canvas';
 import { ZoomControl } from '@molecules/Controls';
 import { Rect, Circle, Text } from 'react-konva';
+import { useState } from 'react';
 
 /**
  * CanvasAppProps interface - Auto-generated interface summary; customize as needed.
@@ -48,18 +49,15 @@ export const CanvasApp = ({
   containerBackground = '#cccccc',
   initialZoom = 0,
 }: CanvasAppProps) => {
-  /**
-   * useState - Auto-generated summary; refine if additional context is needed.
-   *
-   * @returns {initialZoom} Refer to the implementation for the precise returned value.
-   */
-  /**
-   * useState - Auto-generated documentation stub.
-   *
-   * @returns {initialZoom} Result produced by useState.
-   */
   const [zoom, setZoom] = useState(initialZoom);
   const [fitRequest, setFitRequest] = useState(0);
+  const [historyControls, setHistoryControls] = useState<{ undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean; revision?: number }>({
+    undo: () => {},
+    redo: () => {},
+    canUndo: false,
+    canRedo: false,
+    revision: 0,
+  });
   
   const initialCanvasLayers = useMemo<CanvasLayerDefinition[]>(() => [
     {
@@ -156,6 +154,16 @@ export const CanvasApp = ({
     <CanvasLayout
       headerLeft={<HeaderLeft width={width} height={height} />}
       headerCenter={<ZoomControl zoom={zoom} onZoomChange={setZoom} onFit={() => setFitRequest((v) => v + 1)} />}
+      headerRight={
+        <div className="history-controls">
+          <button type="button" onClick={historyControls.undo} disabled={!historyControls.canUndo} title="Undo">
+            ⎌ Undo
+          </button>
+          <button type="button" onClick={historyControls.redo} disabled={!historyControls.canRedo} title="Redo">
+            Redo ↻
+          </button>
+        </div>
+      }
       sidebarLeft={<SideBarLeft isPanToolActive={isPanToolActive} isSelectToolActive={isSelectToolActive} />}
       footer={<Footer />}
     >
@@ -168,6 +176,7 @@ export const CanvasApp = ({
         zoom={zoom}
         onZoomChange={setZoom}
         fitRequest={fitRequest}
+        onHistoryChange={setHistoryControls}
         panModeActive={isPanToolActive}
         selectModeActive={isSelectToolActive}
         initialLayers={initialCanvasLayers}

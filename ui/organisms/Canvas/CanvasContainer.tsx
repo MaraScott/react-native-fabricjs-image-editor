@@ -31,6 +31,7 @@ export interface CanvasContainerProps {
   children?: ReactNode;
   onStageReady?: (stage: Konva.Stage) => void;
   onZoomChange?: (zoom: number) => void;
+  onHistoryChange?: (handlers: { undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean; revision: number }) => void;
   panModeActive?: boolean;
   initialLayers?: CanvasLayerDefinition[];
   selectModeActive?: boolean;
@@ -50,6 +51,7 @@ export const CanvasContainer = ({
   children,
   onStageReady,
   onZoomChange,
+  onHistoryChange,
   panModeActive = false,
   initialLayers,
   selectModeActive = false,
@@ -96,16 +98,20 @@ export const CanvasContainer = ({
     moveLayer,
     toggleVisibility,
     reorderLayer,
-    ensureAllVisible,
-    updateLayerPosition,
-    updateLayerRotation,
-    updateLayerScale,
-    updateLayerTransform,
-  } = layerManagement;
+  ensureAllVisible,
+  updateLayerPosition,
+  updateLayerRotation,
+  updateLayerScale,
+  updateLayerTransform,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
+} = layerManagement;
 
-  // Create layerControls object for SimpleCanvas
-  const layerControls = useMemo<LayerControlHandlers>(() => ({
-    layers,
+// Create layerControls object for SimpleCanvas
+const layerControls = useMemo<LayerControlHandlers>(() => ({
+  layers,
     selectedLayerIds,
     primaryLayerId,
     layersRevision,
@@ -118,35 +124,49 @@ export const CanvasContainer = ({
     moveLayer,
     toggleVisibility,
     reorderLayer,
-    ensureAllVisible,
-    updateLayerPosition,
-    updateLayerScale,
-    updateLayerRotation,
-    updateLayerTransform,
-  }), [
-    layers,
-    selectedLayerIds,
-    primaryLayerId,
-    layersRevision,
-    selectLayer,
-    clearSelection,
-    addLayer,
-    removeLayer,
-    duplicateLayer,
-    copyLayer,
-    moveLayer,
-    toggleVisibility,
-    reorderLayer,
-    ensureAllVisible,
-    updateLayerPosition,
-    updateLayerScale,
-    updateLayerRotation,
-    updateLayerTransform,
-  ]);
+  ensureAllVisible,
+  updateLayerPosition,
+  updateLayerScale,
+  updateLayerRotation,
+  updateLayerTransform,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
+}), [
+  layers,
+  selectedLayerIds,
+  primaryLayerId,
+  layersRevision,
+  selectLayer,
+  clearSelection,
+  addLayer,
+  removeLayer,
+  duplicateLayer,
+  copyLayer,
+  moveLayer,
+  toggleVisibility,
+  reorderLayer,
+  ensureAllVisible,
+  updateLayerPosition,
+  updateLayerScale,
+  updateLayerRotation,
+  updateLayerTransform,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
+]);
 
   useEffect(() => {
     setSimpleCanvasLayerState(layerControls, layers);
   }, [layerControls, layers]);
+
+  useEffect(() => {
+    if (onHistoryChange) {
+      onHistoryChange({ undo, redo, canUndo, canRedo, revision: layersRevision });
+    }
+  }, [onHistoryChange, undo, redo, canUndo, canRedo, layersRevision]);
 
   useEffect(() => {
     return () => {

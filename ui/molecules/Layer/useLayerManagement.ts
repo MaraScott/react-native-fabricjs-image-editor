@@ -1,582 +1,378 @@
 /**
  * Layer Panel Hook - useLayerManagement
- * 
- * Custom hook for managing layer state and operations
+ *
+ * Centralized layer state with history backed by LayersHistory store.
  */
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
 import type { LayerDescriptor, LayerControlHandlers, LayerMoveDirection, ScaleVector, PanOffset } from '@molecules/Layer/Layer.types';
 import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 import { areBoundsEqual } from '@molecules/Canvas/utils/bounds';
 import type { CanvasLayerDefinition } from './types';
 import { generateLayerId, normaliseLayerDefinitions, areSelectionsEqual } from './utils';
+import {
+    initLayersHistory,
+    applyLayersSnapshot,
+    undoLayers,
+    redoLayers,
+    useLayersHistory,
+} from '@store/LayersHistory';
 
-/**
- * Hook parameters for useLayerManagement
- */
 export interface UseLayerManagementParams {
-  /**
-   * Initial layer definitions
-   */
-  initialLayers?: CanvasLayerDefinition[];
+    initialLayers?: CanvasLayerDefinition[];
 }
 
-/**
- * Hook return value for useLayerManagement
- */
 export interface UseLayerManagementReturn {
-  /**
-   * Array of layer descriptors
-   */
-  layers: LayerDescriptor[];
-  /**
-   * Array of selected layer IDs
-   */
-  selectedLayerIds: string[];
-  /**
-   * Primary layer ID (first in selection)
-   */
-  primaryLayerId: string | null;
-  /**
-   * Layers revision number - increments when layers change
-   */
-  layersRevision: number;
-  /**
-   * Map of layer IDs to their indices
-   */
-  layerIndexMap: Map<string, number>;
-  /**
-   * Select a layer with options
-   */
-  selectLayer: LayerControlHandlers['selectLayer'];
-  /**
-   * Clear layer selection
-   */
-  clearSelection: () => void;
-  /**
-   * Add a new layer
-   */
-  addLayer: () => void;
-  /**
-   * Remove a layer by ID
-   */
-  removeLayer: (layerId: string) => void;
-  /**
-   * Duplicate a layer by ID
-   */
-  duplicateLayer: (layerId: string) => void;
-  /**
-   * Copy a layer by ID
-   */
-  copyLayer: (layerId: string) => Promise<string | void> | string | void;
-  /**
-   * Move a layer up or down
-   */
-  moveLayer: (layerId: string, direction: LayerMoveDirection) => void;
-  /**
-   * Toggle layer visibility
-   */
-  toggleVisibility: (layerId: string) => void;
-  /**
-   * Reorder a layer
-   */
-  reorderLayer: (sourceId: string, targetId: string, position: 'above' | 'below') => void;
-  /**
-   * Ensure all layers are visible
-   */
-  ensureAllVisible: () => void;
-  /**
-   * Update layer position
-   */
-  updateLayerPosition: (layerId: string, position: { x: number; y: number }) => void;
-  /**
-   * Update layer rotation
-   */
-  updateLayerRotation: (layerId: string, rotation: number) => void;
-  /**
-   * Update layer scale
-   */
-  updateLayerScale: (layerId: string, scale: ScaleVector) => void;
-  /**
-   * Update layer transform
-   */
-  updateLayerTransform: (
-    layerId: string,
-    transform: {
-      position: PanOffset;
-      scale: ScaleVector;
-      rotation: number;
-    }
-  ) => void;
+    layers: LayerDescriptor[];
+    selectedLayerIds: string[];
+    primaryLayerId: string | null;
+    layersRevision: number;
+    layerIndexMap: Map<string, number>;
+    selectLayer: LayerControlHandlers['selectLayer'];
+    clearSelection: () => void;
+    addLayer: () => void;
+    removeLayer: (layerId: string) => void;
+    duplicateLayer: (layerId: string) => void;
+    copyLayer: (layerId: string) => Promise<string | void> | string | void;
+    moveLayer: (layerId: string, direction: LayerMoveDirection) => void;
+    toggleVisibility: (layerId: string) => void;
+    reorderLayer: (sourceId: string, targetId: string, position: 'above' | 'below') => void;
+    ensureAllVisible: () => void;
+    updateLayerPosition: (layerId: string, position: { x: number; y: number }) => void;
+    updateLayerRotation: (layerId: string, rotation: number) => void;
+    updateLayerScale: (layerId: string, scale: ScaleVector) => void;
+    updateLayerTransform: (
+        layerId: string,
+        transform: {
+            position: PanOffset;
+            scale: ScaleVector;
+            rotation: number;
+        }
+    ) => void;
+    updateLayerBounds: (layerId: string, bounds: Bounds | null) => void;
+    undo: () => void;
+    redo: () => void;
+    canUndo: boolean;
+    canRedo: boolean;
 }
 
-/**
- * Custom hook for managing canvas layers
- * 
- * Provides state management and handlers for layer operations including
- * selection, reordering, duplication, and transformation
- * 
- * @param {UseLayerManagementParams} params - Hook parameters
- * @returns {UseLayerManagementReturn} Layer state and control handlers
- */
 export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLayerManagementReturn => {
-  const { initialLayers } = params;
-
-  // Normalize initial layers
-  const initialLayerState = useMemo(() => {
-    if (!initialLayers || initialLayers.length === 0) {
-      return [];
-    }
-    return normaliseLayerDefinitions(initialLayers);
-  }, [initialLayers]);
-
-  // Revision counter for layer changes
-  const [layersRevision, setLayersRevision] = useState(0);
-
-  const bumpLayersRevision = useCallback(() => {
-    setLayersRevision((previous) => previous + 1);
-  }, []);
-
-  // Layer state
-  const [layers, setLayers] = useState<LayerDescriptor[]>(() => {
-    if (initialLayerState.length > 0) {
-      return initialLayerState;
-    }
-
-    return [
-      {
-        id: generateLayerId(),
-        name: 'Layer 1',
-        visible: true,
-        position: { x: 0, y: 0 },
-        rotation: 0,
-        scale: { x: 1, y: 1 },
-        render: () => null,
-      },
-    ];
-  });
-
-  // Selection state
-  const [selectedLayerIds, setSelectedLayerIds] = useState<string[]>(() => {
-    const firstLayer = initialLayerState[0];
-    return firstLayer ? [firstLayer.id] : [];
-  });
-
-  const [primaryLayerId, setPrimaryLayerId] = useState<string | null>(() => {
-    const firstLayer = initialLayerState[0];
-    return firstLayer?.id ?? null;
-  });
-
-  // Layer index map for efficient lookups
-  const layerIndexMap = useMemo(() => {
-    const map = new Map<string, number>();
-    layers.forEach((layer, index) => {
-      map.set(layer.id, index);
-    });
-    return map;
-  }, [layers]);
-
-  // Ensure at least one layer exists
-  useEffect(() => {
-    if (layers.length === 0) {
-      let seedLayers: LayerDescriptor[] = [];
-      if (initialLayerState.length > 0) {
-        seedLayers = initialLayerState;
-      } else {
-        seedLayers = [{
-          id: generateLayerId(),
-          name: 'Layer 1',
-          visible: true,
-          position: { x: 0, y: 0 },
-          rotation: 0,
-          scale: { x: 1, y: 1 },
-          render: () => null,
-        }];
-      }
-      const first = seedLayers[0];
-      setLayers(seedLayers);
-      setSelectedLayerIds(first ? [first.id] : []);
-      setPrimaryLayerId(first ? first.id : null);
-    }
-  }, [layers.length, initialLayerState]);
-
-  const updateLayerById = useCallback((layerId: string, transformer: (layer: LayerDescriptor) => LayerDescriptor) => {
-    let changed = false;
-    setLayers((previousLayers) => {
-      let localChange = false;
-      const nextLayers = previousLayers.map((layer) => {
-        if (layer.id !== layerId) {
-          return layer;
-        }
-        const updatedLayer = transformer(layer);
-        if (updatedLayer !== layer) {
-          localChange = true;
-        }
-        return updatedLayer;
-      });
-      if (!localChange) {
-        return previousLayers;
-      }
-      changed = true;
-      return nextLayers;
-    });
-    return changed;
-  }, [primaryLayerId, selectedLayerIds]);
-
-  const mapAllLayers = useCallback((transformer: (layer: LayerDescriptor) => LayerDescriptor) => {
-    let changed = false;
-    setLayers((previousLayers) => {
-      let localChange = false;
-      const nextLayers = previousLayers.map((layer) => {
-        const updatedLayer = transformer(layer);
-        if (updatedLayer !== layer) {
-          localChange = true;
-        }
-        return updatedLayer;
-      });
-      if (!localChange) {
-        return previousLayers;
-      }
-      changed = true;
-      return nextLayers;
-    });
-    return changed;
-  }, [primaryLayerId, selectedLayerIds]);
-
-  // Clear selection
-  const clearSelection = useCallback(() => {
-    setSelectedLayerIds([]);
-    setPrimaryLayerId(null);
-  }, []);
-
-  // Select layer with various modes
-  const selectLayer = useCallback<LayerControlHandlers['selectLayer']>((layerId, options) => {
-    const mode = options?.mode ?? 'replace';
-
-    if (!layerIndexMap.has(layerId)) {
-      return selectedLayerIds;
-    }
-
-    const uniqueAndSorted = (ids: string[]): string[] => {
-      const seen = new Set<string>();
-      const filtered: string[] = [];
-      ids.forEach((id) => {
-        if (layerIndexMap.has(id) && !seen.has(id)) {
-          seen.add(id);
-          filtered.push(id);
-        }
-      });
-      filtered.sort((a, b) => (layerIndexMap.get(a) ?? 0) - (layerIndexMap.get(b) ?? 0));
-      return filtered;
-    };
-
-    const currentSelection = selectedLayerIds.filter((id) => layerIndexMap.has(id));
-    const isSelected = currentSelection.includes(layerId);
-    let nextSelection: string[] = [];
-
-    switch (mode) {
-      case 'append': {
-        nextSelection = isSelected
-          ? currentSelection
-          : uniqueAndSorted([...currentSelection, layerId]);
-        break;
-      }
-      case 'toggle': {
-        nextSelection = isSelected
-          ? currentSelection.filter((id) => id !== layerId)
-          : uniqueAndSorted([...currentSelection, layerId]);
-        break;
-      }
-      case 'exclusive': {
-        nextSelection = isSelected ? [] : [layerId];
-        break;
-      }
-      case 'replace':
-      default: {
-        nextSelection = [layerId];
-        break;
-      }
-    }
-
-    if (!areSelectionsEqual(currentSelection, nextSelection)) {
-      setSelectedLayerIds(nextSelection);
-      setPrimaryLayerId(nextSelection[0] ?? null);
-    }
-
-    return nextSelection;
-  }, [layerIndexMap, layers, selectedLayerIds]);
-
-  // Add new layer
-  const addLayer = useCallback(() => {
-    const newLayer: LayerDescriptor = {
-      id: generateLayerId(),
-      name: `Layer ${layers.length + 1}`,
-      visible: true,
-      position: { x: 0, y: 0 },
-      rotation: 0,
-      scale: { x: 1, y: 1 },
-      render: () => null,
-    };
-
-    setLayers((previous) => [...previous, newLayer]);
-    setSelectedLayerIds([newLayer.id]);
-    setPrimaryLayerId(newLayer.id);
-    bumpLayersRevision();
-  }, [layers.length, bumpLayersRevision]);
-
-  // Remove layer
-  const removeLayer = useCallback<LayerControlHandlers['removeLayer']>((layerId) => {
-    setLayers((previousLayers) => {
-      if (previousLayers.length === 1) {
-        return previousLayers;
-      }
-
-      const nextLayers = previousLayers.filter((layer) => layer.id !== layerId);
-
-      if (nextLayers.length === 0) {
-        return previousLayers;
-      }
-
-      return nextLayers;
-    });
-
-    setSelectedLayerIds((previousSelection) => {
-      const filtered = previousSelection.filter((id) => id !== layerId);
-
-      if (filtered.length === 0 && layers.length > 1) {
-        const fallbackLayer = layers.find((layer) => layer.id !== layerId);
-        return fallbackLayer ? [fallbackLayer.id] : [];
-      }
-
-      return filtered;
-    });
-
-    setPrimaryLayerId((currentPrimary) => {
-      if (!currentPrimary || currentPrimary !== layerId) {
-        return currentPrimary;
-      }
-
-      const fallbackLayer = layers.find((layer) => layer.id !== layerId);
-      return fallbackLayer?.id ?? null;
-    });
-
-    bumpLayersRevision();
-  }, [layers, bumpLayersRevision]);
-
-  // Duplicate layer
-  const duplicateLayer = useCallback<LayerControlHandlers['duplicateLayer']>((layerId) => {
-    let newLayerId: string | null = null;
-
-    setLayers((previousLayers) => {
-      const index = previousLayers.findIndex((layer) => layer.id === layerId);
-      if (index === -1) {
-        return previousLayers;
-      }
-
-      const source = previousLayers[index];
-      const id = generateLayerId();
-      newLayerId = id;
-
-      const clone: LayerDescriptor = {
-        ...source,
-        id,
-        name: `${source.name} Copy`,
-      };
-
-      const nextLayers = [...previousLayers];
-      nextLayers.splice(index, 0, clone);
-      return nextLayers;
-    });
-
-    if (newLayerId) {
-      setSelectedLayerIds([newLayerId]);
-      setPrimaryLayerId(newLayerId);
-    }
-
-    bumpLayersRevision();
-  }, [bumpLayersRevision]);
-
-  // Copy layer (placeholder implementation)
-  const copyLayer = useCallback<LayerControlHandlers['copyLayer']>((layerId) => {
-    // Placeholder - actual implementation depends on clipboard API
-    return layerId;
-  }, []);
-
-  // Move layer within stack
-  const moveLayer = useCallback<LayerControlHandlers['moveLayer']>((layerId, direction) => {
-    let didMove = false;
-
-    setLayers((previousLayers) => {
-        
-      const currentIndex = previousLayers.findIndex((layer) => layer.id === layerId);
-
-      if (currentIndex === -1 || previousLayers.length < 2) {
-        return previousLayers;
-      }
-
-      const isAtTop = currentIndex === previousLayers.length - 1;
-      const isAtBottom = currentIndex === 0;
-
-      if (
-        (direction === 'up' && isAtTop) ||
-        (direction === 'top' && isAtTop) ||
-        (direction === 'down' && isAtBottom) ||
-        (direction === 'bottom' && isAtBottom)
-      ) {
-        return previousLayers;
-      }
-
-      const nextLayers = [...previousLayers];
-      const [moved] = nextLayers.splice(currentIndex, 1);
-
-      let insertIndex = currentIndex;
-      switch (direction) {
-        case 'up':
-          insertIndex = Math.min(currentIndex + 1, nextLayers.length);
-          break;
-        case 'down':
-          insertIndex = Math.max(currentIndex - 1, 0);
-          break;
-        case 'top':
-          insertIndex = nextLayers.length;
-          break;
-        case 'bottom':
-          insertIndex = 0;
-          break;
-        default: {
-          const fallbackIndex = Math.min(currentIndex, nextLayers.length);
-          nextLayers.splice(fallbackIndex, 0, moved);
-          return nextLayers;
-        }
-      }
-
-      nextLayers.splice(insertIndex, 0, moved);
-      didMove = true;
-      return nextLayers;
-    });
-
-    if (didMove) {
-      setSelectedLayerIds([layerId]);
-      setPrimaryLayerId(layerId);
-      bumpLayersRevision();
-    }
-  }, [bumpLayersRevision]);
-
-  // Toggle layer visibility
-  const toggleVisibility = useCallback<LayerControlHandlers['toggleVisibility']>((layerId) => {
-    if (updateLayerById(layerId, (layer) => ({ ...layer, visible: !layer.visible }))) {
-      bumpLayersRevision();
-    }
-  }, [updateLayerById, bumpLayersRevision]);
-
-  // Reorder layer
-  const reorderLayer = useCallback<LayerControlHandlers['reorderLayer']>((sourceId, targetId, position) => {
-    setLayers((previousLayers) => {
-      const sourceIndex = previousLayers.findIndex((layer) => layer.id === sourceId);
-      const targetIndex = previousLayers.findIndex((layer) => layer.id === targetId);
-
-      if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) {
-        return previousLayers;
-      }
-
-      const nextLayers = [...previousLayers];
-      const [movedLayer] = nextLayers.splice(sourceIndex, 1);
-
-      const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
-      const insertIndex = position === 'above' ? adjustedTargetIndex + 1  : adjustedTargetIndex;
-
-      nextLayers.splice(insertIndex, 0, movedLayer);
-
-      return nextLayers;
-    });
-
-    bumpLayersRevision();
-  }, [bumpLayersRevision]);
-
-  // Ensure all layers are visible
-  const ensureAllVisible = useCallback(() => {
-    if (mapAllLayers((layer) => (layer.visible ? layer : { ...layer, visible: true }))) {
-      bumpLayersRevision();
-    }
-  }, [mapAllLayers, bumpLayersRevision]);
-
-  // Update layer position
-  const updateLayerPosition = useCallback<LayerControlHandlers['updateLayerPosition']>((layerId, position) => {
-    if (updateLayerById(layerId, (layer) => ({ ...layer, position }))) {
-      bumpLayersRevision();
-    }
-  }, [updateLayerById, bumpLayersRevision]);
-
-  // Update layer rotation
-  const updateLayerRotation = useCallback<NonNullable<LayerControlHandlers['updateLayerRotation']>>((layerId, rotation) => {
-    if (updateLayerById(layerId, (layer) => ({ ...layer, rotation }))) {
-      bumpLayersRevision();
-    }
-  }, [updateLayerById, bumpLayersRevision]);
-
-  // Update layer scale
-  const updateLayerScale = useCallback<NonNullable<LayerControlHandlers['updateLayerScale']>>((layerId, scale) => {
-    if (updateLayerById(layerId, (layer) => ({ ...layer, scale }))) {
-      bumpLayersRevision();
-    }
-  }, [updateLayerById, bumpLayersRevision]);
-
-  // Update layer transform (position, rotation, scale)
-  const updateLayerTransform = useCallback<NonNullable<LayerControlHandlers['updateLayerTransform']>>((layerId, transform) => {
-    if (updateLayerById(layerId, (layer) => ({
-      ...layer,
-      position: transform.position,
-      rotation: transform.rotation,
-      scale: transform.scale,
-    }))) {
-      bumpLayersRevision();
-    }
-  }, [updateLayerById, bumpLayersRevision]);
-
-  const updateLayerBounds = useCallback<NonNullable<LayerControlHandlers['updateLayerBounds']>>((layerId, bounds) => {
-    setLayers((previousLayers) => {
-      let changed = false;
-      const nextLayers = previousLayers.map((layer) => {
-        if (layer.id !== layerId) {
-          return layer;
-        }
-
-        const currentBounds = layer.bounds ?? null;
-        if (areBoundsEqual(currentBounds, bounds)) {
-          return layer;
-        }
-
-        changed = true;
+    const { initialLayers } = params;
+
+    const initialLayerState = useMemo(() => normaliseLayerDefinitions(initialLayers ?? []), [initialLayers]);
+
+    const initialSnapshot = useMemo(() => {
+        const seedLayers: LayerDescriptor[] =
+            initialLayerState.length > 0
+                ? initialLayerState
+                : [
+                    {
+                        id: generateLayerId(),
+                        name: 'Layer 1',
+                        visible: true,
+                        position: { x: 0, y: 0 },
+                        rotation: 0,
+                        scale: { x: 1, y: 1 },
+                        render: () => null,
+                    },
+                ];
+        const first = seedLayers[0];
         return {
-          ...layer,
-          bounds: bounds ? { ...bounds } : null,
+            layers: seedLayers,
+            selectedLayerIds: first ? [first.id] : [],
+            primaryLayerId: first ? first.id : null,
+            revision: 0,
         };
-      });
+    }, [initialLayerState]);
 
-      return changed ? nextLayers : previousLayers;
-    });
-  }, []);
+    const historyState = useLayersHistory((state) => state);
+    const present = historyState?.present ?? initialSnapshot;
 
-  return {
-    layers,
-    selectedLayerIds,
-    primaryLayerId,
-    layersRevision,
-    layerIndexMap,
-    selectLayer,
-    clearSelection,
-    addLayer,
-    removeLayer,
-    duplicateLayer,
-    copyLayer,
-    moveLayer,
-    toggleVisibility,
-    reorderLayer,
-    ensureAllVisible,
-    updateLayerPosition,
-    updateLayerRotation,
-    updateLayerScale,
-    updateLayerTransform,
-    updateLayerBounds,
-  };
+    // Ensure history is initialized once
+    useEffect(() => {
+        if (!historyState) {
+            initLayersHistory(initialSnapshot);
+        }
+    }, [historyState, initialSnapshot]);
+
+    const apply = useCallback(
+        (snapshot: typeof present) => {
+            applyLayersSnapshot(snapshot);
+        },
+        [],
+    );
+
+    const applyLayers = useCallback(
+    (nextLayers: LayerDescriptor[], nextSelected: string[] = present.selectedLayerIds, nextPrimary: string | null = nextSelected[0] ?? null) => {
+        apply({
+            layers: nextLayers,
+            selectedLayerIds: nextSelected,
+            primaryLayerId: nextPrimary,
+            revision: present.revision + 1,
+        });
+    },
+    [apply, present.revision, present.selectedLayerIds],
+  );
+
+    const layerIndexMap = useMemo(() => {
+        const map = new Map<string, number>();
+        present.layers.forEach((layer, index) => map.set(layer.id, index));
+        return map;
+    }, [present.layers]);
+
+    const selectLayer: LayerControlHandlers['selectLayer'] = useCallback(
+        (layerId, options) => {
+            const mode = options?.mode ?? 'replace';
+            if (!layerIndexMap.has(layerId)) {
+                return present.selectedLayerIds;
+            }
+            const uniqueAndSorted = (ids: string[]) => {
+                const seen = new Set<string>();
+                const filtered: string[] = [];
+                ids.forEach((id) => {
+                    if (layerIndexMap.has(id) && !seen.has(id)) {
+                        seen.add(id);
+                        filtered.push(id);
+                    }
+                });
+                filtered.sort((a, b) => (layerIndexMap.get(a) ?? 0) - (layerIndexMap.get(b) ?? 0));
+                return filtered;
+            };
+
+            const currentSelection = present.selectedLayerIds.filter((id) => layerIndexMap.has(id));
+            const isSelected = currentSelection.includes(layerId);
+            let nextSelection: string[] = [];
+
+            switch (mode) {
+                case 'append': {
+                    nextSelection = isSelected ? currentSelection : uniqueAndSorted([...currentSelection, layerId]);
+                    break;
+                }
+                case 'toggle': {
+                    nextSelection = isSelected
+                        ? currentSelection.filter((id) => id !== layerId)
+                        : uniqueAndSorted([...currentSelection, layerId]);
+                    break;
+                }
+                case 'exclusive': {
+                    nextSelection = isSelected ? [] : [layerId];
+                    break;
+                }
+                case 'replace':
+                default: {
+                    nextSelection = [layerId];
+                    break;
+                }
+            }
+
+            if (!areSelectionsEqual(currentSelection, nextSelection)) {
+                applyLayers(present.layers, nextSelection, nextSelection[0] ?? null);
+            }
+
+            return nextSelection;
+        },
+        [applyLayers, layerIndexMap, present.layers, present.selectedLayerIds],
+    );
+
+    const clearSelection = useCallback(() => {
+        applyLayers(present.layers, [], null);
+    }, [applyLayers, present.layers]);
+
+    const addLayer = useCallback(() => {
+        const newLayer: LayerDescriptor = {
+            id: generateLayerId(),
+            name: `Layer ${present.layers.length + 1}`,
+            visible: true,
+            position: { x: 0, y: 0 },
+            rotation: 0,
+            scale: { x: 1, y: 1 },
+            render: () => null,
+        };
+        const nextLayers = [...present.layers, newLayer];
+        applyLayers(nextLayers, [newLayer.id], newLayer.id);
+    }, [applyLayers, present.layers]);
+
+    const removeLayer = useCallback<LayerControlHandlers['removeLayer']>((layerId) => {
+        if (present.layers.length <= 1) {
+            return;
+        }
+        const nextLayers = present.layers.filter((layer) => layer.id !== layerId);
+        if (nextLayers.length === present.layers.length) {
+            return;
+        }
+        const nextSelection = present.selectedLayerIds.filter((id) => id !== layerId);
+        const nextPrimary = nextSelection[0] ?? (nextLayers[0]?.id ?? null);
+        applyLayers(nextLayers, nextSelection, nextPrimary);
+    }, [applyLayers, present.layers, present.selectedLayerIds]);
+
+    const duplicateLayer = useCallback<LayerControlHandlers['duplicateLayer']>((layerId) => {
+        const layer = present.layers.find((l) => l.id === layerId);
+        if (!layer) return;
+        const newLayer: LayerDescriptor = {
+            ...layer,
+            id: generateLayerId(),
+            name: `${layer.name} Copy`,
+            position: { ...layer.position },
+            rotation: layer.rotation,
+            scale: layer.scale ? { ...layer.scale } : { x: 1, y: 1 },
+        };
+        const layerIndex = present.layers.findIndex((l) => l.id === layerId);
+        const nextLayers = [...present.layers];
+        nextLayers.splice(layerIndex + 1, 0, newLayer);
+        applyLayers(nextLayers, [newLayer.id], newLayer.id);
+    }, [applyLayers, present.layers]);
+
+    const copyLayer = useCallback<LayerControlHandlers['copyLayer']>(async (layerId) => layerId, []);
+
+    const moveLayer = useCallback<LayerControlHandlers['moveLayer']>((layerId, direction) => {
+        const index = present.layers.findIndex((layer) => layer.id === layerId);
+        if (index === -1) return;
+
+        let targetIndex = index;
+        switch (direction) {
+            case 'up': // move visually up/front: higher index
+                targetIndex = Math.min(present.layers.length - 1, index + 1);
+                break;
+            case 'down': // move visually down/back: lower index
+                targetIndex = Math.max(0, index - 1);
+                break;
+            case 'top':
+                targetIndex = present.layers.length - 1;
+                break;
+            case 'bottom':
+                targetIndex = 0;
+                break;
+            default:
+                return;
+        }
+
+        if (targetIndex === index) return;
+
+        const nextLayers = [...present.layers];
+        const [moved] = nextLayers.splice(index, 1);
+        nextLayers.splice(targetIndex, 0, moved);
+        applyLayers(nextLayers, present.selectedLayerIds, present.primaryLayerId);
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const toggleVisibility = useCallback<LayerControlHandlers['toggleVisibility']>((layerId) => {
+        applyLayers(
+            present.layers.map((layer) => (layer.id === layerId ? { ...layer, visible: !layer.visible } : layer)),
+            present.selectedLayerIds,
+            present.primaryLayerId,
+        );
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const reorderLayer = useCallback<LayerControlHandlers['reorderLayer']>((sourceId, targetId, position) => {
+        if (sourceId === targetId) return;
+        const sourceIndex = present.layers.findIndex((layer) => layer.id === sourceId);
+        const targetIndex = present.layers.findIndex((layer) => layer.id === targetId);
+        if (sourceIndex === -1 || targetIndex === -1) return;
+
+        const nextLayers = [...present.layers];
+        const [movedLayer] = nextLayers.splice(sourceIndex, 1);
+
+        const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+        const insertIndex = position === 'above' ? adjustedTargetIndex + 1 : adjustedTargetIndex;
+
+        nextLayers.splice(insertIndex, 0, movedLayer);
+        applyLayers(nextLayers, present.selectedLayerIds, present.primaryLayerId);
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const ensureAllVisible = useCallback(() => {
+        applyLayers(present.layers.map((layer) => (layer.visible ? layer : { ...layer, visible: true })), present.selectedLayerIds, present.primaryLayerId);
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const updateLayerPosition = useCallback<LayerControlHandlers['updateLayerPosition']>((layerId, position) => {
+        applyLayers(
+            present.layers.map((layer) => (layer.id === layerId ? { ...layer, position } : layer)),
+            present.selectedLayerIds,
+            present.primaryLayerId,
+        );
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const updateLayerRotation = useCallback<NonNullable<LayerControlHandlers['updateLayerRotation']>>((layerId, rotation) => {
+        applyLayers(
+            present.layers.map((layer) => (layer.id === layerId ? { ...layer, rotation } : layer)),
+            present.selectedLayerIds,
+            present.primaryLayerId,
+        );
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const updateLayerScale = useCallback<NonNullable<LayerControlHandlers['updateLayerScale']>>((layerId, scale) => {
+        applyLayers(
+            present.layers.map((layer) => (layer.id === layerId ? { ...layer, scale } : layer)),
+            present.selectedLayerIds,
+            present.primaryLayerId,
+        );
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const updateLayerTransform = useCallback<NonNullable<LayerControlHandlers['updateLayerTransform']>>((layerId, transform) => {
+        applyLayers(
+            present.layers.map((layer) =>
+                layer.id === layerId
+                    ? {
+                        ...layer,
+                        position: transform.position,
+                        rotation: transform.rotation,
+                        scale: transform.scale,
+                    }
+                    : layer
+            ),
+            present.selectedLayerIds,
+            present.primaryLayerId,
+        );
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const updateLayerBounds = useCallback<NonNullable<LayerControlHandlers['updateLayerBounds']>>((layerId, bounds) => {
+        applyLayers(
+            present.layers.map((layer) => {
+                if (layer.id !== layerId) return layer;
+                const currentBounds = layer.bounds ?? null;
+                if (areBoundsEqual(currentBounds, bounds)) {
+                    return layer;
+                }
+                return {
+                    ...layer,
+                    bounds: bounds ? { ...bounds } : null,
+                };
+            }),
+            present.selectedLayerIds,
+            present.primaryLayerId,
+        );
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const undo = useCallback(() => {
+        undoLayers();
+    }, []);
+
+    const redo = useCallback(() => {
+        redoLayers();
+    }, []);
+
+    return {
+        layers: present.layers,
+        selectedLayerIds: present.selectedLayerIds,
+        primaryLayerId: present.primaryLayerId,
+        layersRevision: present.revision,
+        layerIndexMap,
+        selectLayer,
+        clearSelection,
+        addLayer,
+        removeLayer,
+        duplicateLayer,
+        copyLayer,
+        moveLayer,
+        toggleVisibility,
+        reorderLayer,
+        ensureAllVisible,
+        updateLayerPosition,
+        updateLayerRotation,
+        updateLayerScale,
+        updateLayerTransform,
+        updateLayerBounds,
+        undo,
+        redo,
+        canUndo: (historyState?.history.length ?? 0) > 0,
+        canRedo: (historyState?.future.length ?? 0) > 0,
+    };
 };
