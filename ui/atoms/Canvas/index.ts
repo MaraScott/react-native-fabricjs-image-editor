@@ -5,5 +5,7 @@
 
 export { Stage } from './Stage';
 export { Layer } from './Layer';
+export { Group } from './Group';
 export type { StageProps } from './Stage';
 export type { LayerProps } from './Layer';
+export type { GroupProps } from './Group';

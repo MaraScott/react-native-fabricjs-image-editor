@@ -925,6 +925,60 @@ function createKonvaComponent<T extends Konva.Node>(factory: NodeFactory<T>) {
   return Component;
 }
 
+function createContainerComponent<T extends Konva.Container>(factory: NodeFactory<T>) {
+  const Component = forwardRef<T | null, PropsWithChildren<NodeProps>>((props, forwardedRef) => {
+    const parent = useKonvaParent();
+    const nodeRef: MutableRefObject<T | null> = useRef<T | null>(null);
+    const prevPropsRef = useRef<Record<string, any>>({});
+    const [ready, setReady] = useState(false);
+
+    useImperativeHandle(
+      forwardedRef,
+      () => {
+        return nodeRef.current;
+      },
+      [ready],
+    );
+
+    useEffect(() => {
+      const node = factory();
+      nodeRef.current = node;
+      (parent as any).add(node);
+      const initialProps = filterProps(props);
+      prevPropsRef.current = initialProps;
+      applyNodeProps(node, initialProps, {});
+      setReady(true);
+
+      return () => {
+        node.destroy();
+        nodeRef.current = null;
+        prevPropsRef.current = {};
+        setReady(false);
+      };
+    }, [parent]);
+
+    useEffect(() => {
+      const node = nodeRef.current;
+      if (!node) return;
+      const newProps = filterProps(props);
+      applyNodeProps(node, newProps, prevPropsRef.current);
+      prevPropsRef.current = newProps;
+    });
+
+    if (!ready) {
+      return null;
+    }
+
+    return (
+      <KonvaParentContext.Provider value={nodeRef.current}>
+        {props.children}
+      </KonvaParentContext.Provider>
+    );
+  });
+
+  return Component;
+}
+
 /**
  * createKonvaComponent - Auto-generated summary; refine if additional context is needed.
  */
@@ -1003,4 +1057,4 @@ export const Image = createKonvaComponent(() => new Konva.Image());
 /**
  * createKonvaComponent - Auto-generated documentation stub.
  */
-export const Group = createKonvaComponent(() => new Konva.Group());
+export const Group = createContainerComponent(() => new Konva.Group());

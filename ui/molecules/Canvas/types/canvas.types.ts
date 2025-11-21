@@ -1,3 +1,4 @@
+import type Konva from 'konva';
 import type { PanOffset } from "@molecules/Layer/Layer.types"; 
 
 /**
@@ -39,7 +40,7 @@ export type SelectionDragState = {
  */
 export type SelectionNodeSnapshot = {
   id: string;
-  node: Konva.Layer;
+  node: Konva.Node;
   transform: Konva.Transform;
 };
 

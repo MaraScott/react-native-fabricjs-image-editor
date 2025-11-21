@@ -1,4 +1,5 @@
 import { useCallback, useMemo, MutableRefObject } from 'react';
+import type Konva from 'konva';
 import type { Bounds } from '../types/canvas.types';
 import type { LayerControlHandlers } from '@molecules/Layer/Layer.types';
 import { computeNodeBounds, areBoundsEqual } from '../utils';
@@ -9,7 +10,7 @@ interface useSelectionBoundsParams {
     selectModeActive: boolean;
     layerControls: LayerControlHandlers | undefined | null;
     stageRef: MutableRefObject<Konva.Stage | null>;
-    layerNodeRefs: MutableRefObject<Map<string, Konva.Layer>>;
+    layerNodeRefs: MutableRefObject<Map<string, Konva.Node>>;
     pendingSelectionRef: MutableRefObject<string[] | null>;
     transformAnimationFrameRef: MutableRefObject<number | null>;
     setSelectedLayerBounds: (bounds: Bounds | null | ((prev: Bounds | null) => Bounds | null)) => void;
@@ -61,7 +62,7 @@ export const useSelectionBounds = ({
                     const cachedNode = layerNodeRefs.current.get(layerId);
                     return cachedNode ?? stage?.findOne(`#layer-${layerId}`) ?? null;
                 })
-                .filter((node): node is Konva.Layer => Boolean(node));
+                .filter((node): node is Konva.Node => Boolean(node));
 
             if (nodes.length !== layerIds.length) {
                 if (attempt < BOUNDS_RETRY_LIMIT && typeof window !== 'undefined') {

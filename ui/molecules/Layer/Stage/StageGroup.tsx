@@ -1,14 +1,13 @@
-import { Layer as KonvaLayer } from '@atoms/Canvas';
+import { Group as KonvaGroup } from '@atoms/Canvas';
 import type { KonvaEventObject } from 'konva/lib/Node';
-import type { ReactNode } from 'react';
-import type { DragEvent } from 'react';
+import type { ReactNode, DragEvent } from 'react';
 import { useCallback, useEffect, useRef } from 'react';
 import type Konva from 'konva';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 import { areBoundsEqual } from '@molecules/Canvas/utils/bounds';
 
-interface StageLayerProps {
+interface StageGroupProps {
     layersRevision: number;
     index?: number;
     id: string;
@@ -27,17 +26,17 @@ interface StageLayerProps {
     children: ReactNode;
 
     // Refs and state setters
-    layerNodeRefs: React.RefObject<Map<string, Konva.Layer>>;
+    layerNodeRefs: React.RefObject<Map<string, Konva.Node>>;
     pendingSelectionRef: React.RefObject<string[] | null>;
     selectionDragStateRef: React.RefObject<any>;
 
     // Callbacks
-    onRefChange: (node: Konva.Layer | null) => void;
+    onRefChange: (node: Konva.Node | null) => void;
     updateBoundsFromLayerIds: (ids: string[]) => void;
     syncTransformerToSelection: () => void;
 }
 
-export const StageLayer = ({
+export const StageGroup = ({
     layersRevision,
     index,
     id,
@@ -52,20 +51,20 @@ export const StageLayer = ({
     selectModeActive,
     stageViewportOffsetX,
     stageViewportOffsetY,
-    baseCursor,
-    children,
-    layerNodeRefs,
-    pendingSelectionRef,
-    selectionDragStateRef,
-    onRefChange,
-    updateBoundsFromLayerIds,
-    syncTransformerToSelection,
-}: StageLayerProps) => {
+        baseCursor,
+        children,
+        layerNodeRefs,
+        pendingSelectionRef,
+        selectionDragStateRef,
+        onRefChange,
+        updateBoundsFromLayerIds,
+        syncTransformerToSelection,
+}: StageGroupProps) => {
     const layerControls = useSimpleCanvasStore((state) => state.layerControls);
-    const layerRef = useRef<Konva.Layer | null>(null);
+    const layerRef = useRef<Konva.Node | null>(null);
     const lastRecordedBoundsRef = useRef<Bounds | null>(null);
 
-    const measureAndStoreBounds = useCallback((node: Konva.Layer | null) => {
+    const measureAndStoreBounds = useCallback((node: Konva.Node | null) => {
         if (!layerControls?.updateLayerBounds) {
             return;
         }
@@ -110,7 +109,7 @@ export const StageLayer = ({
         layerControls.updateLayerBounds(layerId, normalizedBounds);
     }, [layerControls, layerId, stageViewportOffsetX, stageViewportOffsetY]);
 
-    const handleLayerRef = useCallback((node: Konva.Layer | null) => {
+    const handleLayerRef = useCallback((node: Konva.Node | null) => {
         layerRef.current = node;
         measureAndStoreBounds(node);
         onRefChange(node);
@@ -118,13 +117,13 @@ export const StageLayer = ({
 
     useEffect(() => {
         measureAndStoreBounds(layerRef.current);
-    }, [measureAndStoreBounds, layersRevision, visible, x, y, scaleX, scaleY]);
+    }, [measureAndStoreBounds, layersRevision, visible, x, y, rotation, scaleX, scaleY]);
 
     if (!layerControls) {
         return null;
     }
     const onPointerDown = (event: KonvaEventObject<PointerEvent>) => {
-        console.log('#### StageLayer onPointerDown layerId:', layerId);
+        console.log('#### StageGroup onPointerDown layerId:', layerId);
         if (!selectModeActive || !layerControls) {
             return;
         }
@@ -245,15 +244,16 @@ export const StageLayer = ({
         }
     }, [layerControls, layerId, layerNodeRefs, measureAndStoreBounds, pendingSelectionRef, selectModeActive, selectionDragStateRef, stageViewportOffsetX, stageViewportOffsetY]);
     return (
-        <KonvaLayer
+        <KonvaGroup
             key={`${layersRevision}-${layerId}`}
             ref={handleLayerRef}
+            id={id}
             visible={visible}
             x={x}
             y={y}
-            //   rotation={rotation}
-            //   scaleX={scaleX}
-            //   scaleY={scaleY}
+            rotation={rotation}
+            scaleX={scaleX}
+            scaleY={scaleY}
             draggable={draggable}
             //   onClick={(event: KonvaEventObject<MouseEvent>) => {
             //     if (!selectModeActive || !layerControls) {
@@ -300,6 +300,6 @@ export const StageLayer = ({
             onDragEnd={handleDragEnd}
         >
             {children}
-        </KonvaLayer>
+        </KonvaGroup>
     );
 };

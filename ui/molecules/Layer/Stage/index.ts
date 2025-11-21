@@ -5,4 +5,4 @@
 
 export * from './BackgroundLayer';
 export * from './SelectionLayer';
-export * from './StageLayer';
+export * from './StageGroup';

@@ -6,13 +6,16 @@ import { useSelector, useDispatch } from 'react-redux';
 import { selectActions } from '@store/CanvasApp/view/select';
 import { selectSelectionTransform } from '@store/CanvasApp/view/selectors';
 import { Stage } from '@atoms/Canvas';
-import { SelectionLayer, StageLayer as Layer, LayerPanelUI, BackgroundLayer } from '@molecules/Layer';
+import { SelectionLayer, StageGroup, LayerPanelUI, BackgroundLayer } from '@molecules/Layer';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 import { useSelectionBounds } from './hooks/useSelectionBounds';
+import { Layer as KonvaLayer } from '@atoms/Canvas';
 
 import type { RootState } from '@store/CanvasApp';
 import type { PointerPanState, TouchPanState, SelectionDragState, SelectionNodeSnapshot, SelectionTransformSnapshot, Bounds } from './types/canvas.types';
 import type { PanOffset } from '@molecules/Layer/Layer.types';
+
+import { Rect, Group } from "react-konva";
 
 export interface SimpleCanvasProps {
     stageWidth?: number;
@@ -79,8 +82,8 @@ export const SimpleCanvas = ({
         | null
     >(null);
 
-    // Map of selected layer IDs to their Konva.Layer nodes
-    const selectedLayerNodeRefs = useRef<Map<string, Konva.Layer>>(new Map());
+    // Map of selected layer IDs to their Konva nodes
+    const selectedLayerNodeRefs = useRef<Map<string, Konva.Node>>(new Map());
 
     const layersToRender = useMemo(() => {
         if (!layerControls) return [];
@@ -140,7 +143,7 @@ export const SimpleCanvas = ({
             }
         });
     }, [layerControls]);
-    const layerNodeRefs = useRef<Map<string, Konva.Layer>>(new Map());
+    const layerNodeRefs = useRef<Map<string, Konva.Node>>(new Map());
 
     // Use selection bounds hook (must be before using resolveSelectionRotation)
     const {
@@ -925,7 +928,7 @@ export const SimpleCanvas = ({
             stage.off('touchstart', handler);
         };
     }, [selectModeActive, clearSelection]);
-    const LayerAny = Layer as any;
+    const GroupAny = StageGroup as any;
 
     return (
         <div
@@ -966,6 +969,7 @@ export const SimpleCanvas = ({
                 }}
             >
 
+                <KonvaLayer key="interaction-layer">
                 {layerControls && layersToRender.length > 0 ? (
                     layersToRender.map((layer, index) => {
                         const layerIsSelected = selectedLayerSet.has(layer.id);
@@ -976,41 +980,46 @@ export const SimpleCanvas = ({
                             ? sharedSelectionRect
                             : null;
                         return (
-                            <LayerAny
-                                key={`${layersRevision}-${layer.id}-${index}`}
-                                layersRevision={layersRevision}
-                                index={index}
-                                id={`layer-${layer.id}`}
-                                layerId={layer.id}
-                                visible={layer.visible}
-                                x={selectionOverride ? selectionOverride.x : computedX}
-                                y={selectionOverride ? selectionOverride.y : computedY}
-                                rotation={selectionOverride ? selectionOverride.rotation : (layer.rotation ?? 0)}
-                                scaleX={selectionOverride ? selectionOverride.scaleX : (layer.scale?.x ?? 1)}
-                                scaleY={selectionOverride ? selectionOverride.scaleY : (layer.scale?.y ?? 1)}
-                                draggable={Boolean(selectModeActive)}
-                                selectModeActive={selectModeActive}
-                                stageViewportOffsetX={stageViewportOffsetX}
-                                stageViewportOffsetY={stageViewportOffsetY}
-                                baseCursor={baseCursor}
-                                layerNodeRefs={layerNodeRefs}
-                                pendingSelectionRef={pendingSelectionRef}
-                                selectionDragStateRef={selectionDragStateRef}
-                                onRefChange={(node) => onRefChange({ node, layer })}
-                                updateBoundsFromLayerIds={updateBoundsFromLayerIds}
-                                syncTransformerToSelection={syncTransformerToSelection}
-                            >
-                                {layer.render()}
-                            </LayerAny>
+                            <>
+                                <GroupAny
+                                    key={`${layersRevision}-${layer.id}-${index}`}
+                                    layersRevision={layersRevision}
+                                    index={index}
+                                    style={{ zIndex: index }}
+                                    id={`layer-${layer.id}`}
+                                    layerId={layer.id}
+                                    visible={layer.visible}
+                                    x={selectionOverride ? selectionOverride.x : computedX}
+                                    y={selectionOverride ? selectionOverride.y : computedY}
+                                    rotation={selectionOverride ? selectionOverride.rotation : (layer.rotation ?? 0)}
+                                    scaleX={selectionOverride ? selectionOverride.scaleX : (layer.scale?.x ?? 1)}
+                                    scaleY={selectionOverride ? selectionOverride.scaleY : (layer.scale?.y ?? 1)}
+                                    draggable={Boolean(selectModeActive)}
+                                    selectModeActive={selectModeActive}
+                                    stageViewportOffsetX={stageViewportOffsetX}
+                                    stageViewportOffsetY={stageViewportOffsetY}
+                                    baseCursor={baseCursor}
+                                    layerNodeRefs={layerNodeRefs}
+                                    pendingSelectionRef={pendingSelectionRef}
+                                    selectionDragStateRef={selectionDragStateRef}
+                                    onRefChange={(node) => onRefChange({ node, layer })}
+                                    updateBoundsFromLayerIds={updateBoundsFromLayerIds}
+                                    syncTransformerToSelection={syncTransformerToSelection}
+                                >
+                                    {layer.render()}
+                                </GroupAny>
+                            </>
                         );
                     })
                 ) : (
-                    <LayerAny key="empty-layer">
+                    <GroupAny key="empty-layer">
                         {children}
-                    </LayerAny>
+                    </GroupAny>
                 )}
+                </KonvaLayer>
 
                 <BackgroundLayer
+                    key="background-layer"
                     containerWidth={containerDimensions.width / safeScale}
                     containerHeight={containerDimensions.height / safeScale}
                     containerBackground={containerBackground}
@@ -1021,6 +1030,7 @@ export const SimpleCanvas = ({
                 />
                 {layerControls && layersToRender.length > 0 ? (
                     <SelectionLayer
+                        key="selection-layer"
                         selectModeActive={selectModeActive}
                         scaleX={1 / safeScale}
                         scaleY={1 / safeScale}
