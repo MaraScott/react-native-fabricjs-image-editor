@@ -189,22 +189,6 @@ export const SelectionLayer = ({
           'bottom-center',
           'bottom-right',
         ]}
-        // Konva props to prevent handle scaling with transforms
-        anchorSize={anchorSize}
-        anchorCornerRadius={anchorCornerRadius}
-        anchorStrokeWidth={anchorStrokeWidth}
-        anchorHitStrokeWidth={hitStrokeWidth}
-        enabledAnchors={[
-          'top-left',
-          'top-center',
-          'top-right',
-          'middle-left',
-          'middle-right',
-          'bottom-left',
-          'bottom-center',
-          'bottom-right',
-        ]}
-        ignoreStroke={false}
         onTransformStart={handleTransformStart}
         onTransform={handleTransform}
         onTransformEnd={handleTransformEnd}
