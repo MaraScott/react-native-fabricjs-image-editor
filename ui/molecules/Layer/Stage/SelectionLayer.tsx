@@ -176,6 +176,24 @@ export const SelectionLayer = ({
         borderStrokeWidth={anchorStrokeWidth}
         borderDash={borderDash}
         padding={padding}
+        keepRatio={false}
+        ignoreStroke={false}
+        // keep handles from scaling with stage zoom
+        enabledAnchors={[
+          'top-left',
+          'top-center',
+          'top-right',
+          'middle-left',
+          'middle-right',
+          'bottom-left',
+          'bottom-center',
+          'bottom-right',
+        ]}
+        // Konva props to prevent handle scaling with transforms
+        anchorSize={anchorSize}
+        anchorCornerRadius={anchorCornerRadius}
+        anchorStrokeWidth={anchorStrokeWidth}
+        anchorHitStrokeWidth={hitStrokeWidth}
         enabledAnchors={[
           'top-left',
           'top-center',

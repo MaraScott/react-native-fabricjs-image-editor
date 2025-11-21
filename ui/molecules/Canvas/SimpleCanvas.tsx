@@ -112,12 +112,13 @@ export const SimpleCanvas = ({
     const safeScale = Math.max(scale, 0.0001);
     const stageViewportOffsetX = ((containerDimensions.width - renderWidth) / 2 + panOffset.x) / Math.max(safeScale, 0.000001);
     const stageViewportOffsetY = ((containerDimensions.height - renderHeight) / 2 + panOffset.y) / Math.max(safeScale, 0.000001);
-    const outlineDash: [number, number] = [8 / safeScale, 4 / safeScale];
-    const transformerAnchorSize = Math.max(8 / safeScale, 6);
-    const transformerAnchorStrokeWidth = Math.max(1 / safeScale, 0.75);
-    const transformerAnchorCornerRadius = Math.max(2 / safeScale, 1);
+    // Keep selection handles a constant screen size (do not scale with zoom)
+    const outlineDash: [number, number] = [8, 4];
+    const transformerAnchorSize = 8;
+    const transformerAnchorStrokeWidth = 1;
+    const transformerAnchorCornerRadius = 2;
     const transformerPadding = 0;
-    const transformerHitStrokeWidth = Math.max(12 / safeScale, 6);
+    const transformerHitStrokeWidth = 12;
     // Keep pan offset ref in sync for event handlers that read it
     useEffect(() => {
         panOffsetRef.current = panOffset;
