@@ -315,60 +315,18 @@ export const SimpleCanvas = ({
     const updateZoom = useUpdateZoom(onZoomChange, setInternalZoom);
     const applyZoomDelta = useApplyZoomDelta(updateZoom);
 
-    const handleTransformerTransformStart = useCallback(() => {
-        isSelectionTransformingRef.current = true;
-        captureSelectionTransformState();
-        syncSelectedLayerNodeRefs(); // Ensure refs are up to date at start
-    }, [captureSelectionTransformState, syncSelectedLayerNodeRefs]);
+    const markSelectionTransforming = useCallback((flag: boolean) => {
+        isSelectionTransformingRef.current = flag;
+    }, []);
 
-    const handleTransformerTransform = useCallback(() => {
-        applySelectionTransformDelta();
-        syncSelectedLayerNodeRefs(); // Keep refs in sync during transform
-        scheduleBoundsRefresh();
-    }, [applySelectionTransformDelta, scheduleBoundsRefresh, syncSelectedLayerNodeRefs]);
-
-    const handleTransformerTransformEnd = useCallback(() => {
-        applySelectionTransformDelta();
-        syncSelectedLayerNodeRefs();
-        commitSelectedLayerNodeTransforms(); // Commit values back to state
-    }, [applySelectionTransformDelta, commitSelectedLayerNodeTransforms, syncSelectedLayerNodeRefs]);
-
-    const handleSelectionProxyDragStart = useCallback(() => {
-        if (!selectModeActive) {
-            return;
-        }
-        isSelectionTransformingRef.current = true;
-        captureSelectionTransformState();
-        const stage = stageRef.current;
-        if (stage) {
-            stage.container().style.cursor = 'grabbing';
-        }
-        const { x, y, width, height } = selectedLayerBounds;
-        // Default rotation and scale
+    const initializeSelectionTransform = useCallback((bounds: Bounds | null) => {
+        if (!bounds) return;
+        const { x, y, width, height } = bounds;
         const rotation = 0;
         const scaleX = 1;
         const scaleY = 1;
         dispatch(selectActions.setSelectionTransform({ x, y, width, height, rotation, scaleX, scaleY }));
-    }, [captureSelectionTransformState, selectModeActive, selectActions, dispatch, selectedLayerBounds]);
-
-    const handleSelectionProxyDragMove = useCallback(() => {
-        if (!selectModeActive) {
-            return;
-        }
-        applySelectionTransformDelta();
-        scheduleBoundsRefresh();
-    }, [applySelectionTransformDelta, scheduleBoundsRefresh, selectModeActive]);
-
-    const handleSelectionProxyDragEnd = useCallback(() => {
-        if (!selectModeActive) {
-            return;
-        }
-        applySelectionTransformDelta();
-        const stage = stageRef.current;
-        if (stage) {
-            stage.container().style.cursor = 'pointer';
-        }
-    }, [applySelectionTransformDelta, selectModeActive]);
+    }, [dispatch]);
 
     // Mouse wheel zoom
     useEffect(() => {
@@ -752,18 +710,7 @@ export const SimpleCanvas = ({
     const transformerPadding = 0;
     const transformerHitStrokeWidth = Math.max(12 / safeScale, 6);
 
-    const fallbackSelectionRect = (!selectionTransform && selectedLayerBounds)
-        ? {
-            x: selectedLayerBounds.x,
-            y: selectedLayerBounds.y,
-            width: selectedLayerBounds.width,
-            height: selectedLayerBounds.height,
-            rotation: resolveSelectionRotation(),
-            scaleX: 1,
-            scaleY: 1,
-        }
-        : null;
-    const sharedSelectionRect = selectionTransform ?? fallbackSelectionRect;
+    const sharedSelectionRect = selectionTransform ?? null;
 
     const baseCursor = (isPointerPanning || isTouchPanning)
         ? 'grabbing'
@@ -806,17 +753,6 @@ export const SimpleCanvas = ({
             return;
         }
 
-        // If we have an HTML overlay active (selection extends outside the stage) hide
-        // the Konva transformer and proxy so only the overlay is visible.
-        if (overlaySelectionBox) {
-            try {
-                transformer.nodes([]);
-                transformer.visible(false);
-                transformer.getLayer()?.batchDraw();
-            } catch { }
-            return;
-        }
-
         // Allow transformer to be visible during interaction even without valid bounds yet
         if (!selectModeActive || (!selectedLayerBounds)) {
             transformer.nodes([]);
@@ -825,63 +761,25 @@ export const SimpleCanvas = ({
             return;
         }
 
-        // If we're interacting but don't have bounds yet, keep transformer visible but without nodes
-        if (!selectedLayerBounds) {
+        const nodes = selectedLayerIds
+            .map((id) => layerNodeRefs.current.get(id))
+            .filter((node): node is Konva.Node => Boolean(node));
+
+        if (nodes.length === 0) {
             transformer.nodes([]);
-            transformer.visible(true);
+            transformer.visible(false);
             transformer.getLayer()?.batchDraw();
             return;
         }
 
-        if (!isSelectionTransformingRef.current) {
-            const minimumSize = 0.001;
-            // axis-aligned bounding box from nodes
-            const bboxW = Math.max(selectedLayerBounds.width, minimumSize);
-            const bboxH = Math.max(selectedLayerBounds.height, minimumSize);
-            const centerX = selectedLayerBounds.x + selectedLayerBounds.width / 2;
-            const centerY = selectedLayerBounds.y + selectedLayerBounds.height / 2;
-
-            // Determine desired rotation in degrees using the same logic as the overlay selection.
-            const rotationDeg = resolveSelectionRotation();
-            const rotationRad = (rotationDeg * Math.PI) / 180;
-
-            // Compute absolute trig values for the rotation
-            const a = Math.abs(Math.cos(rotationRad));
-            const b = Math.abs(Math.sin(rotationRad));
-
-            // Solve for local (unrotated) width/height so that when rotated by rotationDeg
-            // the axis-aligned bounding box becomes [bboxW, bboxH].
-            // [bboxW]   [ a  b ] [w]
-            // [bboxH] = [ b  a ] [h]
-            // Invert when possible: det = a^2 - b^2 = cos(2R)
-            let localW = bboxW;
-            let localH = bboxH;
-            const denom = a * a - b * b;
-
-            if (Math.abs(denom) < 1e-6) {
-                // Near singular (around 45deg) – fall back to a square to avoid instability
-                const maxSide = Math.max(bboxW, bboxH);
-                localW = maxSide;
-                localH = maxSide;
-            } else {
-                localW = (a * bboxW - b * bboxH) / denom;
-                localH = (-b * bboxW + a * bboxH) / denom;
-
-                // sanity clamps: ensure positive finite sizes
-                if (!Number.isFinite(localW) || localW <= 0) {
-                    localW = bboxW;
-                }
-                if (!Number.isFinite(localH) || localH <= 0) {
-                    localH = bboxH;
-                }
-            }
-
-        }
+        transformer.nodes(nodes);
+        transformer.rotation(resolveSelectionRotation());
+        transformer.centeredScaling(true);
 
         transformer.visible(true);
         transformer.forceUpdate();
         transformer.getLayer()?.batchDraw();
-    }, [selectModeActive, selectedLayerBounds, layerControls, selectedLayerIds, overlaySelectionBox, resolveSelectionRotation]);
+    }, [selectModeActive, selectedLayerBounds, selectedLayerIds, overlaySelectionBox, resolveSelectionRotation, layerNodeRefs]);
 
     // Unified effect: sync transformer to selection and handle rotation
     useEffect(() => {
@@ -1032,23 +930,22 @@ export const SimpleCanvas = ({
                     <SelectionLayer
                         key="selection-layer"
                         selectModeActive={selectModeActive}
-                        scaleX={1 / safeScale}
-                        scaleY={1 / safeScale}
-                        selectionRect={sharedSelectionRect}
                         padding={transformerPadding}
                         borderDash={outlineDash}
-
                         transformerRef={selectionTransformerRef}
                         anchorSize={transformerAnchorSize}
                         anchorCornerRadius={transformerAnchorCornerRadius}
                         anchorStrokeWidth={transformerAnchorStrokeWidth}
                         hitStrokeWidth={transformerHitStrokeWidth}
-                        onProxyDragStart={handleSelectionProxyDragStart}
-                        onProxyDragMove={handleSelectionProxyDragMove}
-                        onProxyDragEnd={handleSelectionProxyDragEnd}
-                        onTransformStart={handleTransformerTransformStart}
-                        onTransform={handleTransformerTransform}
-                        onTransformEnd={handleTransformerTransformEnd}
+                        stageRef={stageRef}
+                        selectedLayerBounds={selectedLayerBounds}
+                        captureSelectionTransformState={captureSelectionTransformState}
+                        applySelectionTransformDelta={applySelectionTransformDelta}
+                        syncSelectedLayerNodeRefs={syncSelectedLayerNodeRefs}
+                        commitSelectedLayerNodeTransforms={commitSelectedLayerNodeTransforms}
+                        scheduleBoundsRefresh={scheduleBoundsRefresh}
+                        initializeSelectionTransform={initializeSelectionTransform}
+                        markSelectionTransforming={markSelectionTransforming}
                     />
                 ) : null}
 

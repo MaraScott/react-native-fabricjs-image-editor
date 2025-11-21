@@ -7,10 +7,11 @@
 import { Layer, Rect, Transformer } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
-import type { MutableRefObject } from 'react';
+import type { MutableRefObject, DragEvent } from 'react';
 import { useSelector } from 'react-redux';
 import { selectSelectionTransform } from '@store/CanvasApp/view/selectors';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
+import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 
 const EMPTY_SELECTED_IDS: string[] = [];
 
@@ -29,9 +30,6 @@ type SelectionRect = {
  */
 export interface SelectionLayerProps {
   selectModeActive: boolean;
-  scaleX: number;
-  scaleY: number;
-  selectionRect: SelectionRect | null;
   borderDash: number[];
   padding: number;
   transformerRef: MutableRefObject<Konva.Transformer | null>;
@@ -39,12 +37,15 @@ export interface SelectionLayerProps {
   anchorCornerRadius: number;
   anchorStrokeWidth: number;
   hitStrokeWidth: number;
-  onProxyDragStart?: (event: KonvaEventObject<DragEvent>) => void;
-  onProxyDragMove?: (event: KonvaEventObject<DragEvent>) => void;
-  onProxyDragEnd?: (event: KonvaEventObject<DragEvent>) => void;
-  onTransformStart?: (event: KonvaEventObject<Event>) => void;
-  onTransform?: (event: KonvaEventObject<Event>) => void;
-  onTransformEnd?: (event: KonvaEventObject<Event>) => void;
+  stageRef: MutableRefObject<Konva.Stage | null>;
+  selectedLayerBounds: Bounds | null;
+  captureSelectionTransformState: () => void;
+  applySelectionTransformDelta: () => void;
+  syncSelectedLayerNodeRefs: () => void;
+  commitSelectedLayerNodeTransforms: () => void;
+  scheduleBoundsRefresh: () => void;
+  initializeSelectionTransform: (bounds: Bounds | null) => void;
+  markSelectionTransforming: (flag: boolean) => void;
 }
 
 /**
@@ -57,9 +58,6 @@ export interface SelectionLayerProps {
  */
 export const SelectionLayer = ({
   selectModeActive,
-  scaleX,
-  scaleY,
-  selectionRect,
   padding,
   borderDash,
   transformerRef,
@@ -67,20 +65,66 @@ export const SelectionLayer = ({
   anchorCornerRadius,
   anchorStrokeWidth,
   hitStrokeWidth,
-  onProxyDragStart,
-  onProxyDragMove,
-  onProxyDragEnd,
-  onTransformStart,
-  onTransform,
-  onTransformEnd,
+  stageRef,
+  selectedLayerBounds,
+  captureSelectionTransformState,
+  applySelectionTransformDelta,
+  syncSelectedLayerNodeRefs,
+  commitSelectedLayerNodeTransforms,
+  scheduleBoundsRefresh,
+  initializeSelectionTransform,
+  markSelectionTransforming,
 }: SelectionLayerProps) => {
   // Read selectionTransform from Redux
   const selectionTransform = useSelector(selectSelectionTransform);
   const layerControls = useSimpleCanvasStore((state) => state.layerControls);
   const storeSelectedLayerIds = layerControls?.selectedLayerIds ?? EMPTY_SELECTED_IDS;
-  const shouldRenderSelection = storeSelectedLayerIds.length > 0;
-  const sharedSelectionRect: SelectionRect | null = selectionRect ?? (selectionTransform ?? null);
-  console.log('SelectionLayer render', { selectModeActive, selectionRect, shouldRenderSelection, sharedSelectionRect, render: (shouldRenderSelection && sharedSelectionRect !== null) });
+  const shouldRenderSelection = storeSelectedLayerIds.length > 0 && Boolean(selectionTransform);
+  const sharedSelectionRect: SelectionRect | null = selectionTransform ?? null;
+
+  const handleProxyDragStart = (event: KonvaEventObject<DragEvent>) => {
+    if (!selectModeActive) return;
+    markSelectionTransforming(true);
+    captureSelectionTransformState();
+    const stage = stageRef.current;
+    if (stage) {
+      stage.container().style.cursor = 'grabbing';
+    }
+    initializeSelectionTransform(selectedLayerBounds);
+  };
+
+  const handleProxyDragMove = (event: KonvaEventObject<DragEvent>) => {
+    if (!selectModeActive) return;
+    applySelectionTransformDelta();
+    scheduleBoundsRefresh();
+  };
+
+  const handleProxyDragEnd = (event: KonvaEventObject<DragEvent>) => {
+    if (!selectModeActive) return;
+    applySelectionTransformDelta();
+    const stage = stageRef.current;
+    if (stage) {
+      stage.container().style.cursor = 'pointer';
+    }
+  };
+
+  const handleTransformStart = (event: KonvaEventObject<Event>) => {
+    markSelectionTransforming(true);
+    captureSelectionTransformState();
+    syncSelectedLayerNodeRefs();
+  };
+
+  const handleTransform = (event: KonvaEventObject<Event>) => {
+    applySelectionTransformDelta();
+    syncSelectedLayerNodeRefs();
+    scheduleBoundsRefresh();
+  };
+
+  const handleTransformEnd = (event: KonvaEventObject<Event>) => {
+    applySelectionTransformDelta();
+    syncSelectedLayerNodeRefs();
+    commitSelectedLayerNodeTransforms();
+  };
 
   if (!selectModeActive) {
     return null;
@@ -91,8 +135,6 @@ export const SelectionLayer = ({
     <Layer 
         key="selection-layer"
         listening={true}
-        // scaleX={scaleX}
-        // scaleY={scaleY}
     >
       {shouldRenderSelection && sharedSelectionRect !== null ? (
         <Rect
@@ -106,15 +148,16 @@ export const SelectionLayer = ({
           scaleY={sharedSelectionRect.scaleY ?? 1}
           opacity={1}
           fill="transparent"
-          stroke="blue"
+          stroke="#00f6ff"
           strokeWidth={2}
+          dash={[10, 10]}
           strokeEnabled={true}
-          listening={false}
+          listening={true}
           draggable
           perfectDrawEnabled={false}
-        //   onDragStart={onProxyDragStart}
-        //   onDragMove={onProxyDragMove}
-        //   onDragEnd={onProxyDragEnd}
+          onDragStart={handleProxyDragStart}
+          onDragMove={handleProxyDragMove}
+          onDragEnd={handleProxyDragEnd}
         />
       ) : null}
       <Transformer
@@ -133,10 +176,20 @@ export const SelectionLayer = ({
         borderStrokeWidth={anchorStrokeWidth}
         borderDash={borderDash}
         padding={padding}
+        enabledAnchors={[
+          'top-left',
+          'top-center',
+          'top-right',
+          'middle-left',
+          'middle-right',
+          'bottom-left',
+          'bottom-center',
+          'bottom-right',
+        ]}
         ignoreStroke={false}
-        onTransformStart={onTransformStart}
-        onTransform={onTransform}
-        onTransformEnd={onTransformEnd}
+        onTransformStart={handleTransformStart}
+        onTransform={handleTransform}
+        onTransformEnd={handleTransformEnd}
       />
     </Layer>
   );
