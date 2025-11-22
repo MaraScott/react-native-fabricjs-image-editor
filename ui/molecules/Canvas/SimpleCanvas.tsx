@@ -882,7 +882,6 @@ export const SimpleCanvas = ({
             )}
 
             <Stage
-                className="layer-stage-ui"
                 ref={stageRef}
                 width={containerDimensions.width}
                 height={containerDimensions.height}
@@ -891,50 +890,53 @@ export const SimpleCanvas = ({
                 }}
             >
 
-                <KonvaLayer key={`interaction-layer-${layersRevision}`}>
-                {layerControls && layersToRender.length > 0 ? (
-                    layersToRender.reverse().map((layer, index) => {
-                        const layerIsSelected = selectedLayerSet.has(layer.id);
-                        const layerBounds = layer.bounds ?? null;
-                        const computedX = stageViewportOffsetX + (layerBounds ? layerBounds.x : layer.position.x);
-                        const computedY = stageViewportOffsetY + (layerBounds ? layerBounds.y : layer.position.y);
-                                const selectionOverride = (layerIsSelected && isSelectionTransformingRef.current && sharedSelectionRect)
-                            ? sharedSelectionRect
-                            : null;
-                        return (
-                            <GroupAny
-                                key={`${layersRevision}-${layer.id}`}
-                                layersRevision={layersRevision}
-                                index={index}
-                                id={`layer-${layer.id}`}
-                                layerId={layer.id}
-                                visible={layer.visible}
-                                x={selectionOverride ? selectionOverride.x : computedX}
-                                y={selectionOverride ? selectionOverride.y : computedY}
-                                rotation={selectionOverride ? selectionOverride.rotation : (layer.rotation ?? 0)}
-                                scaleX={selectionOverride ? selectionOverride.scaleX : (layer.scale?.x ?? 1)}
-                                scaleY={selectionOverride ? selectionOverride.scaleY : (layer.scale?.y ?? 1)}
-                                draggable={Boolean(selectModeActive)}
-                                selectModeActive={selectModeActive}
-                                stageViewportOffsetX={stageViewportOffsetX}
-                                stageViewportOffsetY={stageViewportOffsetY}
-                                baseCursor={baseCursor}
-                                layerNodeRefs={layerNodeRefs}
-                                pendingSelectionRef={pendingSelectionRef}
-                                selectionDragStateRef={selectionDragStateRef}
-                                onRefChange={(node) => onRefChange({ node, layer })}
-                                updateBoundsFromLayerIds={updateBoundsFromLayerIds}
-                                syncTransformerToSelection={syncTransformerToSelection}
-                            >
-                                {layer.render()}
-                            </GroupAny>
-                        );
-                    })
+                <KonvaLayer key={`interaction-layer`}>
+                    <Group key={`test-${layersRevision}`}>
+                        {layerControls && layersToRender.length > 0 ? (
+                            layersToRender.reverse().map((layer, index) => {
+                                const layerIsSelected = selectedLayerSet.has(layer.id);
+                                const layerBounds = layer.bounds ?? null;
+                                const computedX = stageViewportOffsetX + (layerBounds ? layerBounds.x : layer.position.x);
+                                const computedY = stageViewportOffsetY + (layerBounds ? layerBounds.y : layer.position.y);
+                                        const selectionOverride = (layerIsSelected && isSelectionTransformingRef.current && sharedSelectionRect)
+                                    ? sharedSelectionRect
+                                    : null;
+                                return (
+                                    <GroupAny
+                                        key={`${layersRevision}-${layer.id}`}
+                                        layersRevision={layersRevision}
+                                        index={index}
+                                        id={`layer-${layer.id}`}
+                                        layerId={layer.id}
+                                        visible={layer.visible}
+                                        x={selectionOverride ? selectionOverride.x : computedX}
+                                        y={selectionOverride ? selectionOverride.y : computedY}
+                                        rotation={selectionOverride ? selectionOverride.rotation : (layer.rotation ?? 0)}
+                                        scaleX={selectionOverride ? selectionOverride.scaleX : (layer.scale?.x ?? 1)}
+                                        scaleY={selectionOverride ? selectionOverride.scaleY : (layer.scale?.y ?? 1)}
+                                        draggable={Boolean(selectModeActive)}
+                                        selectModeActive={selectModeActive}
+                                        stageViewportOffsetX={stageViewportOffsetX}
+                                        stageViewportOffsetY={stageViewportOffsetY}
+                                        baseCursor={baseCursor}
+                                        layerNodeRefs={layerNodeRefs}
+                                        pendingSelectionRef={pendingSelectionRef}
+                                        selectionDragStateRef={selectionDragStateRef}
+                                        onRefChange={(node) => onRefChange({ node, layer })}
+                                        updateBoundsFromLayerIds={updateBoundsFromLayerIds}
+                                        syncTransformerToSelection={syncTransformerToSelection}
+                                    >
+                                        {layer.render()}
+                                    </GroupAny>
+                                );
+                            }
+                        )
                 ) : (
                     <GroupAny key="empty-layer">
                         {children}
                     </GroupAny>
                 )}
+                    </Group>
                 </KonvaLayer>
 
                 <BackgroundLayer
