@@ -100,6 +100,7 @@ export const CanvasApp = ({
             visible: true,
             position: { x: 0, y: 0 },
             render: () => (
+                <>
                 <Rect
                     key="blue-rectangle"
                     x={100}
@@ -110,6 +111,17 @@ export const CanvasApp = ({
                     visible={true}
                     cornerRadius={8}
                 />
+                <Text
+                    key="title-text"
+                    x={140}
+                    y={170}
+                    text="RECT!"
+                    fontSize={48}
+                    fill="#333333"
+                    fontFamily="system-ui, sans-serif"
+                    visible={true}
+                />
+                </>
             ),
         },
     ], []);

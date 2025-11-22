@@ -891,7 +891,7 @@ export const SimpleCanvas = ({
                 }}
             >
 
-                <KonvaLayer key="interaction-layer">
+                <KonvaLayer key={`interaction-layer-${layersRevision}`}>
                 {layerControls && layersToRender.length > 0 ? (
                     layersToRender.reverse().map((layer, index) => {
                         const layerIsSelected = selectedLayerSet.has(layer.id);
