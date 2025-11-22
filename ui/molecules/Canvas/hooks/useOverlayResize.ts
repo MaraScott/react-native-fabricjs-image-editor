@@ -220,7 +220,6 @@ export function useOverlayResize({
       });
 
       scheduleBoundsRefresh();
-      stageRef.current?.batchDraw();
       return true;
     },
     [

@@ -107,8 +107,6 @@ export const useSelectionBounds = ({
                 }
                 return unifiedBounds;
             });
-
-            nodes[0]?.getStage()?.batchDraw();
         },
         [selectModeActive, stageRef, layerNodeRefs, setSelectedLayerBounds]
     );

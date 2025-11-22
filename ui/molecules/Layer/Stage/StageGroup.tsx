@@ -209,7 +209,6 @@ export const StageGroup = ({
         });
 
         updateBoundsFromLayerIds(activeSelection);
-        event.target.getStage()?.batchDraw();
     }, [layerControls, layerId, layerNodeRefs, pendingSelectionRef, selectModeActive, selectionDragStateRef, updateBoundsFromLayerIds]);
 
     const handleDragEnd = useCallback((event: KonvaEventObject<DragEvent>) => {

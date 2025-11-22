@@ -124,7 +124,6 @@ export function useOverlayRotate({
 
       setOverlaySelectionBox((prev) => (prev ? { ...prev, rotation: newRotation } : prev));
 
-      stageRef.current?.batchDraw();
       return true;
     },
     [

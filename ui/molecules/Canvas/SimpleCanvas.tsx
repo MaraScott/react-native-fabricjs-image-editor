@@ -222,13 +222,6 @@ export const SimpleCanvas = ({
         }
     }, [selectedLayerIds, selectedLayerBounds, reduxSelectionTransform, dispatch]);
 
-    // Unified effect: batch draw stage
-    useEffect(() => {
-        if (stageRef.current) {
-            stageRef.current.batchDraw();
-        }
-    }, [layerControls, layersRevision, selectModeActive, zoom]);
-
     // Recenter-on-fit token from parent (Fit button)
     useEffect(() => {
         setPanOffset({ x: 0, y: 0 });
@@ -264,20 +257,6 @@ export const SimpleCanvas = ({
         if (!snapshot) {
             return;
         }
-
-        const initialProxyTransform = snapshot.proxyTransform;
-
-        const initialInverse = initialProxyTransform.copy().invert();
-
-        snapshot.nodes.forEach(({ node, transform }) => {
-
-            const parent = node.getParent();
-
-            if (typeof node.batchDraw === 'function') {
-                node.batchDraw();
-            }
-        });
-
     }, []);
 
     // On transform finalize, update Redux selectionTransform
@@ -333,7 +312,6 @@ export const SimpleCanvas = ({
         if (stageRef.current) {
             if (onStageReady) onStageReady(stageRef.current);
             stageRef.current.scale({ x: scale, y: scale });
-            stageRef.current.batchDraw();
         }
         setInternalZoom(zoom);
     }, [onStageReady, scale, zoom]);
@@ -772,7 +750,6 @@ export const SimpleCanvas = ({
         if (!selectModeActive || (!selectedLayerBounds)) {
             transformer.nodes([]);
             transformer.visible(false);
-            transformer.getLayer()?.batchDraw();
             return;
         }
 
@@ -783,7 +760,6 @@ export const SimpleCanvas = ({
         if (nodes.length === 0) {
             transformer.nodes([]);
             transformer.visible(false);
-            transformer.getLayer()?.batchDraw();
             return;
         }
 
@@ -793,7 +769,6 @@ export const SimpleCanvas = ({
 
         transformer.visible(true);
         transformer.forceUpdate();
-        transformer.getLayer()?.batchDraw();
     }, [selectModeActive, selectedLayerBounds, selectedLayerIds, overlaySelectionBox, resolveSelectionRotation, layerNodeRefs]);
 
     // Unified effect: sync transformer to selection and handle rotation
