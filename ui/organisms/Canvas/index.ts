@@ -4,4 +4,4 @@
  */
 
 export { CanvasContainer } from './CanvasContainer';
-export type { CanvasContainerProps, CanvasLayerDefinition } from './CanvasContainer';
+export type { CanvasContainerProps, InitialLayerDefinition } from './CanvasContainer';

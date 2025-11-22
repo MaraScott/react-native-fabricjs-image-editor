@@ -6,13 +6,14 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { SimpleCanvas } from '@molecules/Canvas';
-import type { LayerControlHandlers } from '@molecules/Layer/Layer.types';
+import type { LayerControlHandlers, InitialLayerDefinition } from '@molecules/Layer/Layer.types';
 import { useLayerManagement } from '@molecules/Layer';
-import type { CanvasLayerDefinition } from '@molecules/Layer';
 import {
   setSimpleCanvasLayerState,
   clearSimpleCanvasLayerControls,
 } from '@store/SimpleCanvas';
+
+export type { InitialLayerDefinition } from '@molecules/Layer/Layer.types';
 
 /**
  * CanvasContainerProps interface - Auto-generated interface summary; customize as needed.
@@ -33,7 +34,7 @@ export interface CanvasContainerProps {
   onZoomChange?: (zoom: number) => void;
   onHistoryChange?: (handlers: { undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean; revision: number }) => void;
   panModeActive?: boolean;
-  initialLayers?: CanvasLayerDefinition[];
+  initialLayers?: InitialLayerDefinition[];
   selectModeActive?: boolean;
 }
 
@@ -59,7 +60,7 @@ export const CanvasContainer = ({
   const [, setStage] = useState<Konva.Stage | null>(null);
   
   // Prepare initial layers, including children as a layer if provided
-  const preparedInitialLayers = useMemo<CanvasLayerDefinition[] | undefined>(() => {
+  const preparedInitialLayers = useMemo<InitialLayerDefinition[] | undefined>(() => {
     if (initialLayers && initialLayers.length > 0) {
       return initialLayers;
     }

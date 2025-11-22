@@ -5,7 +5,7 @@
  */
 
 import type { LayerDescriptor } from '@molecules/Canvas';
-import type { CanvasLayerDefinition } from '@molecules/Layer/types';
+import type { InitialLayerDefinition } from '@molecules/Layer/Layer.types';
 
 /**
  * Generate a unique layer ID
@@ -26,13 +26,13 @@ export const generateLayerId = (): string => {
 /**
  * Normalize layer definitions
  * 
- * Converts CanvasLayerDefinition objects to LayerDescriptor objects with default values
+ * Converts InitialLayerDefinition objects to LayerDescriptor objects with default values
  * 
- * @param {CanvasLayerDefinition[]} definitions - Array of layer definitions to normalize
+ * @param {InitialLayerDefinition[]} definitions - Array of layer definitions to normalize
  * @returns {LayerDescriptor[]} Normalized layer descriptors
  */
 export const normaliseLayerDefinitions = (
-  definitions: CanvasLayerDefinition[]
+  definitions: InitialLayerDefinition[]
 ): LayerDescriptor[] => {
   return definitions.map((definition, index) => ({
     id: definition.id ?? generateLayerId(),

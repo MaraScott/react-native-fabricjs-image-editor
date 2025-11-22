@@ -5,10 +5,9 @@
  */
 
 import { useMemo, useCallback, useEffect } from 'react';
-import type { LayerDescriptor, LayerControlHandlers, LayerMoveDirection, ScaleVector, PanOffset } from '@molecules/Layer/Layer.types';
+import type { LayerDescriptor, LayerControlHandlers, LayerMoveDirection, ScaleVector, PanOffset, InitialLayerDefinition } from '@molecules/Layer/Layer.types';
 import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 import { areBoundsEqual } from '@molecules/Canvas/utils/bounds';
-import type { CanvasLayerDefinition } from './types';
 import { generateLayerId, normaliseLayerDefinitions, areSelectionsEqual } from './utils';
 import {
     initLayersHistory,
@@ -19,7 +18,7 @@ import {
 } from '@store/LayersHistory';
 
 export interface UseLayerManagementParams {
-    initialLayers?: CanvasLayerDefinition[];
+    initialLayers?: InitialLayerDefinition[];
 }
 
 export interface UseLayerManagementReturn {
@@ -252,6 +251,17 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         const [moved] = nextLayers.splice(index, 1);
         nextLayers.splice(targetIndex, 0, moved);
         applyLayers(nextLayers, present.selectedLayerIds, present.primaryLayerId);
+
+        if (typeof window !== 'undefined') {
+            const orderedIds = nextLayers.map((layer) => layer.id);
+            try {
+                window.dispatchEvent(
+                    new CustomEvent('layer-move-refresh', { detail: { layerIds: orderedIds } })
+                );
+            } catch {
+                window.dispatchEvent(new Event('layer-move-refresh'));
+            }
+        }
     }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
 
     const toggleVisibility = useCallback<LayerControlHandlers['toggleVisibility']>((layerId) => {

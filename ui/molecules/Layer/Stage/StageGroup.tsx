@@ -2,6 +2,7 @@ import { Group as KonvaGroup } from '@atoms/Canvas';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { ReactNode, DragEvent } from 'react';
 import { useCallback, useEffect, useRef } from 'react';
+import { Group } from 'react-konva';
 import type Konva from 'konva';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 import type { Bounds } from '@molecules/Canvas/types/canvas.types';
@@ -243,7 +244,7 @@ export const StageGroup = ({
         }
     }, [layerControls, layerId, layerNodeRefs, measureAndStoreBounds, pendingSelectionRef, selectModeActive, selectionDragStateRef, stageViewportOffsetX, stageViewportOffsetY]);
     return (
-        <KonvaGroup
+        <Group
             key={`${layersRevision}-${layerId}`}
             ref={handleLayerRef}
             id={id}
@@ -299,6 +300,6 @@ export const StageGroup = ({
             onDragEnd={handleDragEnd}
         >
             {children}
-        </KonvaGroup>
+        </Group>
     );
 };

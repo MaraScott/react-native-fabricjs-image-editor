@@ -3,40 +3,45 @@ import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 
 /**
  * ScaleVector Type
- * 
+ *
  * Type definition for ScaleVector.
  */
-export type ScaleVector = { 
-  x: number; 
+export type ScaleVector = {
+  x: number;
   y: number;
 };
 
 /**
+ * Common render and transform fields shared by input definitions and runtime descriptors.
+ */
+export interface LayerRenderable {
+  name: string;
+  render: () => ReactNode;
+  visible?: boolean;
+  position?: { x: number; y: number };
+  rotation?: number;
+  scale?: ScaleVector;
+}
+
+/**
+ * Input-facing layer definition used when seeding the canvas.
+ */
+export interface InitialLayerDefinition extends LayerRenderable {
+  id?: string;
+}
+
+/**
  * LayerDescriptor interface - Auto-generated interface summary; customize as needed.
  */
-export interface LayerDescriptor {
+export interface LayerDescriptor extends LayerRenderable {
   id: string;
-  name: string;
   visible: boolean;
   position: { x: number; y: number };
-  /**
-   * rotation - Auto-generated summary; refine if additional context is needed.
-   *
-   * @returns {degrees} Refer to the implementation for the precise returned value.
-   */
-  /**
-   * rotation - Auto-generated documentation stub.
-   *
-   * @returns {degrees} Result produced by rotation.
-   */
-  /** Optional persisted rotation (degrees) */
   rotation?: number;
-  /** Optional persisted scale */
   scale?: ScaleVector;
-  /** Last known bounds of the rendered content */
   bounds?: Bounds | null;
-  render: () => ReactNode;
 }
+
 
 /**
  * LayerMoveDirection Type

@@ -65,6 +65,7 @@ export const SimpleCanvas = ({
         syncTransformerToSelection();
     }
     const pendingSelectionRef = useRef<string[] | null>(null);
+    const interactionLayerRef = useRef<Konva.Layer | null>(null);
     const selectionTransformerRef = useRef<Konva.Transformer | null>(null);
     const selectionTransformStateRef = useRef<SelectionTransformSnapshot | null>(null);
     const transformAnimationFrameRef = useRef<number | null>(null);
@@ -78,6 +79,7 @@ export const SimpleCanvas = ({
     const [isPointerPanning, setIsPointerPanning] = useState(false);
     const [isTouchPanning, setIsTouchPanning] = useState(false);
     const [isLayerPanelOpen, setIsLayerPanelOpen] = useState(false);
+    const [layerRefreshKey, setLayerRefreshKey] = useState(0);
     const [selectedLayerBounds, setSelectedLayerBounds] = useState<Bounds | null>(null);
     const [overlaySelectionBox, setOverlaySelectionBox] = useState<
         | { x: number; y: number; width: number; height: number; rotation?: number }
@@ -98,6 +100,38 @@ export const SimpleCanvas = ({
         // always return a fresh array to reflect changed order
         return [...source];
     }, [layerControls?.layers, renderableLayers]);
+
+    // Keep Konva node order in sync when moveLayer fires.
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        const applyOrder = (orderedIds: string[]) => {
+            orderedIds.forEach((id, index) => {
+                const node = layerNodeRefs.current.get(id);
+                if (node) {
+                    node.zIndex(index);
+                }
+            });
+            setLayerRefreshKey((previous) => previous + 1);
+            interactionLayerRef.current?.batchDraw?.();
+        };
+
+        const handleRefresh = (event: Event) => {
+            const detail = (event as CustomEvent<{ layerIds?: string[] }>).detail;
+            const orderedIds = detail?.layerIds ?? layersToRender.map((layer) => layer.id);
+            applyOrder(orderedIds);
+        };
+
+        // Initial sync for current render order
+        applyOrder(layersToRender.map((layer) => layer.id));
+
+        window.addEventListener('layer-move-refresh', handleRefresh as EventListener);
+        return () => {
+            window.removeEventListener('layer-move-refresh', handleRefresh as EventListener);
+        };
+    }, [layersToRender]);
 
     const selectedLayerIds = layerControls?.selectedLayerIds ?? [];
     const stableSelectedLayerIds = useMemo(
@@ -859,44 +893,41 @@ export const SimpleCanvas = ({
 
                 <KonvaLayer key="interaction-layer">
                 {layerControls && layersToRender.length > 0 ? (
-                    layersToRender.map((layer, index) => {
+                    layersToRender.reverse().map((layer, index) => {
                         const layerIsSelected = selectedLayerSet.has(layer.id);
                         const layerBounds = layer.bounds ?? null;
                         const computedX = stageViewportOffsetX + (layerBounds ? layerBounds.x : layer.position.x);
                         const computedY = stageViewportOffsetY + (layerBounds ? layerBounds.y : layer.position.y);
-                        const selectionOverride = (layerIsSelected && isSelectionTransformingRef.current && sharedSelectionRect)
+                                const selectionOverride = (layerIsSelected && isSelectionTransformingRef.current && sharedSelectionRect)
                             ? sharedSelectionRect
                             : null;
                         return (
-                            <>
-                                <GroupAny
-                                    key={`${layersRevision}-${layer.id}-${index}`}
-                                    layersRevision={layersRevision}
-                                    index={index}
-                                    style={{ zIndex: index }}
-                                    id={`layer-${layer.id}`}
-                                    layerId={layer.id}
-                                    visible={layer.visible}
-                                    x={selectionOverride ? selectionOverride.x : computedX}
-                                    y={selectionOverride ? selectionOverride.y : computedY}
-                                    rotation={selectionOverride ? selectionOverride.rotation : (layer.rotation ?? 0)}
-                                    scaleX={selectionOverride ? selectionOverride.scaleX : (layer.scale?.x ?? 1)}
-                                    scaleY={selectionOverride ? selectionOverride.scaleY : (layer.scale?.y ?? 1)}
-                                    draggable={Boolean(selectModeActive)}
-                                    selectModeActive={selectModeActive}
-                                    stageViewportOffsetX={stageViewportOffsetX}
-                                    stageViewportOffsetY={stageViewportOffsetY}
-                                    baseCursor={baseCursor}
-                                    layerNodeRefs={layerNodeRefs}
-                                    pendingSelectionRef={pendingSelectionRef}
-                                    selectionDragStateRef={selectionDragStateRef}
-                                    onRefChange={(node) => onRefChange({ node, layer })}
-                                    updateBoundsFromLayerIds={updateBoundsFromLayerIds}
-                                    syncTransformerToSelection={syncTransformerToSelection}
-                                >
-                                    {layer.render()}
-                                </GroupAny>
-                            </>
+                            <GroupAny
+                                key={`${layersRevision}-${layer.id}`}
+                                layersRevision={layersRevision}
+                                index={index}
+                                id={`layer-${layer.id}`}
+                                layerId={layer.id}
+                                visible={layer.visible}
+                                x={selectionOverride ? selectionOverride.x : computedX}
+                                y={selectionOverride ? selectionOverride.y : computedY}
+                                rotation={selectionOverride ? selectionOverride.rotation : (layer.rotation ?? 0)}
+                                scaleX={selectionOverride ? selectionOverride.scaleX : (layer.scale?.x ?? 1)}
+                                scaleY={selectionOverride ? selectionOverride.scaleY : (layer.scale?.y ?? 1)}
+                                draggable={Boolean(selectModeActive)}
+                                selectModeActive={selectModeActive}
+                                stageViewportOffsetX={stageViewportOffsetX}
+                                stageViewportOffsetY={stageViewportOffsetY}
+                                baseCursor={baseCursor}
+                                layerNodeRefs={layerNodeRefs}
+                                pendingSelectionRef={pendingSelectionRef}
+                                selectionDragStateRef={selectionDragStateRef}
+                                onRefChange={(node) => onRefChange({ node, layer })}
+                                updateBoundsFromLayerIds={updateBoundsFromLayerIds}
+                                syncTransformerToSelection={syncTransformerToSelection}
+                            >
+                                {layer.render()}
+                            </GroupAny>
                         );
                     })
                 ) : (
