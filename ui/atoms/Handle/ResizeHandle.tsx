@@ -45,7 +45,6 @@ export const ResizeHandle = ({
      * @returns {-50%, -50%} Result produced by translate.
      */
     transform: 'translate(-50%, -50%)',
-    // zIndex: 16,
     /**
      * rgba - Auto-generated summary; refine if additional context is needed.
      *
