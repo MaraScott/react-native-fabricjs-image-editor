@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from 'react';
 import type { LayerDescriptor } from '@molecules/Layer/Layer.types';
 
+// History stack mirrors the Konva React undo/redo guidance:
+// https://konvajs.org/docs/react/Undo-Redo.html
 export interface LayersSnapshot {
     layers: LayerDescriptor[];
     selectedLayerIds: string[];
@@ -12,6 +14,7 @@ interface LayersHistoryState {
     present: LayersSnapshot;
     history: LayersSnapshot[];
     future: LayersSnapshot[];
+    pointer: number;
 }
 
 type Listener = () => void;
@@ -29,7 +32,7 @@ const layersEqual = (a: LayersSnapshot | null, b: LayersSnapshot | null): boolea
     for (let i = 0; i < a.layers.length; i += 1) {
         const la = a.layers[i];
         const lb = b.layers[i];
-        if (la.id !== lb.id || la.rotation !== lb.rotation) return false;
+        if (la.id !== lb.id || la.name !== lb.name || la.rotation !== lb.rotation) return false;
         if (la.position.x !== lb.position.x || la.position.y !== lb.position.y) return false;
         const sa = la.scale ?? { x: 1, y: 1 };
         const sb = lb.scale ?? { x: 1, y: 1 };
@@ -41,64 +44,76 @@ const layersEqual = (a: LayersSnapshot | null, b: LayersSnapshot | null): boolea
 
 class LayersHistoryStore {
     private state: LayersHistoryState | null = null;
+    private timeline: LayersSnapshot[] = [];
+    private pointer = -1;
     private listeners = new Set<Listener>();
     private maxHistory = 30;
+
+    private syncFromTimeline() {
+        if (this.pointer < 0 || this.pointer >= this.timeline.length) {
+            this.state = null;
+            return;
+        }
+
+        this.state = {
+            present: this.timeline[this.pointer],
+            history: this.timeline.slice(0, this.pointer),
+            future: this.timeline.slice(this.pointer + 1),
+            pointer: this.pointer,
+        };
+    }
+
+    private commitSnapshot(snapshot: LayersSnapshot) {
+        const incoming = cloneSnapshot(snapshot);
+        const current = this.timeline[this.pointer] ?? null;
+
+        const layerChanged = !layersEqual(incoming, current);
+
+        if (!layerChanged) {
+            // Keep selection/primary updates current without polluting the history stack
+            const safeRevision = current?.revision ?? incoming.revision ?? 0;
+            this.timeline[this.pointer] = { ...incoming, revision: safeRevision };
+            this.syncFromTimeline();
+            return;
+        }
+
+        const baseRevision = current?.revision ?? incoming.revision ?? 0;
+        incoming.revision = baseRevision + 1;
+
+        const truncated = [...this.timeline.slice(0, this.pointer + 1), incoming];
+        const trimmed = truncated.slice(-(this.maxHistory));
+
+        this.timeline = trimmed;
+        this.pointer = this.timeline.length - 1;
+        this.syncFromTimeline();
+    }
 
     private dispatch(action: { type: 'INIT'; snapshot: LayersSnapshot } | { type: 'APPLY'; snapshot: LayersSnapshot } | { type: 'UNDO' } | { type: 'REDO' }) {
         switch (action.type) {
             case 'INIT': {
-                this.state = {
-                    present: cloneSnapshot(action.snapshot),
-                    history: [],
-                    future: [],
-                };
+                this.timeline = [cloneSnapshot(action.snapshot)];
+                this.pointer = 0;
+                this.syncFromTimeline();
                 break;
             }
             case 'APPLY': {
-                if (!this.state) {
+                if (this.pointer < 0 || this.timeline.length === 0) {
                     this.dispatch({ type: 'INIT', snapshot: action.snapshot });
                     break;
                 }
-                const incoming = cloneSnapshot(action.snapshot);
-                if (!layersEqual(incoming, this.state.present)) {
-                    // layer change: push history, clear future, increment revision
-                    incoming.revision = this.state.present.revision + 1;
-                    this.state = {
-                        present: incoming,
-                        history: [...this.state.history.slice(-(this.maxHistory - 1)), cloneSnapshot(this.state.present)],
-                        future: [],
-                    };
-                } else {
-                    // selection-only change: update present, keep history/future
-                    incoming.revision = this.state.present.revision;
-                    this.state = {
-                        ...this.state,
-                        present: incoming,
-                    };
-                }
+                this.commitSnapshot(action.snapshot);
                 break;
             }
             case 'UNDO': {
-                if (!this.state || this.state.history.length === 0) break;
-                const prev = this.state.history[this.state.history.length - 1];
-                const remaining = this.state.history.slice(0, -1);
-                const current = cloneSnapshot(this.state.present);
-                this.state = {
-                    present: { ...prev, revision: prev.revision },
-                    history: remaining,
-                    future: [current, ...this.state.future],
-                };
+                if (this.pointer <= 0) break;
+                this.pointer -= 1;
+                this.syncFromTimeline();
                 break;
             }
             case 'REDO': {
-                if (!this.state || this.state.future.length === 0) break;
-                const [next, ...rest] = this.state.future;
-                const current = cloneSnapshot(this.state.present);
-                this.state = {
-                    present: { ...cloneSnapshot(next), revision: next.revision },
-                    history: [...this.state.history, current],
-                    future: rest,
-                };
+                if (this.pointer < 0 || this.pointer >= this.timeline.length - 1) break;
+                this.pointer += 1;
+                this.syncFromTimeline();
                 break;
             }
         }
