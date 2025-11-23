@@ -3,7 +3,7 @@
  * Main application page for the simple canvas with zoom controls
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { RootState } from '@store/CanvasApp';
 import { useSelector } from 'react-redux';
 import { CanvasLayout } from '@templates/Canvas';
@@ -14,7 +14,6 @@ import { SideBarLeft } from '@organisms/SideBar';
 import type { InitialLayerDefinition } from '@organisms/Canvas';
 import { ZoomControl } from '@molecules/Controls';
 import { Rect, Circle, Text } from 'react-konva';
-import { useState } from 'react';
 
 /**
  * CanvasAppProps interface - Auto-generated interface summary; customize as needed.
@@ -50,6 +49,7 @@ export const CanvasApp = ({
     initialZoom = 0,
 }: CanvasAppProps) => {
     const [zoom, setZoom] = useState(initialZoom);
+    const [isSmallScreen, setIsSmallScreen] = useState(false);
     const [fitRequest, setFitRequest] = useState(0);
     const [historyControls, setHistoryControls] = useState<{ undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean; revision?: number }>({
         undo: () => { },
@@ -149,6 +149,42 @@ export const CanvasApp = ({
      * @param {*} (state - Parameter forwarded to useSelector.
      */
     const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
+
+    useEffect(() => {
+        const updateScreenSize = () => {
+            if (typeof window === 'undefined') return;
+            setIsSmallScreen(window.innerWidth < 768);
+        };
+        updateScreenSize();
+        window.addEventListener('resize', updateScreenSize);
+        return () => window.removeEventListener('resize', updateScreenSize);
+    }, []);
+
+    if (isSmallScreen) {
+        return (
+            <div
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: '100vh',
+                    padding: '32px',
+                    background: '#0f172a',
+                    color: '#e2e8f0',
+                    textAlign: 'center',
+                    lineHeight: 1.5,
+                }}
+                role="alert"
+            >
+                <div style={{ maxWidth: '420px', fontSize: '18px', fontWeight: 600 }}>
+                    Sorry !<br />
+                    TinyArtist is available only on<br />
+                    tablet and desktop<br />
+                    for best experience.
+                </div>
+            </div>
+        );
+    }
 
     return (
         <CanvasLayout
