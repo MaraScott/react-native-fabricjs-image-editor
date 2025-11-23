@@ -17,6 +17,7 @@ import type { PanOffset, LayerStroke } from '@molecules/Layer/Layer.types';
 
 import { Rect, Group, Line } from "react-konva";
 import { drawActions } from '@store/CanvasApp/view/draw';
+import { rubberActions } from '@store/CanvasApp/view/rubber';
 import { SettingsPanelUI } from '@molecules/Settings/SettingsPanelUI';
 
 export interface SimpleCanvasProps {
@@ -60,7 +61,9 @@ export const SimpleCanvas = ({
     const dispatch = useDispatch();
     const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
     const drawToolState = useSelector((state: RootState) => state.view.draw);
-    const isDrawToolActive = useSelector((state: RootState) => state.view.draw.active);
+    const rubberToolState = useSelector((state: RootState) => state.view.rubber);
+    const isDrawToolActive = drawToolState.active;
+    const isRubberToolActive = rubberToolState.active;
     // Read selectionTransform from Redux
     const reduxSelectionTransform = useSelector(selectSelectionTransform);
     const stageRef = useRef<Konva.Stage>(null);
@@ -534,7 +537,7 @@ export const SimpleCanvas = ({
     }, []);
 
     const handleStagePointerDown = useCallback((event: any) => {
-        if (!isDrawToolActive || !layerControls) return;
+        if ((!isDrawToolActive && !isRubberToolActive) || !layerControls) return;
         if (event?.evt?.preventDefault) {
             event.evt.preventDefault();
         }
@@ -552,6 +555,22 @@ export const SimpleCanvas = ({
         const localX = point.x - (layer.position?.x ?? 0);
         const localY = point.y - (layer.position?.y ?? 0);
 
+        if (isRubberToolActive) {
+            const strokeId = `erase-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            const stroke: LayerStroke = {
+                id: strokeId,
+                points: [localX, localY],
+                color: '#000000',
+                size: rubberToolState.eraserSize,
+                hardness: 1,
+                opacity: 1,
+                mode: 'erase',
+            };
+            setPendingStroke({ layerId: targetLayerId, stroke });
+            dispatch(rubberActions.startErasing());
+            return;
+        }
+
         const strokeId = `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         const hardness = drawToolState.brushHardness ?? 1;
         const stroke: LayerStroke = {
@@ -561,13 +580,14 @@ export const SimpleCanvas = ({
             size: drawToolState.brushSize,
             hardness,
             opacity: drawToolState.brushOpacity,
+            mode: 'draw',
         };
         setPendingStroke({ layerId: targetLayerId, stroke });
         dispatch(drawActions.startDrawing(strokeId));
-    }, [dispatch, drawToolState.brushColor, drawToolState.brushHardness, drawToolState.brushOpacity, drawToolState.brushSize, getRelativePointerPosition, isDrawToolActive, layerControls, selectedLayerIds]);
+    }, [dispatch, drawToolState.brushColor, drawToolState.brushHardness, drawToolState.brushOpacity, drawToolState.brushSize, getRelativePointerPosition, isDrawToolActive, isRubberToolActive, layerControls, rubberToolState.eraserSize, selectedLayerIds]);
 
     const handleStagePointerMove = useCallback((event: any) => {
-        if (!isDrawToolActive || !pendingStroke || !layerControls) return;
+        if ((!isDrawToolActive && !isRubberToolActive) || !pendingStroke || !layerControls) return;
         if (event?.evt?.preventDefault) {
             event.evt.preventDefault();
         }
@@ -585,11 +605,13 @@ export const SimpleCanvas = ({
                 }
                 : prev
         );
-        dispatch(drawActions.updatePath(pendingStroke.stroke.id));
-    }, [dispatch, getRelativePointerPosition, isDrawToolActive, layerControls, pendingStroke]);
+        if (isDrawToolActive) {
+            dispatch(drawActions.updatePath(pendingStroke.stroke.id));
+        }
+    }, [dispatch, getRelativePointerPosition, isDrawToolActive, isRubberToolActive, layerControls, pendingStroke]);
 
     const handleStagePointerUp = useCallback((event: any) => {
-        if (!isDrawToolActive || !layerControls) return;
+        if ((!isDrawToolActive && !isRubberToolActive) || !layerControls) return;
         if (event?.evt?.preventDefault) {
             event.evt.preventDefault();
         }
@@ -601,8 +623,13 @@ export const SimpleCanvas = ({
             }
         }
         setPendingStroke(null);
-        dispatch(drawActions.finishDrawing());
-    }, [dispatch, isDrawToolActive, layerControls, pendingStroke]);
+        if (isDrawToolActive) {
+            dispatch(drawActions.finishDrawing());
+        }
+        if (isRubberToolActive) {
+            dispatch(rubberActions.stopErasing());
+        }
+    }, [dispatch, isDrawToolActive, isRubberToolActive, layerControls, pendingStroke]);
 
     const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
         if (event.pointerType !== 'mouse' && event.pointerType !== 'pen') {
@@ -851,7 +878,7 @@ export const SimpleCanvas = ({
 
     const baseCursor = (isPointerPanning || isTouchPanning)
         ? 'grabbing'
-        : isDrawToolActive
+        : (isDrawToolActive || isRubberToolActive)
             ? 'crosshair'
             : (panModeActive || spacePressed ? 'grab' : 'default');
 
@@ -1061,6 +1088,7 @@ export const SimpleCanvas = ({
                                                 tension={0}
                                                 shadowBlur={(1 - stroke.hardness) * stroke.size * 1.5}
                                                 shadowColor={stroke.color}
+                                                globalCompositeOperation={stroke.mode === 'erase' ? 'destination-out' : 'source-over'}
                                                 listening={false}
                                             />
                                         ))}
@@ -1110,7 +1138,7 @@ export const SimpleCanvas = ({
                 ) : null}
 
             </Stage>
-            {layerControls && (isSelectToolActive || isDrawToolActive) && (
+            {layerControls && (isSelectToolActive || isDrawToolActive || isRubberToolActive) && (
                 <LayerPanelUI
                     isOpen={isLayerPanelOpen}
                     onToggle={() => setIsLayerPanelOpen((previous) => !previous)}

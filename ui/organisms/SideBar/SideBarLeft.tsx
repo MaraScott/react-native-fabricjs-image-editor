@@ -11,6 +11,7 @@ export interface SideBarLeftProps {
     isPanToolActive: boolean;
     isSelectToolActive: boolean;
     isDrawToolActive: boolean;
+    isRubberToolActive: boolean;
 }
 
 /**
@@ -20,7 +21,7 @@ export interface SideBarLeftProps {
  */
 export const SideBarLeft = (props: SideBarLeftProps) => {
 
-    const { isPanToolActive, isSelectToolActive, isDrawToolActive } = props;
+    const { isPanToolActive, isSelectToolActive, isDrawToolActive, isRubberToolActive } = props;
 
   const dispatch = useDispatch();
 
@@ -45,6 +46,14 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
             dispatch(viewActions.setActiveTool('select'));
         } else {
             dispatch(viewActions.setActiveTool('draw'));
+        }
+    };
+
+    const toggleRubberTool = () => {
+        if (isRubberToolActive) {
+            dispatch(viewActions.setActiveTool('select'));
+        } else {
+            dispatch(viewActions.setActiveTool('rubber'));
         }
     };
 
@@ -95,6 +104,21 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                     {'\u270F'}
                 </span>
                 <span key="draw-label">Pen</span>
+            </button>
+
+            <button
+                key="button-erase"
+                type="button"
+                className={`erase ${isRubberToolActive ? 'active' : null}`}
+                onClick={toggleRubberTool}
+                aria-pressed={isRubberToolActive}
+                aria-label={isRubberToolActive ? 'Disable eraser tool' : 'Enable eraser tool'}
+                title={isRubberToolActive ? 'Eraser tool active' : 'Enable eraser tool'}
+            >
+                <span key="erase-icon" aria-hidden="true">
+                    {'🧽'}
+                </span>
+                <span key="erase-label">Erase</span>
             </button>
         </div>
     )

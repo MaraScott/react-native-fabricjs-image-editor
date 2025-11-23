@@ -56,7 +56,8 @@ const layersEqual = (a: LayersSnapshot | null, b: LayersSnapshot | null): boolea
                 saStroke.color !== sbStroke.color ||
                 saStroke.size !== sbStroke.size ||
                 saStroke.hardness !== sbStroke.hardness ||
-                saStroke.opacity !== sbStroke.opacity
+                saStroke.opacity !== sbStroke.opacity ||
+                (saStroke.mode ?? 'draw') !== (sbStroke.mode ?? 'draw')
             ) {
                 return false;
             }

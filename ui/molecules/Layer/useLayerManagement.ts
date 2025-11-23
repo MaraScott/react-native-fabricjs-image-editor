@@ -379,6 +379,20 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         );
     }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
 
+    const rasterizeLayer = useCallback((layerId: string) => {
+        const target = present.layers.find((layer) => layer.id === layerId);
+        if (!target) return;
+        // For now, rasterize means freezing strokes into the layer by keeping them as-is
+        // (placeholder hook to plug real rasterization if needed).
+        applyLayers(
+            present.layers.map((layer) =>
+                layer.id === layerId ? { ...layer } : layer
+            ),
+            present.selectedLayerIds,
+            present.primaryLayerId,
+        );
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
     const undo = useCallback(() => {
         undoLayers();
     }, []);
@@ -409,6 +423,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         updateLayerTransform,
         updateLayerOpacity,
         updateLayerStrokes,
+        rasterizeLayer,
         updateLayerBounds,
         undo,
         redo,

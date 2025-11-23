@@ -143,6 +143,18 @@ const getActionButtonConfigs = ({
         content: '⤓',
     },
     {
+        key: `layer-panel-layer-${layer.id}-rasterize-button`,
+        props: {
+            action: 'rasterize',
+            className: 'rasterize',
+            onClick: () => layerControls.rasterizeLayer?.(layer.id),
+            title: 'Rasterize layer',
+            'aria-label': 'Rasterize layer',
+            disabled: typeof layerControls.rasterizeLayer !== 'function',
+        },
+        content: '🖼️',
+    },
+    {
         key: `layer-panel-layer-${layer.id}-remove-button`,
         props: {
             action: 'remove',

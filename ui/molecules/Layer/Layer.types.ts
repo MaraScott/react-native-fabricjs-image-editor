@@ -8,6 +8,7 @@ export interface LayerStroke {
   size: number;
   hardness: number;
   opacity: number;
+  mode?: 'draw' | 'erase';
 }
 
 /**
@@ -105,6 +106,7 @@ export interface LayerControlHandlers {
   updateLayerOpacity?: (layerId: string, opacity: number) => void;
   updateLayerBounds?: (layerId: string, bounds: Bounds | null) => void;
   updateLayerStrokes?: (layerId: string, strokes: LayerStroke[]) => void;
+  rasterizeLayer?: (layerId: string) => void;
   undo?: () => void;
   redo?: () => void;
   canUndo?: boolean;
