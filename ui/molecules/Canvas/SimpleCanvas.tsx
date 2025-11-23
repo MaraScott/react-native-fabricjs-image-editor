@@ -1089,7 +1089,7 @@ export const SimpleCanvas = ({
                                                 shadowBlur={(1 - stroke.hardness) * stroke.size * 1.5}
                                                 shadowColor={stroke.color}
                                                 globalCompositeOperation={stroke.mode === 'erase' ? 'destination-out' : 'source-over'}
-                                                listening={false}
+                                                listening={true}
                                             />
                                         ))}
                                     </GroupAny>

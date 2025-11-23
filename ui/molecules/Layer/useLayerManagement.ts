@@ -4,7 +4,8 @@
  * Centralized layer state with history backed by LayersHistory store.
  */
 
-import { useMemo, useCallback, useEffect } from 'react';
+import React, { useMemo, useCallback, useEffect } from 'react';
+import { Image as KonvaImage } from 'react-konva';
 import type { LayerDescriptor, LayerControlHandlers, LayerMoveDirection, ScaleVector, PanOffset, InitialLayerDefinition } from '@molecules/Layer/Layer.types';
 import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 import { areBoundsEqual } from '@molecules/Canvas/utils/bounds';
@@ -19,6 +20,8 @@ import {
 
 export interface UseLayerManagementParams {
     initialLayers?: InitialLayerDefinition[];
+    stageWidth?: number;
+    stageHeight?: number;
 }
 
 export interface UseLayerManagementReturn {
@@ -26,6 +29,7 @@ export interface UseLayerManagementReturn {
     selectedLayerIds: string[];
     primaryLayerId: string | null;
     layersRevision: number;
+    addImageLayer?: (src: string) => void;
     layerIndexMap: Map<string, number>;
     selectLayer: LayerControlHandlers['selectLayer'];
     clearSelection: () => void;
@@ -56,7 +60,7 @@ export interface UseLayerManagementReturn {
 }
 
 export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLayerManagementReturn => {
-    const { initialLayers } = params;
+    const { initialLayers, stageWidth = 1024, stageHeight = 1024 } = params;
 
     const initialLayerState = useMemo(() => normaliseLayerDefinitions(initialLayers ?? []), [initialLayers]);
 
@@ -382,8 +386,6 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
     const rasterizeLayer = useCallback((layerId: string) => {
         const target = present.layers.find((layer) => layer.id === layerId);
         if (!target) return;
-        // For now, rasterize means freezing strokes into the layer by keeping them as-is
-        // (placeholder hook to plug real rasterization if needed).
         applyLayers(
             present.layers.map((layer) =>
                 layer.id === layerId ? { ...layer } : layer
@@ -392,6 +394,59 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
             present.primaryLayerId,
         );
     }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const addImageLayer = useCallback<NonNullable<LayerControlHandlers['addImageLayer']>>((src) => {
+        const img = new window.Image();
+        img.onload = () => {
+            const naturalWidth = img.naturalWidth || img.width || 1;
+            const naturalHeight = img.naturalHeight || img.height || 1;
+            const fitScale = Math.min(1, Math.min(stageWidth / naturalWidth, stageHeight / naturalHeight));
+
+            const targetLayerId =
+                present.selectedLayerIds[0] ??
+                present.primaryLayerId ??
+                present.layers[0]?.id ??
+                null;
+            if (!targetLayerId) return;
+
+            const nextLayers = present.layers.map((layer) => {
+                if (layer.id !== targetLayerId) return layer;
+
+                const priorRender = layer.render;
+                const imageNode = React.createElement(KonvaImage, {
+                    image: img,
+                    listening: true,
+                    width: naturalWidth,
+                    height: naturalHeight,
+                });
+
+                const composedRender = () =>
+                    priorRender
+                        ? React.createElement(
+                            React.Fragment,
+                            null,
+                            priorRender(),
+                            imageNode,
+                        )
+                        : imageNode;
+
+                const centeredPosition = {
+                    x: (stageWidth - naturalWidth * fitScale) / 2,
+                    y: (stageHeight - naturalHeight * fitScale) / 2,
+                };
+
+                return {
+                    ...layer,
+                    position: centeredPosition,
+                    scale: { x: fitScale, y: fitScale },
+                    render: composedRender,
+                };
+            });
+
+            applyLayers(nextLayers, present.selectedLayerIds.length ? present.selectedLayerIds : [targetLayerId], targetLayerId);
+        };
+        img.src = src;
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds, stageHeight, stageWidth]);
 
     const undo = useCallback(() => {
         undoLayers();
@@ -406,6 +461,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         selectedLayerIds: present.selectedLayerIds,
         primaryLayerId: present.primaryLayerId,
         layersRevision: present.revision,
+        addImageLayer,
         layerIndexMap,
         selectLayer,
         clearSelection,
