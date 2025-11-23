@@ -108,12 +108,6 @@ export const SimpleCanvas = ({
         }
 
         const applyOrder = (orderedIds: string[]) => {
-            orderedIds.forEach((id, index) => {
-                const node = layerNodeRefs.current.get(id);
-                if (node) {
-                    node.zIndex(index);
-                }
-            });
             setLayerRefreshKey((previous) => previous + 1);
             interactionLayerRef.current?.batchDraw?.();
         };
@@ -872,15 +866,6 @@ export const SimpleCanvas = ({
                 position: 'relative',
             }}
         >
-            {layerControls && isSelectToolActive && (
-                <LayerPanelUI
-                    isOpen={isLayerPanelOpen}
-                    onToggle={() => setIsLayerPanelOpen((previous) => !previous)}
-                    onClose={() => setIsLayerPanelOpen(false)}
-                    pendingSelectionRef={pendingSelectionRef}
-                />
-            )}
-
             <Stage
                 ref={stageRef}
                 width={containerDimensions.width}
@@ -973,6 +958,16 @@ export const SimpleCanvas = ({
                 ) : null}
 
             </Stage>
+            {layerControls && isSelectToolActive && (
+                <LayerPanelUI
+                    isOpen={isLayerPanelOpen}
+                    onToggle={() => setIsLayerPanelOpen((previous) => !previous)}
+                    onClose={() => setIsLayerPanelOpen(false)}
+                    pendingSelectionRef={pendingSelectionRef}
+                />
+            )}
+
+
         </div>
     );
 };

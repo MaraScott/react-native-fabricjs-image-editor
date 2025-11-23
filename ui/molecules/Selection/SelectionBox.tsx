@@ -71,7 +71,6 @@ export const SelectionBox = ({
     transformOrigin: 'center center',
     pointerEvents: 'auto',
     boxSizing: 'border-box',
-    zIndex: 15,
     border: `2px dashed #00f6ff`,
     background: 'transparent',
     cursor: 'grab',

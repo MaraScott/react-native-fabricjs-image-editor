@@ -57,7 +57,6 @@ const handleStyle: CSSProperties = {
    * @returns {-50%, -50%} Result produced by translate.
    */
   transform: 'translate(-50%, -50%)',
-  zIndex: 16,
   /**
  * OverlaySelection Component
  * 
@@ -102,7 +101,6 @@ export const OverlaySelection = ({
     transformOrigin: 'center center',
     pointerEvents: 'auto',
     boxSizing: 'border-box',
-    zIndex: 15,
     border: `2px dashed #00f6ff`,
     background: 'transparent',
     cursor: 'grab',
