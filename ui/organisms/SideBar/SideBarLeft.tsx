@@ -10,6 +10,7 @@ export interface SideBarLeftProps {
     key?: string;
     isPanToolActive: boolean;
     isSelectToolActive: boolean;
+    isDrawToolActive: boolean;
 }
 
 /**
@@ -19,7 +20,7 @@ export interface SideBarLeftProps {
  */
 export const SideBarLeft = (props: SideBarLeftProps) => {
 
-    const { isPanToolActive, isSelectToolActive } = props;
+    const { isPanToolActive, isSelectToolActive, isDrawToolActive } = props;
 
   const dispatch = useDispatch();
 
@@ -36,6 +37,14 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
             dispatch(viewActions.setActiveTool('pan'));
         } else {
             dispatch(viewActions.setActiveTool('select'));
+        }
+    };
+
+    const toggleDrawTool = () => {
+        if (isDrawToolActive) {
+            dispatch(viewActions.setActiveTool('select'));
+        } else {
+            dispatch(viewActions.setActiveTool('draw'));
         }
     };
 
@@ -71,6 +80,21 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                     {'\u261D'}
                 </span>
                 <span key="select-label">Select</span>
+            </button>
+
+            <button
+                key="button-draw"
+                type="button"
+                className={`draw ${isDrawToolActive ? 'active' : null}`}
+                onClick={toggleDrawTool}
+                aria-pressed={isDrawToolActive}
+                aria-label={isDrawToolActive ? 'Disable pen tool' : 'Enable pen tool'}
+                title={isDrawToolActive ? 'Pen tool active' : 'Enable pen tool'}
+            >
+                <span key="draw-icon" aria-hidden="true">
+                    {'\u270F'}
+                </span>
+                <span key="draw-label">Pen</span>
             </button>
         </div>
     )

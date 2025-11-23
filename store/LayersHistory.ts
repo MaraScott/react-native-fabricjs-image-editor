@@ -20,7 +20,13 @@ interface LayersHistoryState {
 type Listener = () => void;
 
 const cloneSnapshot = (snapshot: LayersSnapshot): LayersSnapshot => ({
-    layers: snapshot.layers.map((layer) => ({ ...layer, position: { ...layer.position }, scale: layer.scale ? { ...layer.scale } : undefined, bounds: layer.bounds ? { ...layer.bounds } : undefined })),
+    layers: snapshot.layers.map((layer) => ({
+        ...layer,
+        position: { ...layer.position },
+        scale: layer.scale ? { ...layer.scale } : undefined,
+        bounds: layer.bounds ? { ...layer.bounds } : undefined,
+        strokes: layer.strokes ? layer.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })) : undefined,
+    })),
     selectedLayerIds: [...snapshot.selectedLayerIds],
     primaryLayerId: snapshot.primaryLayerId,
     revision: snapshot.revision,
@@ -38,6 +44,27 @@ const layersEqual = (a: LayersSnapshot | null, b: LayersSnapshot | null): boolea
         const sb = lb.scale ?? { x: 1, y: 1 };
         if (sa.x !== sb.x || sa.y !== sb.y) return false;
         if (la.visible !== lb.visible) return false;
+        if ((la.opacity ?? 1) !== (lb.opacity ?? 1)) return false;
+        const strokesA = la.strokes ?? [];
+        const strokesB = lb.strokes ?? [];
+        if (strokesA.length !== strokesB.length) return false;
+        for (let s = 0; s < strokesA.length; s += 1) {
+            const saStroke = strokesA[s];
+            const sbStroke = strokesB[s];
+            if (
+                saStroke.id !== sbStroke.id ||
+                saStroke.color !== sbStroke.color ||
+                saStroke.size !== sbStroke.size ||
+                saStroke.hardness !== sbStroke.hardness ||
+                saStroke.opacity !== sbStroke.opacity
+            ) {
+                return false;
+            }
+            if (saStroke.points.length !== sbStroke.points.length) return false;
+            for (let p = 0; p < saStroke.points.length; p += 1) {
+                if (saStroke.points[p] !== sbStroke.points[p]) return false;
+            }
+        }
     }
     return true;
 };

@@ -68,6 +68,7 @@ export interface DrawToolState {
     brushSize: number;
     brushColor: string;
     brushOpacity: number;
+    brushHardness: number;
     isDrawing: boolean;
     currentPath: string | null;
 }

@@ -13,9 +13,11 @@ import { Layer as KonvaLayer } from '@atoms/Canvas';
 
 import type { RootState } from '@store/CanvasApp';
 import type { PointerPanState, TouchPanState, SelectionDragState, SelectionNodeSnapshot, SelectionTransformSnapshot, Bounds } from './types/canvas.types';
-import type { PanOffset } from '@molecules/Layer/Layer.types';
+import type { PanOffset, LayerStroke } from '@molecules/Layer/Layer.types';
 
-import { Rect, Group } from "react-konva";
+import { Rect, Group, Line } from "react-konva";
+import { drawActions } from '@store/CanvasApp/view/draw';
+import { SettingsPanelUI } from '@molecules/Settings/SettingsPanelUI';
 
 export interface SimpleCanvasProps {
     stageWidth?: number;
@@ -45,9 +47,20 @@ export const SimpleCanvas = ({
     layersRevision = 0,
     selectModeActive = false,
 }: SimpleCanvasProps) => {
+    type Stroke = {
+        id: string;
+        points: number[];
+        color: string;
+        size: number;
+        hardness: number;
+        opacity: number;
+    };
+
     const { layerControls, renderableLayers } = useSimpleCanvasStore((state) => state);
     const dispatch = useDispatch();
     const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
+    const drawToolState = useSelector((state: RootState) => state.view.draw);
+    const isDrawToolActive = useSelector((state: RootState) => state.view.draw.active);
     // Read selectionTransform from Redux
     const reduxSelectionTransform = useSelector(selectSelectionTransform);
     const stageRef = useRef<Konva.Stage>(null);
@@ -79,6 +92,7 @@ export const SimpleCanvas = ({
     const [isPointerPanning, setIsPointerPanning] = useState(false);
     const [isTouchPanning, setIsTouchPanning] = useState(false);
     const [isLayerPanelOpen, setIsLayerPanelOpen] = useState(false);
+    const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
     const [layerRefreshKey, setLayerRefreshKey] = useState(0);
     const [selectedLayerBounds, setSelectedLayerBounds] = useState<Bounds | null>(null);
     const [overlaySelectionBox, setOverlaySelectionBox] = useState<
@@ -88,6 +102,7 @@ export const SimpleCanvas = ({
 
     // Map of selected layer IDs to their Konva nodes
     const selectedLayerNodeRefs = useRef<Map<string, Konva.Node>>(new Map());
+    const [pendingStroke, setPendingStroke] = useState<{ layerId: string; stroke: LayerStroke } | null>(null);
 
     const layersToRender = useMemo(() => {
         if (!layerControls) return [];
@@ -100,6 +115,17 @@ export const SimpleCanvas = ({
         // always return a fresh array to reflect changed order
         return [...source];
     }, [layerControls?.layers, renderableLayers]);
+
+    const penSettings = useMemo(() => ({
+        size: drawToolState.brushSize,
+        hardness: drawToolState.brushHardness ?? 1,
+        color: drawToolState.brushColor,
+        opacity: drawToolState.brushOpacity,
+        onSizeChange: (size: number) => dispatch(drawActions.setBrushSize(size)),
+        onHardnessChange: (value: number) => dispatch(drawActions.setBrushHardness(value)),
+        onColorChange: (color: string) => dispatch(drawActions.setBrushColor(color)),
+        onOpacityChange: (opacity: number) => dispatch(drawActions.setBrushOpacity(opacity)),
+    }), [dispatch, drawToolState.brushColor, drawToolState.brushHardness, drawToolState.brushOpacity, drawToolState.brushSize]);
 
     // Keep Konva node order in sync when moveLayer fires.
     useEffect(() => {
@@ -133,6 +159,14 @@ export const SimpleCanvas = ({
         [JSON.stringify(selectedLayerIds)]
     );
     const selectedLayerSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds]);
+    const showSettingsPanel = isDrawToolActive || selectedLayerIds.length > 0;
+    useEffect(() => {
+        if (!layerControls || selectedLayerIds.length > 0) return;
+        if (layerControls.layers.length > 0) {
+            const topLayer = layerControls.layers[layerControls.layers.length - 1];
+            layerControls.selectLayer(topLayer.id, { mode: 'replace' });
+        }
+    }, [layerControls, selectedLayerIds]);
 
     // Viewport offsets and transformer scale helpers
     const renderWidth = Math.max(1, stageWidth * scale);
@@ -348,6 +382,17 @@ export const SimpleCanvas = ({
     const updateZoom = useUpdateZoom(onZoomChange, setInternalZoom);
     const applyZoomDelta = useApplyZoomDelta(updateZoom);
 
+    const getRelativePointerPosition = useCallback(() => {
+        const stage = stageRef.current;
+        if (!stage) return null;
+        const pos = stage.getPointerPosition();
+        if (!pos) return null;
+        return {
+            x: pos.x / safeScale - stageViewportOffsetX,
+            y: pos.y / safeScale - stageViewportOffsetY,
+        };
+    }, [safeScale, stageViewportOffsetX, stageViewportOffsetY]);
+
     const markSelectionTransforming = useCallback((flag: boolean) => {
         isSelectionTransformingRef.current = flag;
     }, []);
@@ -487,6 +532,77 @@ export const SimpleCanvas = ({
         pointerPanState.current = null;
         setIsPointerPanning(false);
     }, []);
+
+    const handleStagePointerDown = useCallback((event: any) => {
+        if (!isDrawToolActive || !layerControls) return;
+        if (event?.evt?.preventDefault) {
+            event.evt.preventDefault();
+        }
+        const point = getRelativePointerPosition();
+        if (!point) return;
+
+        const targetLayerId = selectedLayerIds[0] ?? (layerControls.layers[layerControls.layers.length - 1]?.id ?? null);
+        if (!targetLayerId) return;
+        if (selectedLayerIds.length === 0) {
+            layerControls.selectLayer(targetLayerId, { mode: 'replace' });
+        }
+        const layer = layerControls.layers.find((l) => l.id === targetLayerId);
+        if (!layer) return;
+
+        const localX = point.x - (layer.position?.x ?? 0);
+        const localY = point.y - (layer.position?.y ?? 0);
+
+        const strokeId = `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const hardness = drawToolState.brushHardness ?? 1;
+        const stroke: LayerStroke = {
+            id: strokeId,
+            points: [localX, localY],
+            color: drawToolState.brushColor,
+            size: drawToolState.brushSize,
+            hardness,
+            opacity: drawToolState.brushOpacity,
+        };
+        setPendingStroke({ layerId: targetLayerId, stroke });
+        dispatch(drawActions.startDrawing(strokeId));
+    }, [dispatch, drawToolState.brushColor, drawToolState.brushHardness, drawToolState.brushOpacity, drawToolState.brushSize, getRelativePointerPosition, isDrawToolActive, layerControls, selectedLayerIds]);
+
+    const handleStagePointerMove = useCallback((event: any) => {
+        if (!isDrawToolActive || !pendingStroke || !layerControls) return;
+        if (event?.evt?.preventDefault) {
+            event.evt.preventDefault();
+        }
+        const point = getRelativePointerPosition();
+        if (!point) return;
+        const layer = layerControls.layers.find((l) => l.id === pendingStroke.layerId);
+        if (!layer) return;
+        const localX = point.x - (layer.position?.x ?? 0);
+        const localY = point.y - (layer.position?.y ?? 0);
+        setPendingStroke((prev) =>
+            prev && prev.layerId === layer.id
+                ? {
+                    layerId: prev.layerId,
+                    stroke: { ...prev.stroke, points: [...prev.stroke.points, localX, localY] },
+                }
+                : prev
+        );
+        dispatch(drawActions.updatePath(pendingStroke.stroke.id));
+    }, [dispatch, getRelativePointerPosition, isDrawToolActive, layerControls, pendingStroke]);
+
+    const handleStagePointerUp = useCallback((event: any) => {
+        if (!isDrawToolActive || !layerControls) return;
+        if (event?.evt?.preventDefault) {
+            event.evt.preventDefault();
+        }
+        if (pendingStroke) {
+            const layer = layerControls.layers.find((l) => l.id === pendingStroke.layerId);
+            if (layer) {
+                const existing = layer.strokes ?? [];
+                layerControls.updateLayerStrokes?.(layer.id, [...existing, pendingStroke.stroke]);
+            }
+        }
+        setPendingStroke(null);
+        dispatch(drawActions.finishDrawing());
+    }, [dispatch, isDrawToolActive, layerControls, pendingStroke]);
 
     const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
         if (event.pointerType !== 'mouse' && event.pointerType !== 'pen') {
@@ -735,7 +851,9 @@ export const SimpleCanvas = ({
 
     const baseCursor = (isPointerPanning || isTouchPanning)
         ? 'grabbing'
-        : (panModeActive || spacePressed ? 'grab' : 'default');
+        : isDrawToolActive
+            ? 'crosshair'
+            : (panModeActive || spacePressed ? 'grab' : 'default');
 
     useEffect(() => {
         if (!stageRef.current) {
@@ -825,6 +943,12 @@ export const SimpleCanvas = ({
         selectionTransformStateRef.current = null;
     }, [selectedLayerIds]);
 
+    useEffect(() => {
+        if (!showSettingsPanel && isSettingsPanelOpen) {
+            setIsSettingsPanelOpen(false);
+        }
+    }, [isSettingsPanelOpen, showSettingsPanel]);
+
     // Attach Konva stage listeners for background clicks (use Konva events to satisfy typings)
     useEffect(() => {
         const stage = stageRef.current;
@@ -870,6 +994,14 @@ export const SimpleCanvas = ({
                 ref={stageRef}
                 width={containerDimensions.width}
                 height={containerDimensions.height}
+                onMouseDown={handleStagePointerDown}
+                onTouchStart={handleStagePointerDown}
+                onMouseMove={handleStagePointerMove}
+                onTouchMove={handleStagePointerMove}
+                onMouseUp={handleStagePointerUp}
+                onTouchEnd={handleStagePointerUp}
+                onMouseLeave={handleStagePointerUp}
+                onTouchCancel={handleStagePointerUp}
                 style={{
                     cursor: baseCursor,
                 }}
@@ -886,6 +1018,10 @@ export const SimpleCanvas = ({
                                         const selectionOverride = (layerIsSelected && isSelectionTransformingRef.current && sharedSelectionRect)
                                     ? sharedSelectionRect
                                     : null;
+                                const combinedStrokes: LayerStroke[] = [
+                                    ...(layer.strokes ?? []),
+                                    ...(pendingStroke && pendingStroke.layerId === layer.id ? [pendingStroke.stroke] : []),
+                                ];
                                 return (
                                     <GroupAny
                                         key={`${layersRevision}-${layer.id}`}
@@ -899,6 +1035,7 @@ export const SimpleCanvas = ({
                                         rotation={selectionOverride ? selectionOverride.rotation : (layer.rotation ?? 0)}
                                         scaleX={selectionOverride ? selectionOverride.scaleX : (layer.scale?.x ?? 1)}
                                         scaleY={selectionOverride ? selectionOverride.scaleY : (layer.scale?.y ?? 1)}
+                                        opacity={layer.opacity ?? 1}
                                         draggable={Boolean(selectModeActive)}
                                         selectModeActive={selectModeActive}
                                         stageViewportOffsetX={stageViewportOffsetX}
@@ -912,6 +1049,21 @@ export const SimpleCanvas = ({
                                         syncTransformerToSelection={syncTransformerToSelection}
                                     >
                                         {layer.render()}
+                                        {combinedStrokes.map((stroke) => (
+                                            <Line
+                                                key={stroke.id}
+                                                points={stroke.points}
+                                                stroke={stroke.color}
+                                                strokeWidth={stroke.size}
+                                                lineCap="round"
+                                                lineJoin="round"
+                                                opacity={stroke.opacity}
+                                                tension={0}
+                                                shadowBlur={(1 - stroke.hardness) * stroke.size * 1.5}
+                                                shadowColor={stroke.color}
+                                                listening={false}
+                                            />
+                                        ))}
                                     </GroupAny>
                                 );
                             }
@@ -958,7 +1110,7 @@ export const SimpleCanvas = ({
                 ) : null}
 
             </Stage>
-            {layerControls && isSelectToolActive && (
+            {layerControls && (isSelectToolActive || isDrawToolActive) && (
                 <LayerPanelUI
                     isOpen={isLayerPanelOpen}
                     onToggle={() => setIsLayerPanelOpen((previous) => !previous)}
@@ -967,6 +1119,16 @@ export const SimpleCanvas = ({
                 />
             )}
 
+            {showSettingsPanel && (
+                <SettingsPanelUI
+                    isOpen={isSettingsPanelOpen}
+                    onToggle={() => setIsSettingsPanelOpen((prev) => !prev)}
+                    onClose={() => setIsSettingsPanelOpen(false)}
+                    layerControls={layerControls}
+                    selectedLayerIds={selectedLayerIds}
+                    penSettings={penSettings}
+                />
+            )}
 
         </div>
     );

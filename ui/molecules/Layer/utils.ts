@@ -41,6 +41,8 @@ export const normaliseLayerDefinitions = (
     position: definition.position ?? { x: 0, y: 0 },
     rotation: definition.rotation ?? 0,
     scale: definition.scale ?? { x: 1, y: 1 },
+    opacity: definition.opacity ?? 1,
+    strokes: definition.strokes ? [...definition.strokes] : [],
     render: definition.render,
   }));
 };

@@ -1,6 +1,15 @@
 import type { ReactNode } from 'react';
 import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 
+export interface LayerStroke {
+  id: string;
+  points: number[];
+  color: string;
+  size: number;
+  hardness: number;
+  opacity: number;
+}
+
 /**
  * ScaleVector Type
  *
@@ -21,6 +30,8 @@ export interface LayerRenderable {
   position?: { x: number; y: number };
   rotation?: number;
   scale?: ScaleVector;
+  opacity?: number;
+  strokes?: LayerStroke[];
 }
 
 /**
@@ -39,6 +50,8 @@ export interface LayerDescriptor extends LayerRenderable {
   position: { x: number; y: number };
   rotation?: number;
   scale?: ScaleVector;
+  opacity?: number;
+  strokes?: LayerStroke[];
   bounds?: Bounds | null;
 }
 
@@ -89,7 +102,9 @@ export interface LayerControlHandlers {
       rotation: number;
     }
   ) => void;
+  updateLayerOpacity?: (layerId: string, opacity: number) => void;
   updateLayerBounds?: (layerId: string, bounds: Bounds | null) => void;
+  updateLayerStrokes?: (layerId: string, strokes: LayerStroke[]) => void;
   undo?: () => void;
   redo?: () => void;
   canUndo?: boolean;

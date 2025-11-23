@@ -149,6 +149,7 @@ export const CanvasApp = ({
      * @param {*} (state - Parameter forwarded to useSelector.
      */
     const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
+    const isDrawToolActive = useSelector((state: RootState) => state.view.draw.active);
 
     useEffect(() => {
         const updateScreenSize = () => {
@@ -200,7 +201,7 @@ export const CanvasApp = ({
                     </button>
                 </div>
             }
-            sidebarLeft={<SideBarLeft isPanToolActive={isPanToolActive} isSelectToolActive={isSelectToolActive} />}
+            sidebarLeft={<SideBarLeft isPanToolActive={isPanToolActive} isSelectToolActive={isSelectToolActive} isDrawToolActive={isDrawToolActive} />}
             footer={<Footer />}
         >
             <CanvasContainer

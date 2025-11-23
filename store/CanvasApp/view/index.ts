@@ -37,6 +37,7 @@ const initialState: ViewState = {
         brushSize: 5,
         brushColor: '#000000',
         brushOpacity: 1,
+        brushHardness: 1,
         isDrawing: false,
         currentPath: null,
     },
@@ -523,6 +524,16 @@ export const viewReducer = createReducer(initialState, (builder) => {
              *
              * @returns {state.draw, action} Result produced by drawReducer.
              */
+            drawReducer(state.draw, action);
+        })
+        /**
+         * addCase - Auto-generated documentation stub.
+         *
+         * @param {*} 'view/draw/setBrushHardness' - Parameter forwarded to addCase.
+         * @param {*} (state - Parameter forwarded to addCase.
+         * @param {*} action - Parameter forwarded to addCase.
+         */
+        .addCase('view/draw/setBrushHardness', (state, action) => {
             drawReducer(state.draw, action);
         })
         /**

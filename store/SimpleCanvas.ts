@@ -4,6 +4,7 @@ import type { LayerControlHandlers, LayerDescriptor } from '@molecules/Layer/Lay
 interface SimpleCanvasState {
     layerControls: LayerControlHandlers | null;
     renderableLayers: LayerDescriptor[];
+    revision: number | null;
 }
 
 type Listener = () => void;
@@ -28,6 +29,7 @@ class SimpleCanvasStore {
     private state: SimpleCanvasState = {
         layerControls: null,
         renderableLayers: [],
+        revision: null,
     };
 
     private listeners = new Set<Listener>();
@@ -43,9 +45,11 @@ class SimpleCanvasStore {
 
     setLayerState = (layerControls: LayerControlHandlers | null, renderableLayers: LayerDescriptor[]) => {
         const nextRenderable = layerControls ? [...renderableLayers] : [];
+        const nextRevision = layerControls?.layersRevision ?? null;
 
         if (
             this.state.layerControls === layerControls &&
+            this.state.revision === nextRevision &&
             areLayerArraysEqual(this.state.renderableLayers, nextRenderable)
         ) {
             return;
@@ -54,6 +58,7 @@ class SimpleCanvasStore {
         this.state = {
             layerControls,
             renderableLayers: nextRenderable,
+            revision: nextRevision,
         };
 
         this.emit();

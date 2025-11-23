@@ -11,6 +11,7 @@ const initialState: DrawToolState = {
     brushSize: 5,
     brushColor: '#000000',
     brushOpacity: 1,
+    brushHardness: 1,
     isDrawing: false,
     currentPath: null,
 };
@@ -85,6 +86,9 @@ export const drawReducer = createReducer(initialState, (builder) => {
              */
             state.brushOpacity = Math.max(0, Math.min(1, action.payload));
         })
+        .addCase('view/draw/setBrushHardness', (state, action: PayloadAction<number>) => {
+            state.brushHardness = Math.max(0, Math.min(1, action.payload));
+        })
         /**
          * addCase - Auto-generated documentation stub.
          *
@@ -137,6 +141,7 @@ export const drawActions = {
     setBrushSize: (size: number) => ({ type: 'view/draw/setBrushSize' as const, payload: size }),
     setBrushColor: (color: string) => ({ type: 'view/draw/setBrushColor' as const, payload: color }),
     setBrushOpacity: (opacity: number) => ({ type: 'view/draw/setBrushOpacity' as const, payload: opacity }),
+    setBrushHardness: (value: number) => ({ type: 'view/draw/setBrushHardness' as const, payload: value }),
     startDrawing: (pathId: string) => ({ type: 'view/draw/startDrawing' as const, payload: pathId }),
     updatePath: (pathData: string) => ({ type: 'view/draw/updatePath' as const, payload: pathData }),
     finishDrawing: () => ({ type: 'view/draw/finishDrawing' as const }),

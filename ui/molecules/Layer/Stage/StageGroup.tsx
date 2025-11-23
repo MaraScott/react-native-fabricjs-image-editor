@@ -19,6 +19,7 @@ interface StageGroupProps {
     rotation: number;
     scaleX: number;
     scaleY: number;
+    opacity?: number;
     draggable: boolean;
     selectModeActive: boolean;
     stageViewportOffsetX: number;
@@ -48,6 +49,7 @@ export const StageGroup = ({
     rotation,
     scaleX,
     scaleY,
+    opacity,
     draggable,
     selectModeActive,
     stageViewportOffsetX,
@@ -254,6 +256,7 @@ export const StageGroup = ({
             rotation={rotation}
             scaleX={scaleX}
             scaleY={scaleY}
+            opacity={opacity ?? 1}
             draggable={draggable}
             //   onClick={(event: KonvaEventObject<MouseEvent>) => {
             //     if (!selectModeActive || !layerControls) {

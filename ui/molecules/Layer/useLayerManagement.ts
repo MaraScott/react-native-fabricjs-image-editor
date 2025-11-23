@@ -72,6 +72,8 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                         position: { x: 0, y: 0 },
                         rotation: 0,
                         scale: { x: 1, y: 1 },
+                        opacity: 1,
+                        strokes: [],
                         render: () => null,
                     },
                 ];
@@ -185,6 +187,8 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
             position: { x: 0, y: 0 },
             rotation: 0,
             scale: { x: 1, y: 1 },
+            opacity: 1,
+            strokes: [],
             render: () => null,
         };
         const nextLayers = [...present.layers, newLayer];
@@ -214,6 +218,8 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
             position: { ...layer.position },
             rotation: layer.rotation,
             scale: layer.scale ? { ...layer.scale } : { x: 1, y: 1 },
+            opacity: layer.opacity ?? 1,
+            strokes: layer.strokes ? layer.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })) : [],
         };
         const layerIndex = present.layers.findIndex((l) => l.id === layerId);
         const nextLayers = [...present.layers];
@@ -325,6 +331,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                         position: transform.position,
                         rotation: transform.rotation,
                         scale: transform.scale,
+                        opacity: layer.opacity ?? 1,
                     }
                     : layer
             ),
@@ -346,6 +353,27 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                     bounds: bounds ? { ...bounds } : null,
                 };
             }),
+            present.selectedLayerIds,
+            present.primaryLayerId,
+        );
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const updateLayerOpacity = useCallback<NonNullable<LayerControlHandlers['updateLayerOpacity']>>((layerId, opacity) => {
+        const clamped = Math.max(0, Math.min(1, opacity));
+        applyLayers(
+            present.layers.map((layer) =>
+                layer.id === layerId ? { ...layer, opacity: clamped } : layer
+            ),
+            present.selectedLayerIds,
+            present.primaryLayerId,
+        );
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const updateLayerStrokes = useCallback<NonNullable<LayerControlHandlers['updateLayerStrokes']>>((layerId, strokes) => {
+        applyLayers(
+            present.layers.map((layer) =>
+                layer.id === layerId ? { ...layer, strokes: strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })) } : layer
+            ),
             present.selectedLayerIds,
             present.primaryLayerId,
         );
@@ -379,6 +407,8 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         updateLayerRotation,
         updateLayerScale,
         updateLayerTransform,
+        updateLayerOpacity,
+        updateLayerStrokes,
         updateLayerBounds,
         undo,
         redo,
