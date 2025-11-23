@@ -400,7 +400,6 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         img.onload = () => {
             const naturalWidth = img.naturalWidth || img.width || 1;
             const naturalHeight = img.naturalHeight || img.height || 1;
-            const fitScale = Math.min(1, Math.min(stageWidth / naturalWidth, stageHeight / naturalHeight));
 
             const targetLayerId =
                 present.selectedLayerIds[0] ??
@@ -412,12 +411,24 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
             const nextLayers = present.layers.map((layer) => {
                 if (layer.id !== targetLayerId) return layer;
 
+                // Prefer fitting into existing bounds; otherwise fit to stage
+                const boundsWidth = layer.bounds?.width ?? stageWidth;
+                const boundsHeight = layer.bounds?.height ?? stageHeight;
+                const fitScale = Math.min(1, Math.min(boundsWidth / naturalWidth, boundsHeight / naturalHeight));
+                const fitWidth = naturalWidth * fitScale;
+                const fitHeight = naturalHeight * fitScale;
+
+                const offsetX = layer.bounds ? (boundsWidth - fitWidth) / 2 : (stageWidth - fitWidth) / 2 - (layer.position?.x ?? 0);
+                const offsetY = layer.bounds ? (boundsHeight - fitHeight) / 2 : (stageHeight - fitHeight) / 2 - (layer.position?.y ?? 0);
+
                 const priorRender = layer.render;
                 const imageNode = React.createElement(KonvaImage, {
                     image: img,
                     listening: true,
-                    width: naturalWidth,
-                    height: naturalHeight,
+                    width: fitWidth,
+                    height: fitHeight,
+                    x: offsetX,
+                    y: offsetY,
                 });
 
                 const composedRender = () =>
@@ -430,15 +441,9 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                         )
                         : imageNode;
 
-                const centeredPosition = {
-                    x: (stageWidth - naturalWidth * fitScale) / 2,
-                    y: (stageHeight - naturalHeight * fitScale) / 2,
-                };
-
                 return {
                     ...layer,
-                    position: centeredPosition,
-                    scale: { x: fitScale, y: fitScale },
+                    scale: { x: 1, y: 1 },
                     render: composedRender,
                 };
             });

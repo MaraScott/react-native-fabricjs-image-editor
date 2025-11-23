@@ -1,5 +1,7 @@
 import { useDispatch } from 'react-redux';
+import { useRef } from 'react';
 import { viewActions } from '@store/CanvasApp/view';
+import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 
 /**
  * SideBarLeftProps Interface
@@ -24,6 +26,8 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
     const { isPanToolActive, isSelectToolActive, isDrawToolActive, isRubberToolActive } = props;
 
   const dispatch = useDispatch();
+    const layerControls = useSimpleCanvasStore((state) => state.layerControls);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const togglePanTool = () => {
         if (isPanToolActive) {
@@ -55,6 +59,25 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
         } else {
             dispatch(viewActions.setActiveTool('rubber'));
         }
+    };
+
+    const handleAddImageClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file || !layerControls?.addImageLayer) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const result = reader.result;
+            if (typeof result === 'string') {
+                layerControls.addImageLayer(result);
+                dispatch(viewActions.setActiveTool('select'));
+            }
+            event.target.value = '';
+        };
+        reader.readAsDataURL(file);
     };
 
     return (
@@ -120,6 +143,28 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 </span>
                 <span key="erase-label">Erase</span>
             </button>
+
+            <button
+                key="button-add-image"
+                type="button"
+                className="add-image"
+                onClick={handleAddImageClick}
+                aria-label="Add picture"
+                title="Add picture"
+                disabled={!layerControls?.addImageLayer}
+            >
+                <span key="add-image-icon" aria-hidden="true">
+                    {'🖼️'}
+                </span>
+                <span key="add-image-label">Picture</span>
+            </button>
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleFileChange}
+            />
         </div>
     )
 };  
