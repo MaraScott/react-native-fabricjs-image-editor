@@ -163,7 +163,7 @@ export const CanvasApp = ({
         return () => window.removeEventListener('resize', updateScreenSize);
     }, []);
 
-    if (isSmallScreen) {
+    if (isSmallScreen && false) {
         return (
             <div
                 style={{
