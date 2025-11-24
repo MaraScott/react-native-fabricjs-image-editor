@@ -478,10 +478,27 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                 render: () => imageNode,
             };
 
-            applyLayers([...present.layers, imageLayer], [newLayerId], newLayerId);
+            // Insert above the currently selected layer; if none are selected, place it on top.
+            const insertIndex = (() => {
+                if (present.selectedLayerIds.length === 0) {
+                    return present.layers.length;
+                }
+                const selectedIndexes = present.selectedLayerIds
+                    .map((id) => layerIndexMap.get(id))
+                    .filter((index): index is number => typeof index === 'number');
+                if (selectedIndexes.length === 0) {
+                    return present.layers.length;
+                }
+                return Math.min(present.layers.length, Math.max(...selectedIndexes) + 1);
+            })();
+
+            const nextLayers = [...present.layers];
+            nextLayers.splice(insertIndex, 0, imageLayer);
+
+            applyLayers(nextLayers, [newLayerId], newLayerId);
         };
         img.src = src;
-    }, [applyLayers, present.layers, stageHeight, stageWidth]);
+    }, [applyLayers, layerIndexMap, present.layers, present.selectedLayerIds, stageHeight, stageWidth]);
 
     const undo = useCallback(() => {
         undoLayers();
