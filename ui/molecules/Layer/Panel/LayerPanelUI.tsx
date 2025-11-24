@@ -43,7 +43,8 @@ export const LayerPanelUI = ({
         return null;
     }
 
-    const bottomLayerId = layerControls.layers[layerControls.layers.length - 1]?.id ?? null;
+    // Layers array is ordered bottom -> top, so the bottom-most layer is index 0.
+    const bottomLayerId = layerControls.layers[0]?.id ?? null;
 
     return (
         <div className="layer-panel-ui">

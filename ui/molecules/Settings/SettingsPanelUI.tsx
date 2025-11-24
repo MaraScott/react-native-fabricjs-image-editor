@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LayerControlHandlers } from '@molecules/Layer/Layer.types';
+import { useSelector } from 'react-redux';
+import type { RootState } from '@store/CanvasApp';
 
 type PenSettings = {
     size: number;
@@ -29,6 +31,9 @@ export const SettingsPanelUI = ({
     selectedLayerIds,
     penSettings,
 }: SettingsPanelUIProps) => {
+
+    const drawToolState = useSelector((state: RootState) => state.view.draw);
+
     const [penSize, setPenSize] = useState<number>(penSettings?.size ?? 1);
     const [penHardness, setPenHardness] = useState<number>(penSettings?.hardness ?? 1);
     const [penOpacity, setPenOpacity] = useState<number>(penSettings?.opacity ?? 1);
@@ -64,26 +69,6 @@ export const SettingsPanelUI = ({
         }
     }, [selectedOpacity, selectedLayerIds.join('|')]);
 
-    // useEffect(() => {
-    //     const handleGlobalPointerUp = () => {
-    //         if (!isOpacityDraggingRef.current) return;
-    //         isOpacityDraggingRef.current = false;
-    //         if (opacityCommitTimeoutRef.current) {
-    //             clearTimeout(opacityCommitTimeoutRef.current);
-    //             opacityCommitTimeoutRef.current = null;
-    //         }
-    //         commitLayerOpacity(layerOpacityRef.current);
-    //     };
-    //     window.addEventListener('pointerup', handleGlobalPointerUp);
-    //     window.addEventListener('mouseup', handleGlobalPointerUp);
-    //     window.addEventListener('touchend', handleGlobalPointerUp);
-    //     return () => {
-    //         window.removeEventListener('pointerup', handleGlobalPointerUp);
-    //         window.removeEventListener('mouseup', handleGlobalPointerUp);
-    //         window.removeEventListener('touchend', handleGlobalPointerUp);
-    //     };
-    // }, []);
-
     const previewLayerOpacity = (value: number) => {
         if (!layerControls) return;
         const targets = opacityTargetsRef.current.length ? opacityTargetsRef.current : selectedLayerIds;
@@ -114,9 +99,7 @@ export const SettingsPanelUI = ({
         }
     };
 
-    if (!layerControls && !penSettings) {
-        return null;
-    }
+    console.log(penSettings);
 
     return (
         <div className="settings-panel-ui">
@@ -179,7 +162,7 @@ export const SettingsPanelUI = ({
                         <div className="empty">Select a layer to adjust opacity.</div>
                     )}
 
-                    {penSettings ? (
+                    {penSettings && drawToolState.active && (
                         <div className="section">
                             <div className="section-title">Pen</div>
                             <div className="control-group">
@@ -243,7 +226,7 @@ export const SettingsPanelUI = ({
                                 />
                             </div>
                         </div>
-                    ) : null}
+                    )}
                 </div>
             )}
         </div>

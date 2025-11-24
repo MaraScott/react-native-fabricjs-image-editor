@@ -126,7 +126,6 @@ export const StageGroup = ({
         return null;
     }
     const onPointerDown = (event: KonvaEventObject<PointerEvent>) => {
-        console.log('#### StageGroup onPointerDown layerId:', layerId);
         if (!selectModeActive || !layerControls) {
             return;
         }

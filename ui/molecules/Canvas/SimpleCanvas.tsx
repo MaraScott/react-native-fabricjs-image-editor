@@ -162,7 +162,7 @@ export const SimpleCanvas = ({
         [JSON.stringify(selectedLayerIds)]
     );
     const selectedLayerSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds]);
-    const showSettingsPanel = isDrawToolActive || selectedLayerIds.length > 0;
+    const showSettingsPanel = true;
     useEffect(() => {
         if (!layerControls || selectedLayerIds.length > 0) return;
         if (layerControls.layers.length > 0) {
@@ -1042,7 +1042,7 @@ export const SimpleCanvas = ({
                 <KonvaLayer key={`interaction-layer`}>
                     <Group key={`test-${layersRevision}`}>
                         {layerControls && layersToRender.length > 0 ? (
-                            layersToRender.reverse().map((layer, index) => {
+                            layersToRender.map((layer, index) => {
                                 const layerIsSelected = selectedLayerSet.has(layer.id);
                                 const layerBounds = layer.bounds ?? null;
                                 const computedX = stageViewportOffsetX + (layerBounds ? layerBounds.x : layer.position.x);
@@ -1143,7 +1143,7 @@ export const SimpleCanvas = ({
                 ) : null}
 
             </Stage>
-            {layerControls && (isSelectToolActive || isDrawToolActive || isRubberToolActive) && (
+            {layerControls && !panModeActive && (
                 <LayerPanelUI
                     isOpen={isLayerPanelOpen}
                     onToggle={() => setIsLayerPanelOpen((previous) => !previous)}
@@ -1152,7 +1152,7 @@ export const SimpleCanvas = ({
                 />
             )}
 
-            {showSettingsPanel && (
+            {layerControls && !panModeActive && (
                 <SettingsPanelUI
                     isOpen={isSettingsPanelOpen}
                     onToggle={() => setIsSettingsPanelOpen((prev) => !prev)}
