@@ -99,8 +99,6 @@ export const SettingsPanelUI = ({
         }
     };
 
-    console.log(penSettings);
-
     return (
         <div className="settings-panel-ui">
             <button

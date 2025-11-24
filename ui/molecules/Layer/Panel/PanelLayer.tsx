@@ -34,32 +34,32 @@ const getHeaderButtonConfigs = ({
     pendingSelectionRef: MutableRefObject<string[] | null>;
     layerControls: LayerControlHandlers;
 }) => [
-    {
-        key: `${layer.id}-visibility`,
-        props: {
-            action: 'visibility',
-            className: `visibility ${layer.visible ? 'visible' : ''}`,
-            title: layer.visible ? 'Hide layer' : 'Show layer',
-            onClick: () => layerControls.toggleVisibility(layer.id),
-        },
-        content: layer.visible ? '👁' : '🙈',
-    },
-    {
-        key: `${layer.id}-select`,
-        props: {
-            action: 'select',
-            className: `select${isSelected ? ' selected' : ''}`,
-            title: layer.visible ? 'Hide layer' : 'Show layer',
-            onClick: () => {
-                pendingSelectionRef.current = layerControls.selectLayer(layer.id, {
-                    mode: 'replace',
-                });
+        {
+            key: `${layer.id}-visibility`,
+            props: {
+                action: 'visibility',
+                className: `visibility ${layer.visible ? 'visible' : ''}`,
+                title: layer.visible ? 'Hide layer' : 'Show layer',
+                onClick: () => layerControls.toggleVisibility(layer.id),
             },
-            'aria-pressed': isSelected,
+            content: layer.visible ? '👁' : '🙈',
         },
-        content: layer.name,
-    },
-];
+        {
+            key: `${layer.id}-select`,
+            props: {
+                action: 'select',
+                className: `select${isSelected ? ' selected' : ''}`,
+                title: layer.visible ? 'Hide layer' : 'Show layer',
+                onClick: () => {
+                    pendingSelectionRef.current = layerControls.selectLayer(layer.id, {
+                        mode: 'replace',
+                    });
+                },
+                'aria-pressed': isSelected,
+            },
+            content: layer.name,
+        },
+    ];
 
 const getActionButtonConfigs = ({
     layer,
@@ -74,103 +74,103 @@ const getActionButtonConfigs = ({
     handleCopyLayer: (layerId: string) => void;
     layerControls: LayerControlHandlers;
 }) => [
-    {
-        key: `${layer.id}-copy`,
-        props: {
-            action: 'copy',
-            className: `visibility ${layer.visible ? 'visible' : ''}`,
-            onClick: () => handleCopyLayer(layer.id),
+        {
+            key: `${layer.id}-copy`,
+            props: {
+                action: 'copy',
+                className: `visibility ${layer.visible ? 'visible' : ''}`,
+                onClick: () => handleCopyLayer(layer.id),
+            },
+            content: '⧉',
         },
-        content: '⧉',
-    },
-    {
-        key: `layer-panel-layer-${layer.id}-duplicate-button`,
-        props: {
-            action: 'duplicate',
-            className: 'duplicate',
-            onClick: () => layerControls.duplicateLayer(layer.id),
-            title: 'Duplicate layer',
-            'aria-label': 'Duplicate layer',
+        {
+            key: `layer-panel-layer-${layer.id}-duplicate-button`,
+            props: {
+                action: 'duplicate',
+                className: 'duplicate',
+                onClick: () => layerControls.duplicateLayer(layer.id),
+                title: 'Duplicate layer',
+                'aria-label': 'Duplicate layer',
+            },
+            content: '⧺',
         },
-        content: '⧺',
-    },
-    {
-        key: `layer-panel-layer-${layer.id}-move-up-button`,
-        props: {
-            action: 'move-up',
-            className: 'move-up',
-            onClick: () => layerControls.moveLayer(layer.id, 'up'),
-            title: 'Move layer up',
-            'aria-label': 'Move layer up',
-            disabled: isTop,
+        {
+            key: `layer-panel-layer-${layer.id}-move-up-button`,
+            props: {
+                action: 'move-up',
+                className: 'move-up',
+                onClick: () => layerControls.moveLayer(layer.id, 'up'),
+                title: 'Move layer up',
+                'aria-label': 'Move layer up',
+                disabled: isTop,
+            },
+            content: '▲',
         },
-        content: '▲',
-    },
-    {
-        key: `layer-panel-layer-${layer.id}-move-down-button`,
-        props: {
-            action: 'move-down',
-            className: 'move-down',
-            onClick: () => layerControls.moveLayer(layer.id, 'down'),
-            title: 'Move layer down',
-            'aria-label': 'Move layer down',
-            disabled: isBottom,
+        {
+            key: `layer-panel-layer-${layer.id}-move-down-button`,
+            props: {
+                action: 'move-down',
+                className: 'move-down',
+                onClick: () => layerControls.moveLayer(layer.id, 'down'),
+                title: 'Move layer down',
+                'aria-label': 'Move layer down',
+                disabled: isBottom,
+            },
+            content: '▼',
         },
-        content: '▼',
-    },
-    {
-        key: `layer-panel-layer-${layer.id}-move-top-button`,
-        props: {
-            action: 'move-top',
-            className: 'move-top',
-            onClick: () => layerControls.moveLayer(layer.id, 'top'),
-            title: 'Send layer to top',
-            'aria-label': 'Send layer to top',
-            disabled: isTop,
+        {
+            key: `layer-panel-layer-${layer.id}-move-top-button`,
+            props: {
+                action: 'move-top',
+                className: 'move-top',
+                onClick: () => layerControls.moveLayer(layer.id, 'top'),
+                title: 'Send layer to top',
+                'aria-label': 'Send layer to top',
+                disabled: isTop,
+            },
+            content: '⤒',
         },
-        content: '⤒',
-    },
-    {
-        key: `layer-panel-layer-${layer.id}-move-bottom-button`,
-        props: {
-            action: 'move-bottom',
-            className: 'move-bottom',
-            onClick: () => layerControls.moveLayer(layer.id, 'bottom'),
-            title: 'Send layer to bottom',
-            'aria-label': 'Send layer to bottom',
-            disabled: isBottom,
+        {
+            key: `layer-panel-layer-${layer.id}-move-bottom-button`,
+            props: {
+                action: 'move-bottom',
+                className: 'move-bottom',
+                onClick: () => layerControls.moveLayer(layer.id, 'bottom'),
+                title: 'Send layer to bottom',
+                'aria-label': 'Send layer to bottom',
+                disabled: isBottom,
+            },
+            content: '⤓',
         },
-        content: '⤓',
-    },
-    {
-        key: `layer-panel-layer-${layer.id}-rasterize-button`,
-        props: {
-            action: 'rasterize',
-            className: 'rasterize',
-            onClick: () => layerControls.rasterizeLayer?.(layer.id),
-            title: 'Rasterize layer',
-            'aria-label': 'Rasterize layer',
-            disabled: typeof layerControls.rasterizeLayer !== 'function',
+        {
+            key: `layer-panel-layer-${layer.id}-rasterize-button`,
+            props: {
+                action: 'rasterize',
+                className: 'rasterize',
+                onClick: () => layerControls.rasterizeLayer?.(layer.id),
+                title: 'Rasterize layer',
+                'aria-label': 'Rasterize layer',
+                disabled: typeof layerControls.rasterizeLayer !== 'function',
+            },
+            content: '🖼️',
         },
-        content: '🖼️',
-    },
-    {
-        key: `layer-panel-layer-${layer.id}-remove-button`,
-        props: {
-            action: 'remove',
-            className: 'remove',
-            onClick: () => layerControls.removeLayer(layer.id),
-            title: 'Remove layer',
-            'aria-label': 'Remove layer',
-            disabled: layerControls.layers.length <= 1,
+        {
+            key: `layer-panel-layer-${layer.id}-remove-button`,
+            props: {
+                action: 'remove',
+                className: 'remove',
+                onClick: () => layerControls.removeLayer(layer.id),
+                title: 'Remove layer',
+                'aria-label': 'Remove layer',
+                disabled: layerControls.layers.length <= 1,
+            },
+            content: '🗑',
         },
-        content: '🗑',
-    },
-];
+    ];
 
-export const PanelLayer = ({ 
+export const PanelLayer = ({
     index,
-    data: layer, 
+    data: layer,
     pendingSelectionRef,
 }: PanelLayerProps) => {
 
@@ -252,7 +252,6 @@ export const PanelLayer = ({
         event.stopPropagation();
         setDraggingLayerId(null);
         setDragOverLayer(null);
-        layerControls.ensureAllVisible();
     }, [layerControls, setDragOverLayer, setDraggingLayerId]);
 
     const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
@@ -291,7 +290,6 @@ export const PanelLayer = ({
         layerControls.reorderLayer(sourceId, layer.id, position);
         setDragOverLayer(null);
         setDraggingLayerId(null);
-        layerControls.ensureAllVisible();
     }, [draggingLayerId, layer.id, layerControls, setDragOverLayer, setDraggingLayerId]);
 
     const handleDragLeave = useCallback((event: DragEvent<HTMLDivElement>) => {

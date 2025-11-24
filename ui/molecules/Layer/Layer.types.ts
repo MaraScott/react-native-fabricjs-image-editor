@@ -91,7 +91,6 @@ export interface LayerControlHandlers {
   moveLayer: (layerId: string, direction: LayerMoveDirection) => void;
   toggleVisibility: (layerId: string) => void;
   reorderLayer: (sourceId: string, targetId: string, position: 'above' | 'below') => void;
-  ensureAllVisible: () => void;
   updateLayerPosition: (layerId: string, position: { x: number; y: number }) => void;
   updateLayerScale?: (layerId: string, scale: ScaleVector) => void;
   updateLayerRotation?: (layerId: string, rotation: number) => void;

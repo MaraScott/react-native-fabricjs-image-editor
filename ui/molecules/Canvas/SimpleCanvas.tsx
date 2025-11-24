@@ -355,7 +355,6 @@ export const SimpleCanvas = ({
                     }
                 }
             });
-            layerControls.ensureAllVisible();
         }
         selectionTransformStateRef.current = null;
         isSelectionTransformingRef.current = false;
@@ -1047,7 +1046,7 @@ export const SimpleCanvas = ({
                                 const layerBounds = layer.bounds ?? null;
                                 const computedX = stageViewportOffsetX + (layerBounds ? layerBounds.x : layer.position.x);
                                 const computedY = stageViewportOffsetY + (layerBounds ? layerBounds.y : layer.position.y);
-                                        const selectionOverride = (layerIsSelected && isSelectionTransformingRef.current && sharedSelectionRect)
+                                const selectionOverride = (layerIsSelected && isSelectionTransformingRef.current && sharedSelectionRect)
                                     ? sharedSelectionRect
                                     : null;
                                 const combinedStrokes: LayerStroke[] = [
@@ -1100,12 +1099,12 @@ export const SimpleCanvas = ({
                                     </GroupAny>
                                 );
                             }
-                        )
-                ) : (
-                    <GroupAny key="empty-layer">
-                        {children}
-                    </GroupAny>
-                )}
+                            )
+                        ) : (
+                            <GroupAny key="empty-layer">
+                                {children}
+                            </GroupAny>
+                        )}
                     </Group>
                 </KonvaLayer>
 

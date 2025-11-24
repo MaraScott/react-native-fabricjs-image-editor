@@ -42,7 +42,6 @@ export interface UseLayerManagementReturn {
     moveLayer: (layerId: string, direction: LayerMoveDirection) => void;
     toggleVisibility: (layerId: string) => void;
     reorderLayer: (sourceId: string, targetId: string, position: 'above' | 'below') => void;
-    ensureAllVisible: () => void;
     updateLayerPosition: (layerId: string, position: { x: number; y: number }) => void;
     updateLayerRotation: (layerId: string, rotation: number) => void;
     updateLayerScale: (layerId: string, scale: ScaleVector) => void;
@@ -111,16 +110,16 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
     );
 
     const applyLayers = useCallback(
-    (nextLayers: LayerDescriptor[], nextSelected: string[] = present.selectedLayerIds, nextPrimary: string | null = nextSelected[0] ?? null) => {
-        apply({
-            layers: nextLayers,
-            selectedLayerIds: nextSelected,
-            primaryLayerId: nextPrimary,
-            revision: present.revision + 1,
-        });
-    },
-    [apply, present.revision, present.selectedLayerIds],
-  );
+        (nextLayers: LayerDescriptor[], nextSelected: string[] = present.selectedLayerIds, nextPrimary: string | null = nextSelected[0] ?? null) => {
+            apply({
+                layers: nextLayers,
+                selectedLayerIds: nextSelected,
+                primaryLayerId: nextPrimary,
+                revision: present.revision + 1,
+            });
+        },
+        [apply, present.revision, present.selectedLayerIds],
+    );
 
     const previewLayers = useCallback(
         (nextLayers: LayerDescriptor[], nextSelected: string[] = present.selectedLayerIds, nextPrimary: string | null = nextSelected[0] ?? null) => {
@@ -325,10 +324,6 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         applyLayers(nextLayers, present.selectedLayerIds, present.primaryLayerId);
     }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
 
-    const ensureAllVisible = useCallback(() => {
-        applyLayers(present.layers.map((layer) => (layer.visible ? layer : { ...layer, visible: true })), present.selectedLayerIds, present.primaryLayerId);
-    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
-
     const updateLayerPosition = useCallback<LayerControlHandlers['updateLayerPosition']>((layerId, position) => {
         applyLayers(
             present.layers.map((layer) => (layer.id === layerId ? { ...layer, position } : layer)),
@@ -512,7 +507,6 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         moveLayer,
         toggleVisibility,
         reorderLayer,
-        ensureAllVisible,
         updateLayerPosition,
         updateLayerRotation,
         updateLayerScale,

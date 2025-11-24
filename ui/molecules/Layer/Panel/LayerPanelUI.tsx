@@ -139,7 +139,6 @@ export const LayerPanelUI = ({
                                     }
                                     setDragOverLayer(null);
                                     setDraggingLayerId(null);
-                                    layerControls.ensureAllVisible();
                                 }}
                                 onDragLeave={(event) => {
                                     if (
