@@ -501,9 +501,14 @@ export const SimpleCanvas = ({
         if (typeof document === 'undefined') return;
 
         const handleDocumentPointerDown = (ev: PointerEvent) => {
-            const target = ev.target as Node | null;
-            if (containerRef.current && target && containerRef.current.contains(target)) {
+            const targetElement = ev.target instanceof HTMLElement ? ev.target : null;
+            if (containerRef.current && targetElement && containerRef.current.contains(targetElement)) {
                 // Click was inside the canvas container - ignore (stage handler handles background clicks)
+                return;
+            }
+
+            // Ignore clicks on sidebars/toolbars so selection survives tool toggles
+            if (targetElement?.closest('.sidebar')) {
                 return;
             }
 
@@ -1039,7 +1044,7 @@ export const SimpleCanvas = ({
             >
 
                 <KonvaLayer key={`interaction-layer`}>
-                    <Group key={`test-${layersRevision}`}>
+                    <Group key={`interaction-layer-group-${layersRevision}`}>
                         {layerControls && layersToRender.length > 0 ? (
                             layersToRender.map((layer, index) => {
                                 const layerIsSelected = selectedLayerSet.has(layer.id);
