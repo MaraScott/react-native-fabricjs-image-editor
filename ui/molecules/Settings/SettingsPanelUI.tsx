@@ -33,6 +33,7 @@ export const SettingsPanelUI = ({
     const [penHardness, setPenHardness] = useState<number>(penSettings?.hardness ?? 1);
     const [penOpacity, setPenOpacity] = useState<number>(penSettings?.opacity ?? 1);
     const [layerOpacity, setLayerOpacity] = useState<number>(1);
+    const [, setLastOpacityCommit] = useState<{ value: number; layerIds: string[] } | null>(null);
     const opacityTargetsRef = useRef<string[]>([]);
     const layerOpacityRef = useRef<number>(1);
     const isOpacityDraggingRef = useRef(false);
@@ -63,25 +64,25 @@ export const SettingsPanelUI = ({
         }
     }, [selectedOpacity, selectedLayerIds.join('|')]);
 
-    useEffect(() => {
-        const handleGlobalPointerUp = () => {
-            if (!isOpacityDraggingRef.current) return;
-            isOpacityDraggingRef.current = false;
-            if (opacityCommitTimeoutRef.current) {
-                clearTimeout(opacityCommitTimeoutRef.current);
-                opacityCommitTimeoutRef.current = null;
-            }
-            commitLayerOpacity(layerOpacityRef.current);
-        };
-        window.addEventListener('pointerup', handleGlobalPointerUp);
-        window.addEventListener('mouseup', handleGlobalPointerUp);
-        window.addEventListener('touchend', handleGlobalPointerUp);
-        return () => {
-            window.removeEventListener('pointerup', handleGlobalPointerUp);
-            window.removeEventListener('mouseup', handleGlobalPointerUp);
-            window.removeEventListener('touchend', handleGlobalPointerUp);
-        };
-    }, []);
+    // useEffect(() => {
+    //     const handleGlobalPointerUp = () => {
+    //         if (!isOpacityDraggingRef.current) return;
+    //         isOpacityDraggingRef.current = false;
+    //         if (opacityCommitTimeoutRef.current) {
+    //             clearTimeout(opacityCommitTimeoutRef.current);
+    //             opacityCommitTimeoutRef.current = null;
+    //         }
+    //         commitLayerOpacity(layerOpacityRef.current);
+    //     };
+    //     window.addEventListener('pointerup', handleGlobalPointerUp);
+    //     window.addEventListener('mouseup', handleGlobalPointerUp);
+    //     window.addEventListener('touchend', handleGlobalPointerUp);
+    //     return () => {
+    //         window.removeEventListener('pointerup', handleGlobalPointerUp);
+    //         window.removeEventListener('mouseup', handleGlobalPointerUp);
+    //         window.removeEventListener('touchend', handleGlobalPointerUp);
+    //     };
+    // }, []);
 
     const previewLayerOpacity = (value: number) => {
         if (!layerControls) return;
@@ -96,13 +97,16 @@ export const SettingsPanelUI = ({
 
     const commitLayerOpacity = (value: number) => {
         if (!layerControls) return;
-        const targets = opacityTargetsRef.current.length ? opacityTargetsRef.current : [];
+        const targets = opacityTargetsRef.current.length ? opacityTargetsRef.current : selectedLayerIds;
         if (targets.length === 0) return;
         const clamped = Math.max(0, Math.min(1, value));
         layerOpacityRef.current = clamped;
         targets.forEach((id) => {
             layerControls.updateLayerOpacityCommit?.(id, clamped);
         });
+        if (!isOpacityDraggingRef.current) {
+            setLastOpacityCommit({ value: clamped, layerIds: [...targets] });
+        }
         opacityTargetsRef.current = [];
         if (opacityCommitTimeoutRef.current) {
             clearTimeout(opacityCommitTimeoutRef.current);
@@ -154,17 +158,6 @@ export const SettingsPanelUI = ({
                                 max={1}
                                 step={0.05}
                                 value={layerOpacity}
-                                onMouseDown={() => {
-                                    opacityTargetsRef.current = [...selectedLayerIds];
-                                    isOpacityDraggingRef.current = true;
-                                }}
-                                onFocus={() => {
-                                    opacityTargetsRef.current = [...selectedLayerIds];
-                                }}
-                                onTouchStart={() => {
-                                    opacityTargetsRef.current = [...selectedLayerIds];
-                                    isOpacityDraggingRef.current = true;
-                                }}
                                 onPointerDown={() => {
                                     opacityTargetsRef.current = [...selectedLayerIds];
                                     isOpacityDraggingRef.current = true;
@@ -177,27 +170,8 @@ export const SettingsPanelUI = ({
                                     if (opacityCommitTimeoutRef.current) {
                                         clearTimeout(opacityCommitTimeoutRef.current);
                                     }
-                                    opacityCommitTimeoutRef.current = window.setTimeout(() => {
-                                        commitLayerOpacity(layerOpacityRef.current);
-                                    }, 200);
                                 }}
-                                onInput={(event) => {
-                                    const next = parseFloat(event.currentTarget.value);
-                                    setLayerOpacity(next);
-                                    layerOpacityRef.current = next;
-                                    previewLayerOpacity(next);
-                                    if (opacityCommitTimeoutRef.current) {
-                                        clearTimeout(opacityCommitTimeoutRef.current);
-                                    }
-                                    opacityCommitTimeoutRef.current = window.setTimeout(() => {
-                                        commitLayerOpacity(layerOpacityRef.current);
-                                    }, 200);
-                                }}
-                                onMouseUp={() => commitLayerOpacity(layerOpacityRef.current)}
                                 onPointerUp={() => commitLayerOpacity(layerOpacityRef.current)}
-                                onTouchEnd={() => commitLayerOpacity(layerOpacityRef.current)}
-                                onKeyUp={() => commitLayerOpacity(layerOpacityRef.current)}
-                                onBlur={() => commitLayerOpacity(layerOpacityRef.current)}
                             />
                             <div className="value">{Math.round((layerOpacity ?? 1) * 100)}%</div>
                         </div>
@@ -222,11 +196,6 @@ export const SettingsPanelUI = ({
                                         setPenSize(next);
                                         penSettings.onSizeChange(next);
                                     }}
-                                    onInput={(event) => {
-                                        const next = parseInt(event.currentTarget.value, 10);
-                                        setPenSize(next);
-                                        penSettings.onSizeChange(next);
-                                    }}
                                 />
                                 <div className="value">{penSize}px</div>
                             </div>
@@ -244,11 +213,6 @@ export const SettingsPanelUI = ({
                                         setPenHardness(next);
                                         penSettings.onHardnessChange(next);
                                     }}
-                                    onInput={(event) => {
-                                        const next = parseFloat(event.currentTarget.value);
-                                        setPenHardness(next);
-                                        penSettings.onHardnessChange(next);
-                                    }}
                                 />
                                 <div className="value">{Math.round(penHardness * 100)}%</div>
                             </div>
@@ -263,11 +227,6 @@ export const SettingsPanelUI = ({
                                     value={penOpacity}
                                     onChange={(event) => {
                                         const next = parseFloat(event.target.value);
-                                        setPenOpacity(next);
-                                        penSettings.onOpacityChange(next);
-                                    }}
-                                    onInput={(event) => {
-                                        const next = parseFloat(event.currentTarget.value);
                                         setPenOpacity(next);
                                         penSettings.onOpacityChange(next);
                                     }}
