@@ -288,10 +288,10 @@ export const SettingsPanelUI = ({
                                     type="range"
                                     min={8}
                                     max={300}
-                                    step={1}
+                                    step={0.5}
                                     value={textSize}
                                     onChange={(event) => {
-                                        const next = parseInt(event.target.value, 10) || 0;
+                                        const next = parseFloat(event.target.value) || 0;
                                         setTextSize(next);
                                         textSettings.onFontSizeChange(next);
                                     }}

@@ -79,6 +79,12 @@ export const SelectionLayer = ({
   const selectionTransform = useSelector(selectSelectionTransform);
   const layerControls = useSimpleCanvasStore((state) => state.layerControls);
   const storeSelectedLayerIds = layerControls?.selectedLayerIds ?? EMPTY_SELECTED_IDS;
+  const isTextOnlySelection = storeSelectedLayerIds.length > 0
+    ? storeSelectedLayerIds.every((id) => {
+        const layer = layerControls?.layers.find((l) => l.id === id);
+        return Boolean(layer && (layer.texts?.length ?? 0) > 0);
+      })
+    : false;
   const shouldRenderSelection = storeSelectedLayerIds.length > 0 && Boolean(selectionTransform);
   const sharedSelectionRect: SelectionRect | null = selectionTransform ?? null;
 
@@ -164,7 +170,7 @@ export const SelectionLayer = ({
         key="selection-transformer"
         ref={transformerRef}
         rotateEnabled
-        resizeEnabled
+        resizeEnabled={!isTextOnlySelection}
         visible={Boolean(shouldRenderSelection && sharedSelectionRect)}
         anchorSize={anchorSize}
         anchorCornerRadius={anchorCornerRadius}
@@ -181,16 +187,20 @@ export const SelectionLayer = ({
         shiftBehavior="inverted"
         ignoreStroke={false}
         // keep handles from scaling with stage zoom
-        enabledAnchors={[
-          'top-left',
-          'top-center',
-          'top-right',
-          'middle-left',
-          'middle-right',
-          'bottom-left',
-          'bottom-center',
-          'bottom-right',
-        ]}
+        enabledAnchors={
+          isTextOnlySelection
+            ? []
+            : [
+                'top-left',
+                'top-center',
+                'top-right',
+                'middle-left',
+                'middle-right',
+                'bottom-left',
+                'bottom-center',
+                'bottom-right',
+              ]
+        }
         onTransformStart={handleTransformStart}
         onTransform={handleTransform}
         onTransformEnd={handleTransformEnd}

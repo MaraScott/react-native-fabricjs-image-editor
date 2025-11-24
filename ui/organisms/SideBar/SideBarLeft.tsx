@@ -139,21 +139,6 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
             </button>
 
             <button
-                key="button-text"
-                type="button"
-                className={`text ${isTextToolActive ? 'active' : null}`}
-                onClick={toggleTextTool}
-                aria-pressed={isTextToolActive}
-                aria-label={isTextToolActive ? 'Disable text tool' : 'Enable text tool'}
-                title={isTextToolActive ? 'Text tool active' : 'Enable text tool'}
-            >
-                <span key="text-icon" aria-hidden="true">
-                    {'\u270D'}
-                </span>
-                <span key="text-label">Text</span>
-            </button>
-
-            <button
                 key="button-erase"
                 type="button"
                 className={`erase ${isRubberToolActive ? 'active' : null}`}
@@ -166,6 +151,21 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                     {'🧽'}
                 </span>
                 <span key="erase-label">Erase</span>
+            </button>
+
+            <button
+                key="button-text"
+                type="button"
+                className={`text ${isTextToolActive ? 'active' : null}`}
+                onClick={toggleTextTool}
+                aria-pressed={isTextToolActive}
+                aria-label={isTextToolActive ? 'Disable text tool' : 'Enable text tool'}
+                title={isTextToolActive ? 'Text tool active' : 'Enable text tool'}
+            >
+                <span key="text-icon" aria-hidden="true">
+                    {'\u270D'}
+                </span>
+                <span key="text-label">Text</span>
             </button>
 
             <button

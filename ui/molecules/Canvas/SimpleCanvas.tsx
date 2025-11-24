@@ -119,7 +119,7 @@ export const SimpleCanvas = ({
         fontFamily: string;
         fontStyle?: 'normal' | 'italic';
         fontWeight?: string;
-        fill?: string;
+        color?: string;
     };
     const [activeTextEdit, setActiveTextEdit] = useState<TextEditState | null>(null);
 
@@ -280,42 +280,6 @@ export const SimpleCanvas = ({
         });
     }, [selectedLayerIds]);
 
-    // Utility: Commit selected layer node values back to app state (e.g., after transform)
-    const commitSelectedLayerNodeTransforms = useCallback(() => {
-        if (activeTextEdit) {
-            finishTextEdit();
-            return;
-        }
-        if (!layerControls) return;
-        selectedLayerNodeRefs.current.forEach((node, id) => {
-            if (!node) return;
-            const pos = node.position();
-            const rot = node.rotation();
-            const scaleX = node.scaleX();
-            const scaleY = node.scaleY();
-            // Nodes are positioned with viewport offsets applied; store back in layer space.
-            const adjustedX = pos.x - stageViewportOffsetX;
-            const adjustedY = pos.y - stageViewportOffsetY;
-
-            if (typeof layerControls.updateLayerTransform === 'function') {
-                layerControls.updateLayerTransform(id, {
-                    position: { x: adjustedX, y: adjustedY },
-                    rotation: rot,
-                    scale: { x: scaleX, y: scaleY },
-                });
-            } else {
-                if (typeof layerControls.updateLayerPosition === 'function') {
-                    layerControls.updateLayerPosition(id, { x: adjustedX, y: adjustedY });
-                }
-                if (typeof layerControls.updateLayerRotation === 'function') {
-                    layerControls.updateLayerRotation(id, rot);
-                }
-                if (typeof layerControls.updateLayerScale === 'function') {
-                    layerControls.updateLayerScale(id, { x: scaleX, y: scaleY });
-                }
-            }
-        });
-    }, [layerControls, stageViewportOffsetX, stageViewportOffsetY]);
     const layerNodeRefs = useRef<Map<string, Konva.Node>>(new Map());
 
     // Use selection bounds hook (must be before using resolveSelectionRotation)
@@ -378,35 +342,72 @@ export const SimpleCanvas = ({
     }, [fitRequest]);
 
     const captureSelectionTransformState = useCallback(() => {
-
         const nodeSnapshots = selectedLayerIds
             .map((layerId) => {
                 const node = layerNodeRefs.current.get(layerId);
-                if (!node) {
+                const layer = layerControls?.layers.find((l) => l.id === layerId);
+                if (!node || !layer) {
                     return null;
                 }
-
                 return {
                     id: layerId,
                     node,
-                    transform: node.getAbsoluteTransform().copy(),
+                    initialScaleX: node.scaleX() || 1,
+                    initialScaleY: node.scaleY() || 1,
+                    texts: layer.texts ? layer.texts.map((t) => ({ ...t })) : [],
                 };
             })
-            .filter((snapshot): snapshot is SelectionNodeSnapshot => Boolean(snapshot));
+            .filter((snapshot): snapshot is SelectionNodeSnapshot & { initialScaleX: number; initialScaleY: number; texts: LayerTextItem[] } => Boolean(snapshot));
 
         if (nodeSnapshots.length === 0) {
             selectionTransformStateRef.current = null;
             return;
         }
 
-    }, [selectedLayerIds]);
+        selectionTransformStateRef.current = {
+            nodes: nodeSnapshots,
+        } as any;
+    }, [layerControls?.layers, selectedLayerIds]);
 
     const applySelectionTransformDelta = useCallback(() => {
-        const snapshot = selectionTransformStateRef.current;
-        if (!snapshot) {
+        const snapshot = selectionTransformStateRef.current as { nodes?: Array<{ id: string; node: Konva.Node; initialScaleX: number; initialScaleY: number; texts: LayerTextItem[] }> } | null;
+        if (!snapshot?.nodes || !layerControls) {
             return;
         }
-    }, []);
+
+        let lastFontSize: number | null = null;
+
+        snapshot.nodes.forEach((snap) => {
+            const currentScaleX = snap.node.scaleX() || 1;
+            const currentScaleY = snap.node.scaleY() || 1;
+            const relScaleX = currentScaleX / (snap.initialScaleX || 1);
+            const relScaleY = currentScaleY / (snap.initialScaleY || 1);
+            const avgScale = (Math.abs(relScaleX) + Math.abs(relScaleY)) / 2 || 1;
+
+            if (snap.texts.length > 0) {
+                const nextTexts = snap.texts.map((text) => ({
+                    ...text,
+                    x: text.x ?? 0,
+                    y: text.y ?? 0,
+                    fontSize: (text.fontSize ?? 32) * avgScale,
+                }));
+                layerControls.updateLayerTexts?.(snap.id, nextTexts);
+                lastFontSize = nextTexts[0]?.fontSize ?? lastFontSize;
+
+                // Reset scale so subsequent deltas are relative to the updated size.
+                snap.node.scale({ x: 1, y: 1 });
+                snap.initialScaleX = 1;
+                snap.initialScaleY = 1;
+                snap.texts = nextTexts;
+            }
+        });
+
+        if (lastFontSize !== null) {
+            dispatch(textActions.setFontSize(lastFontSize));
+            // Force settings panel to reflect the live font size change.
+            setIsSettingsPanelOpen((prev) => prev);
+        }
+    }, [dispatch, layerControls]);
 
     // On transform finalize, update Redux selectionTransform
     const finalizeSelectionTransform = useCallback(() => {
@@ -483,49 +484,126 @@ export const SimpleCanvas = ({
         isSelectionTransformingRef.current = flag;
     }, []);
 
+    const getTextItem = useCallback((layerId: string, textId: string) => {
+        const layer = layerControls?.layers.find((l) => l.id === layerId);
+        const textItem = layer?.texts?.find((t) => t.id === textId);
+        return { layer, textItem };
+    }, [layerControls?.layers]);
+
     const updateTextValue = useCallback((layerId: string, textId: string, value: string) => {
         if (!layerControls?.updateLayerTexts) return;
-        const layer = layerControls.layers.find((l) => l.id === layerId);
+        const { layer } = getTextItem(layerId, textId);
         if (!layer) return;
         const nextTexts = (layer.texts ?? []).map((text) => text.id === textId ? { ...text, text: value } : text);
         layerControls.updateLayerTexts(layerId, nextTexts);
-    }, [layerControls]);
+    }, [getTextItem, layerControls]);
 
     const removeTextItem = useCallback((layerId: string, textId: string) => {
         if (!layerControls?.updateLayerTexts) return;
-        const layer = layerControls.layers.find((l) => l.id === layerId);
+        const { layer } = getTextItem(layerId, textId);
         if (!layer) return;
         const nextTexts = (layer.texts ?? []).filter((text) => text.id !== textId);
         layerControls.updateLayerTexts(layerId, nextTexts);
-    }, [layerControls]);
+    }, [getTextItem, layerControls]);
 
     const finishTextEdit = useCallback(() => {
         if (!activeTextEdit) return;
-        const trimmed = activeTextEdit.value.trim();
+        const trimmed = (activeTextEdit.value ?? '').trim();
         if (!trimmed) {
             removeTextItem(activeTextEdit.layerId, activeTextEdit.textId);
         } else {
             updateTextValue(activeTextEdit.layerId, activeTextEdit.textId, trimmed);
         }
         setActiveTextEdit(null);
-    }, [activeTextEdit, removeTextItem, updateTextValue]);
+    }, [activeTextEdit, getTextItem, removeTextItem, updateTextValue]);
 
-    const openTextEditor = useCallback((params: { layerId: string; textId: string; value: string; clientX: number; clientY: number; fontSize: number; fontFamily: string; fontStyle?: 'normal' | 'italic'; fontWeight?: string; fill?: string; }) => {
-        const rect = containerRef.current?.getBoundingClientRect();
-        if (!rect) return;
-        setActiveTextEdit({
-            layerId: params.layerId,
-            textId: params.textId,
-            value: params.value,
-            left: params.clientX - rect.left,
-            top: params.clientY - rect.top,
-            fontSize: params.fontSize,
-            fontFamily: params.fontFamily,
-            fontStyle: params.fontStyle,
-            fontWeight: params.fontWeight,
-            fill: params.fill,
+    // Utility: Commit selected layer node values back to app state (e.g., after transform)
+    const commitSelectedLayerNodeTransforms = useCallback(() => {
+        if (activeTextEdit) {
+            finishTextEdit();
+            return;
+        }
+        if (!layerControls) return;
+        selectedLayerNodeRefs.current.forEach((node, id) => {
+            if (!node) return;
+            const pos = node.position();
+            const rot = node.rotation();
+            let scaleX = node.scaleX();
+            let scaleY = node.scaleY();
+            // Nodes are positioned with viewport offsets applied; store back in layer space.
+            let adjustedX = pos.x - stageViewportOffsetX;
+            let adjustedY = pos.y - stageViewportOffsetY;
+
+            const layerData = layerControls.layers.find((l) => l.id === id);
+            const texts = layerData?.texts ?? [];
+            const scaleChanged = Math.abs(scaleX - 1) > 0.001 || Math.abs(scaleY - 1) > 0.001;
+            if (texts.length > 0 && scaleChanged) {
+                // When finishing transform, the live update already set font sizes; just normalize scale/position if scaling occurred.
+                scaleX = 1;
+                scaleY = 1;
+                const layerPosX = layerData?.position?.x ?? 0;
+                const layerPosY = layerData?.position?.y ?? 0;
+                node.position({
+                    x: layerPosX + stageViewportOffsetX,
+                    y: layerPosY + stageViewportOffsetY,
+                });
+                node.scale({ x: 1, y: 1 });
+                adjustedX = layerPosX;
+                adjustedY = layerPosY;
+            }
+
+            if (typeof layerControls.updateLayerTransform === 'function') {
+                layerControls.updateLayerTransform(id, {
+                    position: { x: adjustedX, y: adjustedY },
+                    rotation: rot,
+                    scale: { x: scaleX, y: scaleY },
+                });
+            } else {
+                if (typeof layerControls.updateLayerPosition === 'function') {
+                    layerControls.updateLayerPosition(id, { x: adjustedX, y: adjustedY });
+                }
+                if (typeof layerControls.updateLayerRotation === 'function') {
+                    layerControls.updateLayerRotation(id, rot);
+                }
+                if (typeof layerControls.updateLayerScale === 'function') {
+                    layerControls.updateLayerScale(id, { x: scaleX, y: scaleY });
+                }
+            }
         });
-    }, []);
+    }, [activeTextEdit, finishTextEdit, layerControls, stageViewportOffsetX, stageViewportOffsetY]);
+
+    const startTextEdit = useCallback((layerId: string, textId: string) => {
+        const { textItem, layer } = getTextItem(layerId, textId);
+        const containerRect = containerRef.current?.getBoundingClientRect();
+        if (!textItem || !layer || !containerRect) return;
+
+        const layerBaseX = (layer.bounds?.x ?? layer.position?.x ?? 0);
+        const layerBaseY = (layer.bounds?.y ?? layer.position?.y ?? 0);
+        const left = (stageViewportOffsetX + layerBaseX + (textItem.x ?? 0)) * safeScale;
+        const top = (stageViewportOffsetY + layerBaseY + (textItem.y ?? 0)) * safeScale;
+
+        setActiveTextEdit({
+            layerId,
+            textId,
+            value: textItem.text ?? '',
+            left,
+            top,
+            fontSize: textItem.fontSize ?? 32,
+            fontFamily: textItem.fontFamily ?? 'Arial, sans-serif',
+            fontStyle: textItem.fontStyle ?? 'normal',
+            fontWeight: textItem.fontWeight ?? 'normal',
+            color: textItem.fill ?? '#000000',
+        });
+
+        // Focus the canvas container so key events can be captured for escape handling.
+        const container = stageRef.current?.container();
+        if (container && typeof container.focus === 'function') {
+            if (!container.getAttribute('tabindex')) {
+                container.setAttribute('tabindex', '0');
+            }
+            container.focus();
+        }
+    }, [getTextItem, safeScale, stageViewportOffsetX, stageViewportOffsetY]);
 
     const initializeSelectionTransform = useCallback((bounds: Bounds | null) => {
         if (!bounds) return;
@@ -676,6 +754,12 @@ export const SimpleCanvas = ({
         const point = getRelativePointerPosition();
         if (!point) return;
 
+        // If we're editing an existing text, finish editing and don't create a new one on background click.
+        if (isTextToolActive && activeTextEdit) {
+            finishTextEdit();
+            return;
+        }
+
         const targetLayerId = selectedLayerIds[0] ?? (layerControls.layers[layerControls.layers.length - 1]?.id ?? null);
         if (!targetLayerId) return;
         if (selectedLayerIds.length === 0) {
@@ -688,29 +772,23 @@ export const SimpleCanvas = ({
         const stageY = point.y;
 
         if (isTextToolActive) {
+            if (activeTextEdit) {
+                finishTextEdit();
+            }
+
             const targetTextId = event?.target?.attrs?.textItemId as string | undefined;
             if (targetTextId) {
                 const textLayer = layerControls.layers.find((l) => (l.texts ?? []).some((t) => t.id === targetTextId));
                 const textItem = textLayer?.texts?.find((t) => t.id === targetTextId);
                 if (textLayer && textItem) {
-                    openTextEditor({
-                        layerId: textLayer.id,
-                        textId: textItem.id,
-                        value: textItem.text ?? '',
-                        clientX: event?.evt?.clientX ?? 0,
-                        clientY: event?.evt?.clientY ?? 0,
-                        fontSize: textItem.fontSize ?? textToolState.fontSize ?? 32,
-                        fontFamily: textItem.fontFamily ?? textToolState.fontFamily ?? 'Arial, sans-serif',
-                        fontStyle: textItem.fontStyle ?? 'normal',
-                        fontWeight: textItem.fontWeight ?? 'normal',
-                        fill: textItem.fill ?? textToolState.color ?? '#000000',
-                    });
+                    layerControls.selectLayer(textLayer.id, { mode: 'replace' });
+                    startTextEdit(textLayer.id, textItem.id);
                     return;
                 }
             }
 
             const result = layerControls.addTextLayer?.({
-                text: '',
+                text: textToolState.text ?? 'Text',
                 fontSize: textToolState.fontSize ?? 32,
                 fill: textToolState.color ?? '#000000',
                 fontFamily: textToolState.fontFamily ?? 'Arial, sans-serif',
@@ -721,18 +799,7 @@ export const SimpleCanvas = ({
             });
             if (result) {
                 layerControls.selectLayer(result.layerId, { mode: 'replace' });
-                openTextEditor({
-                    layerId: result.layerId,
-                    textId: result.textId,
-                    value: '',
-                    clientX: event?.evt?.clientX ?? 0,
-                    clientY: event?.evt?.clientY ?? 0,
-                    fontSize: textToolState.fontSize ?? 32,
-                    fontFamily: textToolState.fontFamily ?? 'Arial, sans-serif',
-                    fontStyle: textToolState.fontStyle ?? 'normal',
-                    fontWeight: textToolState.fontWeight ?? 'normal',
-                    fill: textToolState.color ?? '#000000',
-                });
+                startTextEdit(result.layerId, result.textId);
             }
             return;
         }
@@ -774,7 +841,7 @@ export const SimpleCanvas = ({
         };
         setPendingStroke({ layerId: targetLayerId, stroke });
         dispatch(drawActions.startDrawing(strokeId));
-    }, [activeTextEdit, dispatch, drawToolState.brushColor, drawToolState.brushHardness, drawToolState.brushOpacity, drawToolState.brushSize, finishTextEdit, getRelativePointerPosition, isDrawToolActive, isRubberToolActive, isTextToolActive, layerControls, openTextEditor, rubberToolState.eraserSize, selectedLayerIds, textToolState.color, textToolState.fontFamily, textToolState.fontSize, textToolState.fontStyle, textToolState.fontWeight]);
+    }, [activeTextEdit, dispatch, drawToolState.brushColor, drawToolState.brushHardness, drawToolState.brushOpacity, drawToolState.brushSize, finishTextEdit, getRelativePointerPosition, isDrawToolActive, isRubberToolActive, isTextToolActive, layerControls, rubberToolState.eraserSize, selectedLayerIds, startTextEdit, textToolState.color, textToolState.fontFamily, textToolState.fontSize, textToolState.fontStyle, textToolState.fontWeight]);
 
     const handleStagePointerMove = useCallback((event: any) => {
         if ((!isDrawToolActive && !isRubberToolActive) || !pendingStroke || !layerControls) return;
@@ -1082,6 +1149,23 @@ export const SimpleCanvas = ({
         stageRef.current.container().style.cursor = baseCursor;
     }, [baseCursor, selectModeActive]);
 
+    // Handle escape to finish inline text editing
+    useEffect(() => {
+        if (!activeTextEdit) return;
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                finishTextEdit();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [activeTextEdit, finishTextEdit]);
+
     // Compute an HTML overlay selection box (screen-space) so the selection
     // bounding box can be visible even when portions are outside the Konva stage.
     useEffect(() => {
@@ -1283,6 +1367,22 @@ export const SimpleCanvas = ({
                                                 fontWeight={textItem.fontWeight}
                                                 fill={textItem.fill ?? '#000000'}
                                                 listening={true}
+                                                onDblClick={(ev) => {
+                                                    ev.cancelBubble = true;
+                                                    startTextEdit(layer.id, textItem.id);
+                                                }}
+                                                onTap={(ev) => {
+                                                    if (isTextToolActive) {
+                                                        ev.cancelBubble = true;
+                                                        startTextEdit(layer.id, textItem.id);
+                                                    }
+                                                }}
+                                                onMouseDown={(ev) => {
+                                                    if (isTextToolActive) {
+                                                        ev.cancelBubble = true;
+                                                        startTextEdit(layer.id, textItem.id);
+                                                    }
+                                                }}
                                             />
                                         ))}
                                         {combinedStrokes.map((stroke) => (
@@ -1371,47 +1471,58 @@ export const SimpleCanvas = ({
             )}
 
             {activeTextEdit ? (
-                <textarea
-                    key={`text-edit-${activeTextEdit.textId}`}
-                    value={activeTextEdit.value}
-                    autoFocus
-                    onChange={(event) => {
-                        const next = event.target.value;
-                        setActiveTextEdit((prev) => prev ? { ...prev, value: next } : prev);
-                        updateTextValue(activeTextEdit.layerId, activeTextEdit.textId, next);
-                    }}
-                    onBlur={finishTextEdit}
-                    onKeyDown={(event) => {
-                        if (event.key === 'Enter' && !event.shiftKey) {
-                            event.preventDefault();
-                            finishTextEdit();
-                        } else if (event.key === 'Escape') {
-                            event.preventDefault();
-                            finishTextEdit();
-                        }
-                    }}
+                <div
                     style={{
                         position: 'absolute',
                         left: activeTextEdit.left,
                         top: activeTextEdit.top,
-                        minWidth: '180px',
-                        padding: '6px 8px',
-                        border: '1px solid #888',
+                        minWidth: '220px',
+                        padding: '4px',
+                        background: 'rgba(255,255,255,0.95)',
+                        border: '1px solid #0088ff',
                         borderRadius: '4px',
-                        background: '#ffffff',
-                        color: activeTextEdit.fill ?? '#000000',
-                        fontSize: `${activeTextEdit.fontSize}px`,
-                        fontFamily: activeTextEdit.fontFamily,
-                        fontStyle: activeTextEdit.fontStyle ?? 'normal',
-                        fontWeight: activeTextEdit.fontWeight ?? 'normal',
-                        lineHeight: '1.2',
-                        zIndex: 10,
-                        resize: 'both',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                        zIndex: 20,
                     }}
-                />
+                >
+                    <textarea
+                        key={`text-edit-${activeTextEdit.textId}`}
+                        value={activeTextEdit.value}
+                        autoFocus
+                        onChange={(event) => {
+                            const next = event.target.value;
+                            setActiveTextEdit((prev) => prev ? { ...prev, value: next } : prev);
+                            updateTextValue(activeTextEdit.layerId, activeTextEdit.textId, next);
+                        }}
+                        onBlur={finishTextEdit}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Escape') {
+                                event.preventDefault();
+                                finishTextEdit();
+                            }
+                        }}
+                        style={{
+                            width: '100%',
+                            minWidth: '220px',
+                            minHeight: '44px',
+                            padding: '6px 8px',
+                            border: '1px solid #0088ff',
+                            borderRadius: '2px',
+                            background: 'transparent',
+                            color: activeTextEdit.color ?? '#000000',
+                            fontSize: '14px',
+                            fontFamily: 'Arial, sans-serif',
+                            fontStyle: 'normal',
+                            fontWeight: 'normal',
+                            lineHeight: '1.3',
+                            outline: 'none',
+                            resize: 'none',
+                            whiteSpace: 'pre-wrap',
+                            boxSizing: 'border-box',
+                        }}
+                    />
+                </div>
             ) : null}
-
         </div>
     );
 };
