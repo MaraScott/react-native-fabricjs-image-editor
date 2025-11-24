@@ -396,62 +396,48 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
     }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
 
     const addImageLayer = useCallback<NonNullable<LayerControlHandlers['addImageLayer']>>((src) => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
         const img = new window.Image();
         img.onload = () => {
             const naturalWidth = img.naturalWidth || img.width || 1;
             const naturalHeight = img.naturalHeight || img.height || 1;
 
-            const targetLayerId =
-                present.selectedLayerIds[0] ??
-                present.primaryLayerId ??
-                present.layers[0]?.id ??
-                null;
-            if (!targetLayerId) return;
+            const fitScale = Math.min(1, Math.min(stageWidth / naturalWidth, stageHeight / naturalHeight));
+            const fitWidth = naturalWidth * fitScale;
+            const fitHeight = naturalHeight * fitScale;
 
-            const nextLayers = present.layers.map((layer) => {
-                if (layer.id !== targetLayerId) return layer;
+            const offsetX = (stageWidth - fitWidth) / 2;
+            const offsetY = (stageHeight - fitHeight) / 2;
 
-                // Prefer fitting into existing bounds; otherwise fit to stage
-                const boundsWidth = layer.bounds?.width ?? stageWidth;
-                const boundsHeight = layer.bounds?.height ?? stageHeight;
-                const fitScale = Math.min(1, Math.min(boundsWidth / naturalWidth, boundsHeight / naturalHeight));
-                const fitWidth = naturalWidth * fitScale;
-                const fitHeight = naturalHeight * fitScale;
-
-                const offsetX = layer.bounds ? (boundsWidth - fitWidth) / 2 : (stageWidth - fitWidth) / 2 - (layer.position?.x ?? 0);
-                const offsetY = layer.bounds ? (boundsHeight - fitHeight) / 2 : (stageHeight - fitHeight) / 2 - (layer.position?.y ?? 0);
-
-                const priorRender = layer.render;
-                const imageNode = React.createElement(KonvaImage, {
-                    image: img,
-                    listening: true,
-                    width: fitWidth,
-                    height: fitHeight,
-                    x: offsetX,
-                    y: offsetY,
-                });
-
-                const composedRender = () =>
-                    priorRender
-                        ? React.createElement(
-                            React.Fragment,
-                            null,
-                            priorRender(),
-                            imageNode,
-                        )
-                        : imageNode;
-
-                return {
-                    ...layer,
-                    scale: { x: 1, y: 1 },
-                    render: composedRender,
-                };
+            const newLayerId = generateLayerId();
+            const imageNode = React.createElement(KonvaImage, {
+                image: img,
+                listening: true,
+                width: fitWidth,
+                height: fitHeight,
+                x: offsetX,
+                y: offsetY,
             });
 
-            applyLayers(nextLayers, present.selectedLayerIds.length ? present.selectedLayerIds : [targetLayerId], targetLayerId);
+            const imageLayer: LayerDescriptor = {
+                id: newLayerId,
+                name: `Image ${present.layers.length + 1}`,
+                visible: true,
+                position: { x: 0, y: 0 },
+                rotation: 0,
+                scale: { x: 1, y: 1 },
+                opacity: 1,
+                strokes: [],
+                render: () => imageNode,
+            };
+
+            applyLayers([...present.layers, imageLayer], [newLayerId], newLayerId);
         };
         img.src = src;
-    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds, stageHeight, stageWidth]);
+    }, [applyLayers, present.layers, stageHeight, stageWidth]);
 
     const undo = useCallback(() => {
         undoLayers();

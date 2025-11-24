@@ -176,7 +176,9 @@ export const SelectionLayer = ({
         borderStrokeWidth={anchorStrokeWidth}
         borderDash={borderDash}
         padding={padding}
-        keepRatio={false}
+        // Default to keeping aspect ratio; hold Shift to temporarily unlock (Konva inverted behavior).
+        keepRatio={true}
+        shiftBehavior="inverted"
         ignoreStroke={false}
         // keep handles from scaling with stage zoom
         enabledAnchors={[

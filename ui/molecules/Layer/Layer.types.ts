@@ -106,6 +106,7 @@ export interface LayerControlHandlers {
   updateLayerOpacity?: (layerId: string, opacity: number) => void;
   updateLayerBounds?: (layerId: string, bounds: Bounds | null) => void;
   updateLayerStrokes?: (layerId: string, strokes: LayerStroke[]) => void;
+  addImageLayer?: (src: string) => void;
   rasterizeLayer?: (layerId: string) => void;
   undo?: () => void;
   redo?: () => void;
