@@ -104,6 +104,8 @@ export interface LayerControlHandlers {
     }
   ) => void;
   updateLayerOpacity?: (layerId: string, opacity: number) => void;
+  updateLayerOpacityLive?: (layerId: string, opacity: number) => void;
+  updateLayerOpacityCommit?: (layerId: string, opacity: number) => void;
   updateLayerBounds?: (layerId: string, bounds: Bounds | null) => void;
   updateLayerStrokes?: (layerId: string, strokes: LayerStroke[]) => void;
   addImageLayer?: (src: string) => void;

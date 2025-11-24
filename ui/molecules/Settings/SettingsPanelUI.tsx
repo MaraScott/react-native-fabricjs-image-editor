@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LayerControlHandlers } from '@molecules/Layer/Layer.types';
 
 type PenSettings = {
@@ -29,19 +29,85 @@ export const SettingsPanelUI = ({
     selectedLayerIds,
     penSettings,
 }: SettingsPanelUIProps) => {
+    const [penSize, setPenSize] = useState<number>(penSettings?.size ?? 1);
+    const [penHardness, setPenHardness] = useState<number>(penSettings?.hardness ?? 1);
+    const [penOpacity, setPenOpacity] = useState<number>(penSettings?.opacity ?? 1);
+    const [layerOpacity, setLayerOpacity] = useState<number>(1);
+    const opacityTargetsRef = useRef<string[]>([]);
+    const layerOpacityRef = useRef<number>(1);
+    const isOpacityDraggingRef = useRef(false);
+    const opacityCommitTimeoutRef = useRef<number | null>(null);
+
     const selectedOpacity = useMemo(() => {
         if (!layerControls) return 1;
         if (selectedLayerIds.length === 0) return 1;
         const first = layerControls.layers.find((layer) => layer.id === selectedLayerIds[0]);
         return first?.opacity ?? 1;
-    }, [layerControls, selectedLayerIds]);
+    }, [layerControls?.layers, selectedLayerIds]);
 
-    const handleLayerOpacity = (value: number) => {
+    useEffect(() => {
+        if (!penSettings) return;
+        setPenSize(penSettings.size);
+        setPenHardness(penSettings.hardness);
+        setPenOpacity(penSettings.opacity);
+    }, [penSettings?.size, penSettings?.hardness, penSettings?.opacity]);
+
+    useEffect(() => {
+        // Reset slider to the newly selected layer's opacity without dragging over.
+        setLayerOpacity(selectedOpacity);
+        layerOpacityRef.current = selectedOpacity;
+        opacityTargetsRef.current = [];
+        if (opacityCommitTimeoutRef.current) {
+            clearTimeout(opacityCommitTimeoutRef.current);
+            opacityCommitTimeoutRef.current = null;
+        }
+    }, [selectedOpacity, selectedLayerIds.join('|')]);
+
+    useEffect(() => {
+        const handleGlobalPointerUp = () => {
+            if (!isOpacityDraggingRef.current) return;
+            isOpacityDraggingRef.current = false;
+            if (opacityCommitTimeoutRef.current) {
+                clearTimeout(opacityCommitTimeoutRef.current);
+                opacityCommitTimeoutRef.current = null;
+            }
+            commitLayerOpacity(layerOpacityRef.current);
+        };
+        window.addEventListener('pointerup', handleGlobalPointerUp);
+        window.addEventListener('mouseup', handleGlobalPointerUp);
+        window.addEventListener('touchend', handleGlobalPointerUp);
+        return () => {
+            window.removeEventListener('pointerup', handleGlobalPointerUp);
+            window.removeEventListener('mouseup', handleGlobalPointerUp);
+            window.removeEventListener('touchend', handleGlobalPointerUp);
+        };
+    }, []);
+
+    const previewLayerOpacity = (value: number) => {
         if (!layerControls) return;
+        const targets = opacityTargetsRef.current.length ? opacityTargetsRef.current : selectedLayerIds;
+        if (targets.length === 0) return;
         const clamped = Math.max(0, Math.min(1, value));
-        selectedLayerIds.forEach((id) => {
-            layerControls.updateLayerOpacity?.(id, clamped);
+            layerOpacityRef.current = clamped;
+        targets.forEach((id) => {
+            layerControls.updateLayerOpacityLive?.(id, clamped);
         });
+    };
+
+    const commitLayerOpacity = (value: number) => {
+        if (!layerControls) return;
+        const targets = opacityTargetsRef.current.length ? opacityTargetsRef.current : [];
+        if (targets.length === 0) return;
+        const clamped = Math.max(0, Math.min(1, value));
+        layerOpacityRef.current = clamped;
+        targets.forEach((id) => {
+            layerControls.updateLayerOpacityCommit?.(id, clamped);
+        });
+        opacityTargetsRef.current = [];
+        if (opacityCommitTimeoutRef.current) {
+            clearTimeout(opacityCommitTimeoutRef.current);
+            opacityCommitTimeoutRef.current = null;
+        }
     };
 
     if (!layerControls && !penSettings) {
@@ -87,10 +153,53 @@ export const SettingsPanelUI = ({
                                 min={0}
                                 max={1}
                                 step={0.05}
-                                value={selectedOpacity}
-                                onChange={(event) => handleLayerOpacity(parseFloat(event.target.value))}
+                                value={layerOpacity}
+                                onMouseDown={() => {
+                                    opacityTargetsRef.current = [...selectedLayerIds];
+                                    isOpacityDraggingRef.current = true;
+                                }}
+                                onFocus={() => {
+                                    opacityTargetsRef.current = [...selectedLayerIds];
+                                }}
+                                onTouchStart={() => {
+                                    opacityTargetsRef.current = [...selectedLayerIds];
+                                    isOpacityDraggingRef.current = true;
+                                }}
+                                onPointerDown={() => {
+                                    opacityTargetsRef.current = [...selectedLayerIds];
+                                    isOpacityDraggingRef.current = true;
+                                }}
+                                onChange={(event) => {
+                                    const next = parseFloat(event.target.value);
+                                    setLayerOpacity(next);
+                                    layerOpacityRef.current = next;
+                                    previewLayerOpacity(next);
+                                    if (opacityCommitTimeoutRef.current) {
+                                        clearTimeout(opacityCommitTimeoutRef.current);
+                                    }
+                                    opacityCommitTimeoutRef.current = window.setTimeout(() => {
+                                        commitLayerOpacity(layerOpacityRef.current);
+                                    }, 200);
+                                }}
+                                onInput={(event) => {
+                                    const next = parseFloat(event.currentTarget.value);
+                                    setLayerOpacity(next);
+                                    layerOpacityRef.current = next;
+                                    previewLayerOpacity(next);
+                                    if (opacityCommitTimeoutRef.current) {
+                                        clearTimeout(opacityCommitTimeoutRef.current);
+                                    }
+                                    opacityCommitTimeoutRef.current = window.setTimeout(() => {
+                                        commitLayerOpacity(layerOpacityRef.current);
+                                    }, 200);
+                                }}
+                                onMouseUp={() => commitLayerOpacity(layerOpacityRef.current)}
+                                onPointerUp={() => commitLayerOpacity(layerOpacityRef.current)}
+                                onTouchEnd={() => commitLayerOpacity(layerOpacityRef.current)}
+                                onKeyUp={() => commitLayerOpacity(layerOpacityRef.current)}
+                                onBlur={() => commitLayerOpacity(layerOpacityRef.current)}
                             />
-                            <div className="value">{Math.round((selectedOpacity ?? 1) * 100)}%</div>
+                            <div className="value">{Math.round((layerOpacity ?? 1) * 100)}%</div>
                         </div>
                     ) : (
                         <div className="empty">Select a layer to adjust opacity.</div>
@@ -107,10 +216,19 @@ export const SettingsPanelUI = ({
                                     min={1}
                                     max={120}
                                     step={1}
-                                    value={penSettings.size}
-                                    onChange={(event) => penSettings.onSizeChange(parseInt(event.target.value, 10))}
+                                    value={penSize}
+                                    onChange={(event) => {
+                                        const next = parseInt(event.target.value, 10);
+                                        setPenSize(next);
+                                        penSettings.onSizeChange(next);
+                                    }}
+                                    onInput={(event) => {
+                                        const next = parseInt(event.currentTarget.value, 10);
+                                        setPenSize(next);
+                                        penSettings.onSizeChange(next);
+                                    }}
                                 />
-                                <div className="value">{penSettings.size}px</div>
+                                <div className="value">{penSize}px</div>
                             </div>
                             <div className="control-group">
                                 <label htmlFor="pen-hardness">Hardness</label>
@@ -120,10 +238,19 @@ export const SettingsPanelUI = ({
                                     min={0}
                                     max={1}
                                     step={0.05}
-                                    value={penSettings.hardness}
-                                    onChange={(event) => penSettings.onHardnessChange(parseFloat(event.target.value))}
+                                    value={penHardness}
+                                    onChange={(event) => {
+                                        const next = parseFloat(event.target.value);
+                                        setPenHardness(next);
+                                        penSettings.onHardnessChange(next);
+                                    }}
+                                    onInput={(event) => {
+                                        const next = parseFloat(event.currentTarget.value);
+                                        setPenHardness(next);
+                                        penSettings.onHardnessChange(next);
+                                    }}
                                 />
-                                <div className="value">{Math.round(penSettings.hardness * 100)}%</div>
+                                <div className="value">{Math.round(penHardness * 100)}%</div>
                             </div>
                             <div className="control-group">
                                 <label htmlFor="pen-opacity">Opacity</label>
@@ -133,10 +260,19 @@ export const SettingsPanelUI = ({
                                     min={0}
                                     max={1}
                                     step={0.05}
-                                    value={penSettings.opacity}
-                                    onChange={(event) => penSettings.onOpacityChange(parseFloat(event.target.value))}
+                                    value={penOpacity}
+                                    onChange={(event) => {
+                                        const next = parseFloat(event.target.value);
+                                        setPenOpacity(next);
+                                        penSettings.onOpacityChange(next);
+                                    }}
+                                    onInput={(event) => {
+                                        const next = parseFloat(event.currentTarget.value);
+                                        setPenOpacity(next);
+                                        penSettings.onOpacityChange(next);
+                                    }}
                                 />
-                                <div className="value">{Math.round(penSettings.opacity * 100)}%</div>
+                                <div className="value">{Math.round(penOpacity * 100)}%</div>
                             </div>
                             <div className="control-group">
                                 <label htmlFor="pen-color">Color</label>

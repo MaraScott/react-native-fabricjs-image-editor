@@ -13,6 +13,8 @@ import { generateLayerId, normaliseLayerDefinitions, areSelectionsEqual } from '
 import {
     initLayersHistory,
     applyLayersSnapshot,
+    previewLayersSnapshot,
+    commitPreviewLayersSnapshot,
     undoLayers,
     redoLayers,
     useLayersHistory,
@@ -53,6 +55,7 @@ export interface UseLayerManagementReturn {
         }
     ) => void;
     updateLayerBounds: (layerId: string, bounds: Bounds | null) => void;
+    updateLayerOpacityLive?: (layerId: string, opacity: number) => void;
     undo: () => void;
     redo: () => void;
     canUndo: boolean;
@@ -118,6 +121,30 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
     },
     [apply, present.revision, present.selectedLayerIds],
   );
+
+    const previewLayers = useCallback(
+        (nextLayers: LayerDescriptor[], nextSelected: string[] = present.selectedLayerIds, nextPrimary: string | null = nextSelected[0] ?? null) => {
+            previewLayersSnapshot({
+                layers: nextLayers,
+                selectedLayerIds: nextSelected,
+                primaryLayerId: nextPrimary,
+                revision: present.revision,
+            });
+        },
+        [present.revision, present.selectedLayerIds]
+    );
+
+    const commitPreviewLayers = useCallback(
+        (nextLayers: LayerDescriptor[], nextSelected: string[] = present.selectedLayerIds, nextPrimary: string | null = nextSelected[0] ?? null) => {
+            commitPreviewLayersSnapshot({
+                layers: nextLayers,
+                selectedLayerIds: nextSelected,
+                primaryLayerId: nextPrimary,
+                revision: present.revision,
+            });
+        },
+        [present.revision, present.selectedLayerIds]
+    );
 
     const layerIndexMap = useMemo(() => {
         const map = new Map<string, number>();
@@ -373,6 +400,28 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         );
     }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
 
+    const updateLayerOpacityLive = useCallback<NonNullable<LayerControlHandlers['updateLayerOpacityLive']>>((layerId, opacity) => {
+        const clamped = Math.max(0, Math.min(1, opacity));
+        previewLayers(
+            present.layers.map((layer) =>
+                layer.id === layerId ? { ...layer, opacity: clamped } : layer
+            ),
+            present.selectedLayerIds,
+            present.primaryLayerId,
+        );
+    }, [previewLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const updateLayerOpacityCommit = useCallback<NonNullable<LayerControlHandlers['updateLayerOpacityCommit']>>((layerId, opacity) => {
+        const clamped = Math.max(0, Math.min(1, opacity));
+        commitPreviewLayers(
+            present.layers.map((layer) =>
+                layer.id === layerId ? { ...layer, opacity: clamped } : layer
+            ),
+            present.selectedLayerIds,
+            present.primaryLayerId,
+        );
+    }, [commitPreviewLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
     const updateLayerStrokes = useCallback<NonNullable<LayerControlHandlers['updateLayerStrokes']>>((layerId, strokes) => {
         applyLayers(
             present.layers.map((layer) =>
@@ -469,6 +518,8 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         updateLayerScale,
         updateLayerTransform,
         updateLayerOpacity,
+        updateLayerOpacityLive,
+        updateLayerOpacityCommit,
         updateLayerStrokes,
         rasterizeLayer,
         updateLayerBounds,

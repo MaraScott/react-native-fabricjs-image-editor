@@ -76,6 +76,7 @@ class LayersHistoryStore {
     private pointer = -1;
     private listeners = new Set<Listener>();
     private maxHistory = 30;
+    private previewBase: LayersSnapshot | null = null;
 
     private syncFromTimeline() {
         if (this.pointer < 0 || this.pointer >= this.timeline.length) {
@@ -91,13 +92,13 @@ class LayersHistoryStore {
         };
     }
 
-    private commitSnapshot(snapshot: LayersSnapshot) {
+    private commitSnapshot(snapshot: LayersSnapshot, forceHistory = false) {
         const incoming = cloneSnapshot(snapshot);
         const current = this.timeline[this.pointer] ?? null;
 
         const layerChanged = !layersEqual(incoming, current);
 
-        if (!layerChanged) {
+        if (!layerChanged && !forceHistory) {
             // Keep selection/primary updates current without polluting the history stack
             const safeRevision = current?.revision ?? incoming.revision ?? 0;
             this.timeline[this.pointer] = { ...incoming, revision: safeRevision };
@@ -116,15 +117,25 @@ class LayersHistoryStore {
         this.syncFromTimeline();
     }
 
-    private dispatch(action: { type: 'INIT'; snapshot: LayersSnapshot } | { type: 'APPLY'; snapshot: LayersSnapshot } | { type: 'UNDO' } | { type: 'REDO' }) {
+    private dispatch(
+        action:
+            | { type: 'INIT'; snapshot: LayersSnapshot }
+            | { type: 'APPLY'; snapshot: LayersSnapshot }
+            | { type: 'PREVIEW'; snapshot: LayersSnapshot }
+            | { type: 'APPLY_FROM_PREVIEW'; snapshot: LayersSnapshot }
+            | { type: 'UNDO' }
+            | { type: 'REDO' }
+    ) {
         switch (action.type) {
             case 'INIT': {
                 this.timeline = [cloneSnapshot(action.snapshot)];
                 this.pointer = 0;
+                this.previewBase = null;
                 this.syncFromTimeline();
                 break;
             }
             case 'APPLY': {
+                this.previewBase = null;
                 if (this.pointer < 0 || this.timeline.length === 0) {
                     this.dispatch({ type: 'INIT', snapshot: action.snapshot });
                     break;
@@ -132,13 +143,37 @@ class LayersHistoryStore {
                 this.commitSnapshot(action.snapshot);
                 break;
             }
+            case 'PREVIEW': {
+                if (this.pointer < 0 || this.timeline.length === 0) {
+                    this.dispatch({ type: 'INIT', snapshot: action.snapshot });
+                    break;
+                }
+                if (!this.previewBase) {
+                    this.previewBase = cloneSnapshot(this.timeline[this.pointer]);
+                }
+                const incoming = cloneSnapshot(action.snapshot);
+                incoming.revision = this.timeline[this.pointer].revision;
+                this.timeline[this.pointer] = incoming;
+                this.syncFromTimeline();
+                break;
+            }
+            case 'APPLY_FROM_PREVIEW': {
+                if (this.previewBase && this.pointer >= 0 && this.pointer < this.timeline.length) {
+                    this.timeline[this.pointer] = cloneSnapshot(this.previewBase);
+                }
+                this.previewBase = null;
+                this.commitSnapshot(action.snapshot, true);
+                break;
+            }
             case 'UNDO': {
+                this.previewBase = null;
                 if (this.pointer <= 0) break;
                 this.pointer -= 1;
                 this.syncFromTimeline();
                 break;
             }
             case 'REDO': {
+                this.previewBase = null;
                 if (this.pointer < 0 || this.pointer >= this.timeline.length - 1) break;
                 this.pointer += 1;
                 this.syncFromTimeline();
@@ -154,6 +189,15 @@ class LayersHistoryStore {
 
     apply(next: LayersSnapshot) {
         this.dispatch({ type: 'APPLY', snapshot: next });
+    }
+
+    // Preview applies update present state without pushing a new history entry.
+    preview(next: LayersSnapshot) {
+        this.dispatch({ type: 'PREVIEW', snapshot: next });
+    }
+
+    applyFromPreview(next: LayersSnapshot) {
+        this.dispatch({ type: 'APPLY_FROM_PREVIEW', snapshot: next });
     }
 
     undo() {
@@ -182,6 +226,8 @@ const store = new LayersHistoryStore();
 
 export const initLayersHistory = (snapshot: LayersSnapshot) => store.init(snapshot);
 export const applyLayersSnapshot = (snapshot: LayersSnapshot) => store.apply(snapshot);
+export const previewLayersSnapshot = (snapshot: LayersSnapshot) => store.preview(snapshot);
+export const commitPreviewLayersSnapshot = (snapshot: LayersSnapshot) => store.applyFromPreview(snapshot);
 export const undoLayers = () => store.undo();
 export const redoLayers = () => store.redo();
 export const subscribeLayersHistory = (listener: Listener) => store.subscribe(listener);

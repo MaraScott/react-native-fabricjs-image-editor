@@ -552,8 +552,11 @@ export const SimpleCanvas = ({
         const layer = layerControls.layers.find((l) => l.id === targetLayerId);
         if (!layer) return;
 
-        const localX = point.x - (layer.position?.x ?? 0);
-        const localY = point.y - (layer.position?.y ?? 0);
+        const scaleX = layer.scale?.x ?? 1;
+        const scaleY = layer.scale?.y ?? 1;
+        const sizeScale = (Math.abs(scaleX) + Math.abs(scaleY)) / 2 || 1;
+        const localX = (point.x - (layer.position?.x ?? 0)) / (scaleX || 1);
+        const localY = (point.y - (layer.position?.y ?? 0)) / (scaleY || 1);
 
         if (isRubberToolActive) {
             const strokeId = `erase-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -561,7 +564,7 @@ export const SimpleCanvas = ({
                 id: strokeId,
                 points: [localX, localY],
                 color: '#000000',
-                size: rubberToolState.eraserSize,
+                size: rubberToolState.eraserSize / sizeScale,
                 hardness: 1,
                 opacity: 1,
                 mode: 'erase',
@@ -577,7 +580,7 @@ export const SimpleCanvas = ({
             id: strokeId,
             points: [localX, localY],
             color: drawToolState.brushColor,
-            size: drawToolState.brushSize,
+            size: drawToolState.brushSize / sizeScale,
             hardness,
             opacity: drawToolState.brushOpacity,
             mode: 'draw',
@@ -595,8 +598,10 @@ export const SimpleCanvas = ({
         if (!point) return;
         const layer = layerControls.layers.find((l) => l.id === pendingStroke.layerId);
         if (!layer) return;
-        const localX = point.x - (layer.position?.x ?? 0);
-        const localY = point.y - (layer.position?.y ?? 0);
+        const scaleX = layer.scale?.x ?? 1;
+        const scaleY = layer.scale?.y ?? 1;
+        const localX = (point.x - (layer.position?.x ?? 0)) / (scaleX || 1);
+        const localY = (point.y - (layer.position?.y ?? 0)) / (scaleY || 1);
         setPendingStroke((prev) =>
             prev && prev.layerId === layer.id
                 ? {
