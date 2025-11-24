@@ -14,6 +14,21 @@ type PenSettings = {
     onOpacityChange: (opacity: number) => void;
 };
 
+type TextSettings = {
+    text: string;
+    fontSize: number;
+    color: string;
+    fontFamily: string;
+    fontStyle: 'normal' | 'italic';
+    fontWeight: string;
+    onTextChange: (value: string) => void;
+    onFontSizeChange: (value: number) => void;
+    onColorChange: (value: string) => void;
+    onFontFamilyChange: (value: string) => void;
+    onFontStyleChange: (value: 'normal' | 'italic') => void;
+    onFontWeightChange: (value: string) => void;
+};
+
 interface SettingsPanelUIProps {
     isOpen: boolean;
     onToggle: () => void;
@@ -21,6 +36,9 @@ interface SettingsPanelUIProps {
     layerControls: LayerControlHandlers | null;
     selectedLayerIds: string[];
     penSettings: PenSettings | null;
+    isTextToolActive?: boolean;
+    textSettings?: TextSettings | null;
+    isTextLayerSelected?: boolean;
 }
 
 export const SettingsPanelUI = ({
@@ -30,6 +48,9 @@ export const SettingsPanelUI = ({
     layerControls,
     selectedLayerIds,
     penSettings,
+    isTextToolActive = false,
+    textSettings,
+    isTextLayerSelected = false,
 }: SettingsPanelUIProps) => {
 
     const drawToolState = useSelector((state: RootState) => state.view.draw);
@@ -38,6 +59,11 @@ export const SettingsPanelUI = ({
     const [penHardness, setPenHardness] = useState<number>(penSettings?.hardness ?? 1);
     const [penOpacity, setPenOpacity] = useState<number>(penSettings?.opacity ?? 1);
     const [layerOpacity, setLayerOpacity] = useState<number>(1);
+    const [textSize, setTextSize] = useState<number>(textSettings?.fontSize ?? 32);
+    const [textColor, setTextColor] = useState<string>(textSettings?.color ?? '#000000');
+    const [textFontFamily, setTextFontFamily] = useState<string>(textSettings?.fontFamily ?? 'Arial, sans-serif');
+    const [textFontStyle, setTextFontStyle] = useState<'normal' | 'italic'>(textSettings?.fontStyle ?? 'normal');
+    const [textFontWeight, setTextFontWeight] = useState<string>(textSettings?.fontWeight ?? 'normal');
     const [, setLastOpacityCommit] = useState<{ value: number; layerIds: string[] } | null>(null);
     const opacityTargetsRef = useRef<string[]>([]);
     const layerOpacityRef = useRef<number>(1);
@@ -57,6 +83,21 @@ export const SettingsPanelUI = ({
         setPenHardness(penSettings.hardness);
         setPenOpacity(penSettings.opacity);
     }, [penSettings?.size, penSettings?.hardness, penSettings?.opacity]);
+
+    useEffect(() => {
+        if (!textSettings) return;
+        setTextSize(textSettings.fontSize);
+        setTextColor(textSettings.color);
+        setTextFontFamily(textSettings.fontFamily);
+        setTextFontStyle(textSettings.fontStyle);
+        setTextFontWeight(textSettings.fontWeight);
+    }, [
+        textSettings?.fontSize,
+        textSettings?.color,
+        textSettings?.fontFamily,
+        textSettings?.fontStyle,
+        textSettings?.fontWeight,
+    ]);
 
     useEffect(() => {
         // Reset slider to the newly selected layer's opacity without dragging over.
@@ -98,6 +139,17 @@ export const SettingsPanelUI = ({
             opacityCommitTimeoutRef.current = null;
         }
     };
+
+    const fontFamilies = [
+        'Arial, sans-serif',
+        'Helvetica, sans-serif',
+        '"Segoe UI", sans-serif',
+        '"Trebuchet MS", sans-serif',
+        'Verdana, sans-serif',
+        '"Times New Roman", serif',
+        'Georgia, serif',
+        '"Courier New", monospace',
+    ];
 
     return (
         <div className="settings-panel-ui">
@@ -222,6 +274,93 @@ export const SettingsPanelUI = ({
                                     value={penSettings.color}
                                     onChange={(event) => penSettings.onColorChange(event.target.value)}
                                 />
+                            </div>
+                        </div>
+                    )}
+
+                    {textSettings && (isTextToolActive || isTextLayerSelected) && (
+                        <div className="section">
+                            <div className="section-title">Text</div>
+                            <div className="control-group">
+                                <label htmlFor="text-size">Font size</label>
+                                <input
+                                    id="text-size"
+                                    type="range"
+                                    min={8}
+                                    max={300}
+                                    step={1}
+                                    value={textSize}
+                                    onChange={(event) => {
+                                        const next = parseInt(event.target.value, 10) || 0;
+                                        setTextSize(next);
+                                        textSettings.onFontSizeChange(next);
+                                    }}
+                                />
+                                <div className="value">{textSize}px</div>
+                            </div>
+                            <div className="control-group">
+                                <label htmlFor="text-color">Font color</label>
+                                <input
+                                    id="text-color"
+                                    type="color"
+                                    value={textColor}
+                                    onChange={(event) => {
+                                        const next = event.target.value;
+                                        setTextColor(next);
+                                        textSettings.onColorChange(next);
+                                    }}
+                                />
+                            </div>
+                            <div className="control-group">
+                                <label htmlFor="text-font-family">Font family</label>
+                                <select
+                                    id="text-font-family"
+                                    value={textFontFamily}
+                                    onChange={(event) => {
+                                        const next = event.target.value;
+                                        setTextFontFamily(next);
+                                        textSettings.onFontFamilyChange(next);
+                                    }}
+                                >
+                                    {fontFamilies.map((family) => (
+                                        <option key={family} value={family}>
+                                            {family}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="control-group">
+                                <label htmlFor="text-font-style">Font style</label>
+                                <select
+                                    id="text-font-style"
+                                    value={textFontStyle}
+                                    onChange={(event) => {
+                                        const next = event.target.value === 'italic' ? 'italic' : 'normal';
+                                        setTextFontStyle(next);
+                                        textSettings.onFontStyleChange(next);
+                                    }}
+                                >
+                                    <option value="normal">Normal</option>
+                                    <option value="italic">Italic</option>
+                                </select>
+                            </div>
+                            <div className="control-group">
+                                <label htmlFor="text-font-weight">Font weight</label>
+                                <select
+                                    id="text-font-weight"
+                                    value={textFontWeight}
+                                    onChange={(event) => {
+                                        const next = event.target.value;
+                                        setTextFontWeight(next);
+                                        textSettings.onFontWeightChange(next);
+                                    }}
+                                >
+                                    <option value="normal">Normal</option>
+                                    <option value="500">Medium</option>
+                                    <option value="600">Semi-bold</option>
+                                    <option value="bold">Bold</option>
+                                    <option value="900">Black</option>
+                                </select>
                             </div>
                         </div>
                     )}

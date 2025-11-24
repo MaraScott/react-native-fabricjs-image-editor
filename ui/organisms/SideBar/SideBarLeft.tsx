@@ -14,6 +14,7 @@ export interface SideBarLeftProps {
     isSelectToolActive: boolean;
     isDrawToolActive: boolean;
     isRubberToolActive: boolean;
+    isTextToolActive: boolean;
 }
 
 /**
@@ -23,7 +24,7 @@ export interface SideBarLeftProps {
  */
 export const SideBarLeft = (props: SideBarLeftProps) => {
 
-    const { isPanToolActive, isSelectToolActive, isDrawToolActive, isRubberToolActive } = props;
+    const { isPanToolActive, isSelectToolActive, isDrawToolActive, isRubberToolActive, isTextToolActive } = props;
 
   const dispatch = useDispatch();
     const layerControls = useSimpleCanvasStore((state) => state.layerControls);
@@ -58,6 +59,14 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
             dispatch(viewActions.setActiveTool('select'));
         } else {
             dispatch(viewActions.setActiveTool('rubber'));
+        }
+    };
+
+    const toggleTextTool = () => {
+        if (isTextToolActive) {
+            dispatch(viewActions.setActiveTool('select'));
+        } else {
+            dispatch(viewActions.setActiveTool('text'));
         }
     };
 
@@ -127,6 +136,21 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                     {'\u270F'}
                 </span>
                 <span key="draw-label">Pen</span>
+            </button>
+
+            <button
+                key="button-text"
+                type="button"
+                className={`text ${isTextToolActive ? 'active' : null}`}
+                onClick={toggleTextTool}
+                aria-pressed={isTextToolActive}
+                aria-label={isTextToolActive ? 'Disable text tool' : 'Enable text tool'}
+                title={isTextToolActive ? 'Text tool active' : 'Enable text tool'}
+            >
+                <span key="text-icon" aria-hidden="true">
+                    {'\u270D'}
+                </span>
+                <span key="text-label">Text</span>
             </button>
 
             <button

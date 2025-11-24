@@ -10,6 +10,7 @@ import { panReducer, panActions } from './pan';
 import { drawReducer, drawActions } from './draw';
 import { rubberReducer, rubberActions } from './rubber';
 import { cropReducer, cropActions } from './crop';
+import { textReducer, textActions } from './text';
 
 const initialState: ViewState = {
     activeTool: 'select',
@@ -45,6 +46,15 @@ const initialState: ViewState = {
         active: false,
         eraserSize: 20,
         isErasing: false,
+    },
+    text: {
+        active: false,
+        text: 'New text',
+        fontSize: 32,
+        color: '#000000',
+        fontFamily: 'Arial, sans-serif',
+        fontStyle: 'normal',
+        fontWeight: 'normal',
     },
     crop: {
         active: false,
@@ -83,6 +93,7 @@ export const viewReducer = createReducer(initialState, (builder) => {
             state.pan.active = false;
             state.draw.active = false;
             state.rubber.active = false;
+            state.text.active = false;
             state.crop.active = false;
             
             // Set new active tool
@@ -106,6 +117,9 @@ export const viewReducer = createReducer(initialState, (builder) => {
                     break;
                 case 'rubber':
                     state.rubber.active = true;
+                    break;
+                case 'text':
+                    state.text.active = true;
                     break;
                 case 'crop':
                     state.crop.active = true;
@@ -812,6 +826,30 @@ export const viewReducer = createReducer(initialState, (builder) => {
              */
             cropReducer(state.crop, action);
         })
+        .addCase('view/text/activate', (state, action) => {
+            textReducer(state.text, action);
+        })
+        .addCase('view/text/deactivate', (state, action) => {
+            textReducer(state.text, action);
+        })
+        .addCase('view/text/setText', (state, action) => {
+            textReducer(state.text, action);
+        })
+        .addCase('view/text/setFontSize', (state, action) => {
+            textReducer(state.text, action);
+        })
+        .addCase('view/text/setColor', (state, action) => {
+            textReducer(state.text, action);
+        })
+        .addCase('view/text/setFontFamily', (state, action) => {
+            textReducer(state.text, action);
+        })
+        .addCase('view/text/setFontStyle', (state, action) => {
+            textReducer(state.text, action);
+        })
+        .addCase('view/text/setFontWeight', (state, action) => {
+            textReducer(state.text, action);
+        })
         /**
          * addCase - Auto-generated documentation stub.
          *
@@ -860,6 +898,7 @@ export const viewActions = {
     pan: panActions,
     draw: drawActions,
     rubber: rubberActions,
+    text: textActions,
     crop: cropActions,
     
     // Legacy actions for backward compatibility

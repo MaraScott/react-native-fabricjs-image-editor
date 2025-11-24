@@ -13,11 +13,12 @@ import { Layer as KonvaLayer } from '@atoms/Canvas';
 
 import type { RootState } from '@store/CanvasApp';
 import type { PointerPanState, TouchPanState, SelectionDragState, SelectionNodeSnapshot, SelectionTransformSnapshot, Bounds } from './types/canvas.types';
-import type { PanOffset, LayerStroke } from '@molecules/Layer/Layer.types';
+import type { PanOffset, LayerStroke, LayerTextItem } from '@molecules/Layer/Layer.types';
 
-import { Rect, Group, Line } from "react-konva";
+import { Rect, Group, Line, Text as KonvaText } from "react-konva";
 import { drawActions } from '@store/CanvasApp/view/draw';
 import { rubberActions } from '@store/CanvasApp/view/rubber';
+import { textActions } from '@store/CanvasApp/view/text';
 import { SettingsPanelUI } from '@molecules/Settings/SettingsPanelUI';
 
 export interface SimpleCanvasProps {
@@ -62,8 +63,10 @@ export const SimpleCanvas = ({
     const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
     const drawToolState = useSelector((state: RootState) => state.view.draw);
     const rubberToolState = useSelector((state: RootState) => state.view.rubber);
+    const textToolState = useSelector((state: RootState) => state.view.text);
     const isDrawToolActive = drawToolState.active;
     const isRubberToolActive = rubberToolState.active;
+    const isTextToolActive = textToolState.active;
     // Read selectionTransform from Redux
     const reduxSelectionTransform = useSelector(selectSelectionTransform);
     const stageRef = useRef<Konva.Stage>(null);
@@ -106,6 +109,19 @@ export const SimpleCanvas = ({
     // Map of selected layer IDs to their Konva nodes
     const selectedLayerNodeRefs = useRef<Map<string, Konva.Node>>(new Map());
     const [pendingStroke, setPendingStroke] = useState<{ layerId: string; stroke: LayerStroke } | null>(null);
+    type TextEditState = {
+        layerId: string;
+        textId: string;
+        value: string;
+        left: number;
+        top: number;
+        fontSize: number;
+        fontFamily: string;
+        fontStyle?: 'normal' | 'italic';
+        fontWeight?: string;
+        fill?: string;
+    };
+    const [activeTextEdit, setActiveTextEdit] = useState<TextEditState | null>(null);
 
     const layersToRender = useMemo(() => {
         if (!layerControls) return [];
@@ -118,6 +134,10 @@ export const SimpleCanvas = ({
         // always return a fresh array to reflect changed order
         return [...source];
     }, [layerControls?.layers, renderableLayers]);
+    const layerOrderSignature = useMemo(
+        () => layersToRender.map((layer) => layer.id).join('|'),
+        [layersToRender]
+    );
 
     const penSettings = useMemo(() => ({
         size: drawToolState.brushSize,
@@ -154,7 +174,7 @@ export const SimpleCanvas = ({
         return () => {
             window.removeEventListener('layer-move-refresh', handleRefresh as EventListener);
         };
-    }, [layersToRender]);
+    }, [layerOrderSignature, layersToRender]);
 
     const selectedLayerIds = layerControls?.selectedLayerIds ?? [];
     const stableSelectedLayerIds = useMemo(
@@ -162,7 +182,67 @@ export const SimpleCanvas = ({
         [JSON.stringify(selectedLayerIds)]
     );
     const selectedLayerSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds]);
+    const selectedTextLayer = useMemo(() => {
+        if (!layerControls) return null;
+        for (const id of selectedLayerIds) {
+            const layer = layerControls.layers.find((l) => l.id === id);
+            if (layer && (layer.texts?.length ?? 0) > 0) {
+                return layer;
+            }
+        }
+        return null;
+    }, [layerControls, selectedLayerIds]);
+    const selectedTextItem = useMemo(() => selectedTextLayer?.texts?.[0] ?? null, [selectedTextLayer]);
     const showSettingsPanel = true;
+
+    const applyTextStyleToSelection = useCallback((updates: Partial<LayerTextItem>) => {
+        if (!selectedTextLayer || !selectedTextItem || !layerControls?.updateLayerTexts) return;
+        const nextTexts = (selectedTextLayer.texts ?? []).map((text) =>
+            text.id === selectedTextItem.id ? { ...text, ...updates } : text
+        );
+        layerControls.updateLayerTexts(selectedTextLayer.id, nextTexts);
+    }, [layerControls, selectedTextItem, selectedTextLayer]);
+
+    const textSettings = useMemo(() => {
+        const source = selectedTextItem ?? textToolState;
+        const fontSize = selectedTextItem?.fontSize ?? textToolState.fontSize;
+        const color = selectedTextItem ? (selectedTextItem.fill ?? textToolState.color) : textToolState.color;
+        const fontFamily = selectedTextItem?.fontFamily ?? textToolState.fontFamily;
+        const fontStyle = selectedTextItem?.fontStyle ?? textToolState.fontStyle;
+        const fontWeight = selectedTextItem?.fontWeight ?? textToolState.fontWeight;
+        return {
+            text: source.text,
+            fontSize,
+            color,
+            fontFamily,
+            fontStyle,
+            fontWeight,
+            onTextChange: (value: string) => {
+                dispatch(textActions.setText(value));
+                applyTextStyleToSelection({ text: value });
+            },
+            onFontSizeChange: (value: number) => {
+                dispatch(textActions.setFontSize(value));
+                applyTextStyleToSelection({ fontSize: value });
+            },
+            onColorChange: (value: string) => {
+                dispatch(textActions.setColor(value));
+                applyTextStyleToSelection({ fill: value });
+            },
+            onFontFamilyChange: (value: string) => {
+                dispatch(textActions.setFontFamily(value));
+                applyTextStyleToSelection({ fontFamily: value });
+            },
+            onFontStyleChange: (value: 'normal' | 'italic') => {
+                dispatch(textActions.setFontStyle(value));
+                applyTextStyleToSelection({ fontStyle: value });
+            },
+            onFontWeightChange: (value: string) => {
+                dispatch(textActions.setFontWeight(value));
+                applyTextStyleToSelection({ fontWeight: value });
+            },
+        };
+    }, [applyTextStyleToSelection, dispatch, selectedTextItem, textToolState]);
     useEffect(() => {
         if (!layerControls || selectedLayerIds.length > 0) return;
         if (layerControls.layers.length > 0) {
@@ -202,6 +282,10 @@ export const SimpleCanvas = ({
 
     // Utility: Commit selected layer node values back to app state (e.g., after transform)
     const commitSelectedLayerNodeTransforms = useCallback(() => {
+        if (activeTextEdit) {
+            finishTextEdit();
+            return;
+        }
         if (!layerControls) return;
         selectedLayerNodeRefs.current.forEach((node, id) => {
             if (!node) return;
@@ -399,6 +483,50 @@ export const SimpleCanvas = ({
         isSelectionTransformingRef.current = flag;
     }, []);
 
+    const updateTextValue = useCallback((layerId: string, textId: string, value: string) => {
+        if (!layerControls?.updateLayerTexts) return;
+        const layer = layerControls.layers.find((l) => l.id === layerId);
+        if (!layer) return;
+        const nextTexts = (layer.texts ?? []).map((text) => text.id === textId ? { ...text, text: value } : text);
+        layerControls.updateLayerTexts(layerId, nextTexts);
+    }, [layerControls]);
+
+    const removeTextItem = useCallback((layerId: string, textId: string) => {
+        if (!layerControls?.updateLayerTexts) return;
+        const layer = layerControls.layers.find((l) => l.id === layerId);
+        if (!layer) return;
+        const nextTexts = (layer.texts ?? []).filter((text) => text.id !== textId);
+        layerControls.updateLayerTexts(layerId, nextTexts);
+    }, [layerControls]);
+
+    const finishTextEdit = useCallback(() => {
+        if (!activeTextEdit) return;
+        const trimmed = activeTextEdit.value.trim();
+        if (!trimmed) {
+            removeTextItem(activeTextEdit.layerId, activeTextEdit.textId);
+        } else {
+            updateTextValue(activeTextEdit.layerId, activeTextEdit.textId, trimmed);
+        }
+        setActiveTextEdit(null);
+    }, [activeTextEdit, removeTextItem, updateTextValue]);
+
+    const openTextEditor = useCallback((params: { layerId: string; textId: string; value: string; clientX: number; clientY: number; fontSize: number; fontFamily: string; fontStyle?: 'normal' | 'italic'; fontWeight?: string; fill?: string; }) => {
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        setActiveTextEdit({
+            layerId: params.layerId,
+            textId: params.textId,
+            value: params.value,
+            left: params.clientX - rect.left,
+            top: params.clientY - rect.top,
+            fontSize: params.fontSize,
+            fontFamily: params.fontFamily,
+            fontStyle: params.fontStyle,
+            fontWeight: params.fontWeight,
+            fill: params.fill,
+        });
+    }, []);
+
     const initializeSelectionTransform = useCallback((bounds: Bounds | null) => {
         if (!bounds) return;
         const { x, y, width, height } = bounds;
@@ -541,7 +669,7 @@ export const SimpleCanvas = ({
     }, []);
 
     const handleStagePointerDown = useCallback((event: any) => {
-        if ((!isDrawToolActive && !isRubberToolActive) || !layerControls) return;
+        if (!layerControls) return;
         if (event?.evt?.preventDefault) {
             event.evt.preventDefault();
         }
@@ -556,11 +684,66 @@ export const SimpleCanvas = ({
         const layer = layerControls.layers.find((l) => l.id === targetLayerId);
         if (!layer) return;
 
+        const stageX = point.x;
+        const stageY = point.y;
+
+        if (isTextToolActive) {
+            const targetTextId = event?.target?.attrs?.textItemId as string | undefined;
+            if (targetTextId) {
+                const textLayer = layerControls.layers.find((l) => (l.texts ?? []).some((t) => t.id === targetTextId));
+                const textItem = textLayer?.texts?.find((t) => t.id === targetTextId);
+                if (textLayer && textItem) {
+                    openTextEditor({
+                        layerId: textLayer.id,
+                        textId: textItem.id,
+                        value: textItem.text ?? '',
+                        clientX: event?.evt?.clientX ?? 0,
+                        clientY: event?.evt?.clientY ?? 0,
+                        fontSize: textItem.fontSize ?? textToolState.fontSize ?? 32,
+                        fontFamily: textItem.fontFamily ?? textToolState.fontFamily ?? 'Arial, sans-serif',
+                        fontStyle: textItem.fontStyle ?? 'normal',
+                        fontWeight: textItem.fontWeight ?? 'normal',
+                        fill: textItem.fill ?? textToolState.color ?? '#000000',
+                    });
+                    return;
+                }
+            }
+
+            const result = layerControls.addTextLayer?.({
+                text: '',
+                fontSize: textToolState.fontSize ?? 32,
+                fill: textToolState.color ?? '#000000',
+                fontFamily: textToolState.fontFamily ?? 'Arial, sans-serif',
+                fontStyle: textToolState.fontStyle ?? 'normal',
+                fontWeight: textToolState.fontWeight ?? 'normal',
+                x: stageX,
+                y: stageY,
+            });
+            if (result) {
+                layerControls.selectLayer(result.layerId, { mode: 'replace' });
+                openTextEditor({
+                    layerId: result.layerId,
+                    textId: result.textId,
+                    value: '',
+                    clientX: event?.evt?.clientX ?? 0,
+                    clientY: event?.evt?.clientY ?? 0,
+                    fontSize: textToolState.fontSize ?? 32,
+                    fontFamily: textToolState.fontFamily ?? 'Arial, sans-serif',
+                    fontStyle: textToolState.fontStyle ?? 'normal',
+                    fontWeight: textToolState.fontWeight ?? 'normal',
+                    fill: textToolState.color ?? '#000000',
+                });
+            }
+            return;
+        }
+
         const scaleX = layer.scale?.x ?? 1;
         const scaleY = layer.scale?.y ?? 1;
         const sizeScale = (Math.abs(scaleX) + Math.abs(scaleY)) / 2 || 1;
-        const localX = (point.x - (layer.position?.x ?? 0)) / (scaleX || 1);
-        const localY = (point.y - (layer.position?.y ?? 0)) / (scaleY || 1);
+        const localX = (stageX - (layer.position?.x ?? 0)) / (scaleX || 1);
+        const localY = (stageY - (layer.position?.y ?? 0)) / (scaleY || 1);
+
+        if (!isDrawToolActive && !isRubberToolActive) return;
 
         if (isRubberToolActive) {
             const strokeId = `erase-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -591,7 +774,7 @@ export const SimpleCanvas = ({
         };
         setPendingStroke({ layerId: targetLayerId, stroke });
         dispatch(drawActions.startDrawing(strokeId));
-    }, [dispatch, drawToolState.brushColor, drawToolState.brushHardness, drawToolState.brushOpacity, drawToolState.brushSize, getRelativePointerPosition, isDrawToolActive, isRubberToolActive, layerControls, rubberToolState.eraserSize, selectedLayerIds]);
+    }, [activeTextEdit, dispatch, drawToolState.brushColor, drawToolState.brushHardness, drawToolState.brushOpacity, drawToolState.brushSize, finishTextEdit, getRelativePointerPosition, isDrawToolActive, isRubberToolActive, isTextToolActive, layerControls, openTextEditor, rubberToolState.eraserSize, selectedLayerIds, textToolState.color, textToolState.fontFamily, textToolState.fontSize, textToolState.fontStyle, textToolState.fontWeight]);
 
     const handleStagePointerMove = useCallback((event: any) => {
         if ((!isDrawToolActive && !isRubberToolActive) || !pendingStroke || !layerControls) return;
@@ -889,7 +1072,7 @@ export const SimpleCanvas = ({
         ? 'grabbing'
         : (isDrawToolActive || isRubberToolActive)
             ? 'crosshair'
-            : (panModeActive || spacePressed ? 'grab' : 'default');
+            : (isTextToolActive ? 'text' : (panModeActive || spacePressed ? 'grab' : 'default'));
 
     useEffect(() => {
         if (!stageRef.current) {
@@ -1058,6 +1241,7 @@ export const SimpleCanvas = ({
                                     ...(layer.strokes ?? []),
                                     ...(pendingStroke && pendingStroke.layerId === layer.id ? [pendingStroke.stroke] : []),
                                 ];
+                                const textItems = layer.texts ?? [];
                                 return (
                                     <GroupAny
                                         key={`${layersRevision}-${layer.id}`}
@@ -1085,6 +1269,22 @@ export const SimpleCanvas = ({
                                         syncTransformerToSelection={syncTransformerToSelection}
                                     >
                                         {layer.render()}
+                                        {textItems.map((textItem) => (
+                                            <KonvaText
+                                                key={textItem.id}
+                                                textItemId={textItem.id}
+                                                textLayerId={layer.id}
+                                                x={textItem.x}
+                                                y={textItem.y}
+                                                text={textItem.text}
+                                                fontSize={textItem.fontSize}
+                                                fontFamily={textItem.fontFamily}
+                                                fontStyle={textItem.fontStyle}
+                                                fontWeight={textItem.fontWeight}
+                                                fill={textItem.fill ?? '#000000'}
+                                                listening={true}
+                                            />
+                                        ))}
                                         {combinedStrokes.map((stroke) => (
                                             <Line
                                                 key={stroke.id}
@@ -1164,8 +1364,53 @@ export const SimpleCanvas = ({
                     layerControls={layerControls}
                     selectedLayerIds={selectedLayerIds}
                     penSettings={penSettings}
+                    isTextToolActive={isTextToolActive}
+                    textSettings={textSettings}
+                    isTextLayerSelected={Boolean(selectedTextItem)}
                 />
             )}
+
+            {activeTextEdit ? (
+                <textarea
+                    key={`text-edit-${activeTextEdit.textId}`}
+                    value={activeTextEdit.value}
+                    autoFocus
+                    onChange={(event) => {
+                        const next = event.target.value;
+                        setActiveTextEdit((prev) => prev ? { ...prev, value: next } : prev);
+                        updateTextValue(activeTextEdit.layerId, activeTextEdit.textId, next);
+                    }}
+                    onBlur={finishTextEdit}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Enter' && !event.shiftKey) {
+                            event.preventDefault();
+                            finishTextEdit();
+                        } else if (event.key === 'Escape') {
+                            event.preventDefault();
+                            finishTextEdit();
+                        }
+                    }}
+                    style={{
+                        position: 'absolute',
+                        left: activeTextEdit.left,
+                        top: activeTextEdit.top,
+                        minWidth: '180px',
+                        padding: '6px 8px',
+                        border: '1px solid #888',
+                        borderRadius: '4px',
+                        background: '#ffffff',
+                        color: activeTextEdit.fill ?? '#000000',
+                        fontSize: `${activeTextEdit.fontSize}px`,
+                        fontFamily: activeTextEdit.fontFamily,
+                        fontStyle: activeTextEdit.fontStyle ?? 'normal',
+                        fontWeight: activeTextEdit.fontWeight ?? 'normal',
+                        lineHeight: '1.2',
+                        zIndex: 10,
+                        resize: 'both',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                    }}
+                />
+            ) : null}
 
         </div>
     );

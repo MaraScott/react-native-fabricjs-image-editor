@@ -11,6 +11,20 @@ export interface LayerStroke {
   mode?: 'draw' | 'erase';
 }
 
+export interface LayerTextItem {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  fontSize: number;
+  fontFamily: string;
+  fontStyle?: 'normal' | 'italic';
+  fontWeight?: string;
+  fill?: string;
+}
+
+export type LayerTextInput = Omit<LayerTextItem, 'id'> & { id?: string };
+
 /**
  * ScaleVector Type
  *
@@ -33,6 +47,7 @@ export interface LayerRenderable {
   scale?: ScaleVector;
   opacity?: number;
   strokes?: LayerStroke[];
+  texts?: LayerTextItem[];
 }
 
 /**
@@ -53,6 +68,7 @@ export interface LayerDescriptor extends LayerRenderable {
   scale?: ScaleVector;
   opacity?: number;
   strokes?: LayerStroke[];
+  texts?: LayerTextItem[];
   bounds?: Bounds | null;
 }
 
@@ -107,7 +123,10 @@ export interface LayerControlHandlers {
   updateLayerOpacityCommit?: (layerId: string, opacity: number) => void;
   updateLayerBounds?: (layerId: string, bounds: Bounds | null) => void;
   updateLayerStrokes?: (layerId: string, strokes: LayerStroke[]) => void;
+  updateLayerTexts?: (layerId: string, texts: LayerTextItem[]) => void;
+  addTextToLayer?: (layerId: string, text: LayerTextInput) => void;
   addImageLayer?: (src: string) => void;
+  addTextLayer?: (text: LayerTextInput) => { layerId: string; textId: string } | void;
   rasterizeLayer?: (layerId: string) => void;
   undo?: () => void;
   redo?: () => void;

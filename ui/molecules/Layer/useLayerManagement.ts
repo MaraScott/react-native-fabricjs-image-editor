@@ -6,7 +6,7 @@
 
 import React, { useMemo, useCallback, useEffect } from 'react';
 import { Image as KonvaImage } from 'react-konva';
-import type { LayerDescriptor, LayerControlHandlers, LayerMoveDirection, ScaleVector, PanOffset, InitialLayerDefinition } from '@molecules/Layer/Layer.types';
+import type { LayerDescriptor, LayerControlHandlers, LayerMoveDirection, ScaleVector, PanOffset, InitialLayerDefinition, LayerTextInput, LayerTextItem } from '@molecules/Layer/Layer.types';
 import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 import { areBoundsEqual } from '@molecules/Canvas/utils/bounds';
 import { generateLayerId, normaliseLayerDefinitions, areSelectionsEqual } from './utils';
@@ -32,6 +32,7 @@ export interface UseLayerManagementReturn {
     primaryLayerId: string | null;
     layersRevision: number;
     addImageLayer?: (src: string) => void;
+    addTextLayer?: (text: LayerTextInput) => { layerId: string; textId: string } | void;
     layerIndexMap: Map<string, number>;
     selectLayer: LayerControlHandlers['selectLayer'];
     clearSelection: () => void;
@@ -80,6 +81,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                         scale: { x: 1, y: 1 },
                         opacity: 1,
                         strokes: [],
+                        texts: [],
                         render: () => null,
                     },
                 ];
@@ -209,6 +211,19 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         applyLayers(present.layers, [], null);
     }, [applyLayers, present.layers]);
 
+    const getInsertIndexAboveSelection = useCallback(() => {
+        if (present.selectedLayerIds.length === 0) {
+            return present.layers.length;
+        }
+        const selectedIndexes = present.selectedLayerIds
+            .map((id) => layerIndexMap.get(id))
+            .filter((index): index is number => typeof index === 'number');
+        if (selectedIndexes.length === 0) {
+            return present.layers.length;
+        }
+        return Math.min(present.layers.length, Math.max(...selectedIndexes) + 1);
+    }, [layerIndexMap, present.layers, present.selectedLayerIds]);
+
     const addLayer = useCallback(() => {
         const newLayer: LayerDescriptor = {
             id: generateLayerId(),
@@ -219,11 +234,14 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
             scale: { x: 1, y: 1 },
             opacity: 1,
             strokes: [],
+            texts: [],
             render: () => null,
         };
-        const nextLayers = [...present.layers, newLayer];
+        const insertIndex = getInsertIndexAboveSelection();
+        const nextLayers = [...present.layers];
+        nextLayers.splice(insertIndex, 0, newLayer);
         applyLayers(nextLayers, [newLayer.id], newLayer.id);
-    }, [applyLayers, present.layers]);
+    }, [applyLayers, getInsertIndexAboveSelection, present.layers]);
 
     const removeLayer = useCallback<LayerControlHandlers['removeLayer']>((layerId) => {
         if (present.layers.length <= 1) {
@@ -250,6 +268,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
             scale: layer.scale ? { ...layer.scale } : { x: 1, y: 1 },
             opacity: layer.opacity ?? 1,
             strokes: layer.strokes ? layer.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })) : [],
+            texts: layer.texts ? layer.texts.map((text) => ({ ...text })) : [],
         };
         const layerIndex = present.layers.findIndex((l) => l.id === layerId);
         const nextLayers = [...present.layers];
@@ -427,6 +446,77 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         );
     }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
 
+    const addTextLayer = useCallback<NonNullable<LayerControlHandlers['addTextLayer']>>((textInput) => {
+        const textId = textInput.id ?? generateLayerId();
+        const newLayerId = generateLayerId();
+        const textItem: LayerTextItem = {
+            id: textId,
+            text: textInput.text ?? '',
+            x: textInput.x ?? 0,
+            y: textInput.y ?? 0,
+            fontSize: textInput.fontSize ?? 32,
+            fontFamily: textInput.fontFamily ?? 'Arial, sans-serif',
+            fontStyle: textInput.fontStyle ?? 'normal',
+            fontWeight: textInput.fontWeight ?? 'normal',
+            fill: textInput.fill ?? '#000000',
+        };
+        const newLayer: LayerDescriptor = {
+            id: newLayerId,
+            name: `Text ${present.layers.length + 1}`,
+            visible: true,
+            position: { x: 0, y: 0 },
+            rotation: 0,
+            scale: { x: 1, y: 1 },
+            opacity: 1,
+            strokes: [],
+            texts: [textItem],
+            render: () => null,
+        };
+        const insertIndex = getInsertIndexAboveSelection();
+        const nextLayers = [...present.layers];
+        nextLayers.splice(insertIndex, 0, newLayer);
+        applyLayers(nextLayers, [newLayerId], newLayerId);
+        return { layerId: newLayerId, textId };
+    }, [applyLayers, getInsertIndexAboveSelection, present.layers]);
+
+    const updateLayerTexts = useCallback<NonNullable<LayerControlHandlers['updateLayerTexts']>>((layerId, texts) => {
+        applyLayers(
+            present.layers.map((layer) =>
+                layer.id === layerId ? { ...layer, texts: texts.map((text) => ({ ...text })) } : layer
+            ),
+            present.selectedLayerIds,
+            present.primaryLayerId,
+        );
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const addTextToLayer = useCallback<NonNullable<LayerControlHandlers['addTextToLayer']>>((layerId, textInput) => {
+        const targetIndex = present.layers.findIndex((layer) => layer.id === layerId);
+        if (targetIndex === -1) return;
+
+        const layer = present.layers[targetIndex];
+        const textId = textInput.id ?? generateLayerId();
+        const nextText: LayerTextItem = {
+            id: textId,
+            text: textInput.text ?? 'New text',
+            x: textInput.x ?? 0,
+            y: textInput.y ?? 0,
+            fontSize: textInput.fontSize ?? 32,
+            fontFamily: textInput.fontFamily ?? 'Arial, sans-serif',
+            fontStyle: textInput.fontStyle ?? 'normal',
+            fontWeight: textInput.fontWeight ?? 'normal',
+            fill: textInput.fill ?? '#000000',
+        };
+
+        const nextTexts = [...(layer.texts ?? []), nextText];
+        const nextLayers = [...present.layers];
+        nextLayers[targetIndex] = {
+            ...layer,
+            texts: nextTexts,
+        };
+
+        applyLayers(nextLayers, present.selectedLayerIds, present.primaryLayerId);
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
     const rasterizeLayer = useCallback((layerId: string) => {
         const target = present.layers.find((layer) => layer.id === layerId);
         if (!target) return;
@@ -475,22 +565,12 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                 scale: { x: 1, y: 1 },
                 opacity: 1,
                 strokes: [],
+                texts: [],
                 render: () => imageNode,
             };
 
             // Insert above the currently selected layer; if none are selected, place it on top.
-            const insertIndex = (() => {
-                if (present.selectedLayerIds.length === 0) {
-                    return present.layers.length;
-                }
-                const selectedIndexes = present.selectedLayerIds
-                    .map((id) => layerIndexMap.get(id))
-                    .filter((index): index is number => typeof index === 'number');
-                if (selectedIndexes.length === 0) {
-                    return present.layers.length;
-                }
-                return Math.min(present.layers.length, Math.max(...selectedIndexes) + 1);
-            })();
+            const insertIndex = getInsertIndexAboveSelection();
 
             const nextLayers = [...present.layers];
             nextLayers.splice(insertIndex, 0, imageLayer);
@@ -498,7 +578,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
             applyLayers(nextLayers, [newLayerId], newLayerId);
         };
         img.src = src;
-    }, [applyLayers, layerIndexMap, present.layers, present.selectedLayerIds, stageHeight, stageWidth]);
+    }, [applyLayers, getInsertIndexAboveSelection, present.layers, stageHeight, stageWidth]);
 
     const undo = useCallback(() => {
         undoLayers();
@@ -532,6 +612,9 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         updateLayerOpacityLive,
         updateLayerOpacityCommit,
         updateLayerStrokes,
+        updateLayerTexts,
+        addTextLayer,
+        addTextToLayer,
         rasterizeLayer,
         updateLayerBounds,
         undo,

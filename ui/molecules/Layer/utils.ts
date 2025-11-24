@@ -43,6 +43,7 @@ export const normaliseLayerDefinitions = (
   scale: definition.scale ?? { x: 1, y: 1 },
   opacity: definition.opacity ?? 1,
   strokes: definition.strokes ? definition.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })) : [],
+  texts: definition.texts ? definition.texts.map((text) => ({ ...text })) : [],
   render: definition.render,
 }));
 };

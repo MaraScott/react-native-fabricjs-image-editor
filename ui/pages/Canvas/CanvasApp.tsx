@@ -151,6 +151,7 @@ export const CanvasApp = ({
     const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
     const isDrawToolActive = useSelector((state: RootState) => state.view.draw.active);
     const isRubberToolActive = useSelector((state: RootState) => state.view.rubber.active);
+    const isTextToolActive = useSelector((state: RootState) => state.view.text.active);
 
     useEffect(() => {
         const updateScreenSize = () => {
@@ -202,7 +203,7 @@ export const CanvasApp = ({
                     </button>
                 </div>
             }
-            sidebarLeft={<SideBarLeft isPanToolActive={isPanToolActive} isSelectToolActive={isSelectToolActive} isDrawToolActive={isDrawToolActive} isRubberToolActive={isRubberToolActive} />}
+            sidebarLeft={<SideBarLeft isPanToolActive={isPanToolActive} isSelectToolActive={isSelectToolActive} isDrawToolActive={isDrawToolActive} isRubberToolActive={isRubberToolActive} isTextToolActive={isTextToolActive} />}
             footer={<Footer />}
         >
             <CanvasContainer
