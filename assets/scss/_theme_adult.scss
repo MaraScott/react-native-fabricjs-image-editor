@@ -1,0 +1,28 @@
+// Calm neutral adult theme overrides via CSS variables
+.canvas-layout.adult {
+    --ta-app-bg: linear-gradient(180deg, #f5f7fb 0%, #eef1f7 100%);
+    --ta-header-bg: #f9fafb;
+    --ta-header-border: #dfe3eb;
+    --ta-header-title: #111827;
+    --ta-header-subtitle: #4b5563;
+    --ta-header-button-bg: #ffffff;
+    --ta-header-button-border: #d1d5db;
+    --ta-header-button-color: #111827;
+    --ta-header-button-hover-bg: #e5e7eb;
+    --ta-header-button-hover-border: #9ca3af;
+    --ta-main-bg: transparent;
+    --ta-sidebar-bg: #f9fafb;
+    --ta-sidebar-border: #dfe3eb;
+    --ta-sidebar-button-bg: #ffffff;
+    --ta-sidebar-button-border: #d1d5db;
+    --ta-sidebar-button-color: #111827;
+    --ta-sidebar-button-active-bg: #111827;
+    --ta-sidebar-button-active-color: #f9fafb;
+    --ta-footer-bg: #f9fafb;
+    --ta-footer-border: #dfe3eb;
+    --ta-footer-color: #4b5563;
+    --ta-zoom-bg: #ffffff;
+    --ta-zoom-border: #d1d5db;
+    --ta-zoom-color: #111827;
+    --ta-zoom-display-bg: transparent;
+}

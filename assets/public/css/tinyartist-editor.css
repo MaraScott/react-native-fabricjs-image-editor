@@ -2,6 +2,35 @@ body {
   margin: 0;
 }
 
+:root {
+  --ta-app-bg: transparent;
+  --ta-header-bg: #ffffff;
+  --ta-header-border: #e0e0e0;
+  --ta-header-title: #333333;
+  --ta-header-subtitle: #666666;
+  --ta-header-button-bg: #fff;
+  --ta-header-button-border: #e5e7eb;
+  --ta-header-button-color: #111827;
+  --ta-header-button-hover-bg: #f5f5f5;
+  --ta-header-button-hover-border: #999;
+  --ta-main-bg: #ffffff;
+  --ta-main-border: #e0e0e0;
+  --ta-sidebar-bg: #ffffff;
+  --ta-sidebar-border: #e0e0e0;
+  --ta-sidebar-button-bg: #f8f8f8;
+  --ta-sidebar-button-border: #d0d0d0;
+  --ta-sidebar-button-color: #333333;
+  --ta-sidebar-button-active-bg: #333333;
+  --ta-sidebar-button-active-color: #ffffff;
+  --ta-footer-bg: #ffffff;
+  --ta-footer-border: #e0e0e0;
+  --ta-footer-color: #666666;
+  --ta-zoom-bg: #ffffff;
+  --ta-zoom-border: #dddddd;
+  --ta-zoom-color: #333333;
+  --ta-zoom-display-bg: transparent;
+}
+
 .canvas-layout {
   width: auto;
   height: 100vh;
@@ -9,11 +38,12 @@ body {
   flex-direction: column;
   overflow: hidden;
   font-family: system-ui, -apple-system, sans-serif;
+  background: var(--ta-app-bg);
 }
 .canvas-layout .header {
   padding: 1rem;
-  border-bottom: 1px solid #e0e0e0;
-  background-color: #ffffff;
+  border-bottom: 1px solid var(--ta-header-border);
+  background-color: var(--ta-header-bg);
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -27,11 +57,12 @@ body {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
+  color: var(--ta-header-title);
 }
 .canvas-layout .header .left p {
   margin: 0.25rem 0 0 0;
   font-size: 0.875rem;
-  color: #666;
+  color: var(--ta-header-subtitle);
 }
 .canvas-layout .header .center {
   display: flex;
@@ -48,11 +79,12 @@ body {
   flex: 1;
   overflow: hidden;
   display: flex;
+  background: var(--ta-main-bg);
 }
 .canvas-layout .sidebar.left {
   width: 64px;
-  border-right: 1px solid #e0e0e0;
-  background-color: #ffffff;
+  border-right: 1px solid var(--ta-sidebar-border);
+  background-color: var(--ta-sidebar-bg);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -61,9 +93,9 @@ body {
 }
 .canvas-layout .sidebar button {
   width: 100%;
-  border: 1px solid #d0d0d0;
-  background-color: #f8f8f8;
-  color: #333333;
+  border: 1px solid var(--ta-sidebar-button-border);
+  background-color: var(--ta-sidebar-button-bg);
+  color: var(--ta-sidebar-button-color);
   border-radius: 8px;
   padding: 0.75rem 0.5rem;
   display: flex;
@@ -81,9 +113,9 @@ body {
   line-height: 1;
 }
 .canvas-layout .sidebar button.active {
-  border-color: #333333;
-  background-color: #333333;
-  color: #ffffff;
+  border-color: var(--ta-sidebar-button-active-bg);
+  background-color: var(--ta-sidebar-button-active-bg);
+  color: var(--ta-sidebar-button-active-color);
 }
 .canvas-layout .content {
   flex: 1;
@@ -93,17 +125,17 @@ body {
 }
 .canvas-layout .footer {
   padding: 0.5rem 1rem;
-  border-top: 1px solid #e0e0e0;
-  background-color: #ffffff;
+  border-top: 1px solid var(--ta-footer-border);
+  background-color: var(--ta-footer-bg);
   font-size: 0.875rem;
-  color: #666;
+  color: var(--ta-footer-color);
   text-align: center;
 }
 .canvas-layout .zoom-control {
   display: flex;
   align-items: center;
-  background-color: #fff;
-  border: 1px solid #ddd;
+  background-color: var(--ta-zoom-bg);
+  border: 1px solid var(--ta-zoom-border);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -111,24 +143,25 @@ body {
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #333;
+  color: var(--ta-zoom-color);
   min-width: 80px;
   text-align: center;
+  background: var(--ta-zoom-display-bg);
 }
 .canvas-layout button {
   padding: 0.5rem 0.75rem;
-  border: 1px solid #dddddd;
-  background-color: #fff;
+  border: 1px solid var(--ta-header-button-border);
+  background-color: var(--ta-header-button-bg);
   cursor: pointer;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #333;
+  color: var(--ta-header-button-color);
   transition: all 0.2s;
   user-select: none;
 }
 .canvas-layout button:hover {
-  background-color: #f5f5f5;
-  border-color: #999;
+  background-color: var(--ta-header-button-hover-bg);
+  border-color: var(--ta-header-button-hover-border);
 }
 .canvas-layout button:disabled {
   opacity: 0.5;
@@ -437,4 +470,60 @@ body {
 .settings-panel-ui .panel .empty {
   font-size: 0.85rem;
   color: #777777;
+}
+
+.canvas-layout.kid {
+  --ta-app-bg: linear-gradient(180deg, #fffaf2 0%, #fff5e6 100%);
+  --ta-header-bg: #ffe9cc;
+  --ta-header-border: #ffd9a1;
+  --ta-header-title: #b35c00;
+  --ta-header-subtitle: #8a4b00;
+  --ta-header-button-bg: #fff3de;
+  --ta-header-button-border: #ffb45c;
+  --ta-header-button-color: #8a4b00;
+  --ta-header-button-hover-bg: #ffe3be;
+  --ta-header-button-hover-border: #ffa733;
+  --ta-main-bg: transparent;
+  --ta-sidebar-bg: #fff3de;
+  --ta-sidebar-border: #ffd9a1;
+  --ta-sidebar-button-bg: #ffe9cc;
+  --ta-sidebar-button-border: #ffb45c;
+  --ta-sidebar-button-color: #8a4b00;
+  --ta-sidebar-button-active-bg: #ffb45c;
+  --ta-sidebar-button-active-color: #fffaf2;
+  --ta-footer-bg: #ffe9cc;
+  --ta-footer-border: #ffd9a1;
+  --ta-footer-color: #8a4b00;
+  --ta-zoom-bg: #fff3de;
+  --ta-zoom-border: #ffcf88;
+  --ta-zoom-color: #8a4b00;
+  --ta-zoom-display-bg: transparent;
+}
+
+.canvas-layout.adult {
+  --ta-app-bg: linear-gradient(180deg, #f5f7fb 0%, #eef1f7 100%);
+  --ta-header-bg: #f9fafb;
+  --ta-header-border: #dfe3eb;
+  --ta-header-title: #111827;
+  --ta-header-subtitle: #4b5563;
+  --ta-header-button-bg: #ffffff;
+  --ta-header-button-border: #d1d5db;
+  --ta-header-button-color: #111827;
+  --ta-header-button-hover-bg: #e5e7eb;
+  --ta-header-button-hover-border: #9ca3af;
+  --ta-main-bg: transparent;
+  --ta-sidebar-bg: #f9fafb;
+  --ta-sidebar-border: #dfe3eb;
+  --ta-sidebar-button-bg: #ffffff;
+  --ta-sidebar-button-border: #d1d5db;
+  --ta-sidebar-button-color: #111827;
+  --ta-sidebar-button-active-bg: #111827;
+  --ta-sidebar-button-active-color: #f9fafb;
+  --ta-footer-bg: #f9fafb;
+  --ta-footer-border: #dfe3eb;
+  --ta-footer-color: #4b5563;
+  --ta-zoom-bg: #ffffff;
+  --ta-zoom-border: #d1d5db;
+  --ta-zoom-color: #111827;
+  --ta-zoom-display-bg: transparent;
 }

@@ -214,7 +214,7 @@ const isPaintToolActive = useSelector((state: RootState) => state.view.paint.act
 
     return (
         <CanvasLayout
-            theme={theme}
+            classNameId={`canvas-layout ${theme}`}
             headerLeft={
                 <HeaderLeft
                     width={resolvedStageWidth}

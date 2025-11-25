@@ -1,0 +1,28 @@
+// Warm kid-friendly theme overrides via CSS variables
+.canvas-layout.kid {
+    --ta-app-bg: linear-gradient(180deg, #fffaf2 0%, #fff5e6 100%);
+    --ta-header-bg: #ffe9cc;
+    --ta-header-border: #ffd9a1;
+    --ta-header-title: #b35c00;
+    --ta-header-subtitle: #8a4b00;
+    --ta-header-button-bg: #fff3de;
+    --ta-header-button-border: #ffb45c;
+    --ta-header-button-color: #8a4b00;
+    --ta-header-button-hover-bg: #ffe3be;
+    --ta-header-button-hover-border: #ffa733;
+    --ta-main-bg: transparent;
+    --ta-sidebar-bg: #fff3de;
+    --ta-sidebar-border: #ffd9a1;
+    --ta-sidebar-button-bg: #ffe9cc;
+    --ta-sidebar-button-border: #ffb45c;
+    --ta-sidebar-button-color: #8a4b00;
+    --ta-sidebar-button-active-bg: #ffb45c;
+    --ta-sidebar-button-active-color: #fffaf2;
+    --ta-footer-bg: #ffe9cc;
+    --ta-footer-border: #ffd9a1;
+    --ta-footer-color: #8a4b00;
+    --ta-zoom-bg: #fff3de;
+    --ta-zoom-border: #ffcf88;
+    --ta-zoom-color: #8a4b00;
+    --ta-zoom-display-bg: transparent;
+}
