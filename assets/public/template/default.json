@@ -5,7 +5,7 @@
   "layers": [
     {
       "id": "7014d2cf-d544-4c2e-9046-28a90fce3dab",
-      "name": "Layer 7",
+      "name": "Background",
       "visible": true,
       "position": {
         "x": 0,
@@ -3991,7 +3991,7 @@
     },
     {
       "id": "f4fc12db-188f-4e98-9e2a-d2671c6c6c08",
-      "name": "Image 4",
+      "name": "SAP image",
       "visible": true,
       "position": {
         "x": 124.93583351109214,
@@ -4009,7 +4009,7 @@
     },
     {
       "id": "27989d5f-a783-4207-a15f-824abf648532",
-      "name": "Text 5",
+      "name": "Simple Canvas Text",
       "visible": true,
       "position": {
         "x": 0,
@@ -4038,7 +4038,7 @@
     },
     {
       "id": "822f671c-eb37-4e0b-a809-9a7a715d3b7c",
-      "name": "Text 5",
+      "name": "MaraScott",
       "visible": true,
       "position": {
         "x": 0,
@@ -4067,7 +4067,7 @@
     },
     {
       "id": "aafad851-e903-4c16-8e42-dae04fee173f",
-      "name": "Layer 6",
+      "name": "Black lines",
       "visible": true,
       "position": {
         "x": 0,
@@ -5083,7 +5083,7 @@
     },
     {
       "id": "d39501c4-187c-4bf7-9b9b-8d2fad5e5562",
-      "name": "Layer 6",
+      "name": "Red circle",
       "visible": true,
       "position": {
         "x": 0,
