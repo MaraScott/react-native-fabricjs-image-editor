@@ -1,5 +1,5 @@
 import { useDispatch } from 'react-redux';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { viewActions } from '@store/CanvasApp/view';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 
@@ -30,6 +30,17 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
   const dispatch = useDispatch();
     const layerControls = useSimpleCanvasStore((state) => state.layerControls);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const [theme, setTheme] = useState<'kid' | 'adult'>('kid');
+
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+        const layout = document.querySelector('.canvas-layout');
+        if (layout?.classList.contains('adult')) {
+            setTheme('adult');
+        } else {
+            setTheme('kid');
+        }
+    }, []);
 
     const togglePanTool = () => {
         if (isPanToolActive) {
@@ -112,7 +123,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isPanToolActive ? 'Pan tool active' : 'Enable pan tool'}
             >
                 <span key="pan-icon" aria-hidden="true">
-                    {'\u270B'}
+                    {theme === 'kid' ? '\u270B' : '🖱️'}
                 </span>
                 <span key="pan-label">Pan</span>
             </button>
@@ -127,7 +138,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isSelectToolActive ? 'Select tool active' : 'Enable select tool'}
             >
                 <span key="select-icon" aria-hidden="true">
-                    {'\u261D'}
+                    {theme === 'kid' ? '\u261D' : '\u261D'}
                 </span>
                 <span key="select-label">Select</span>
             </button>
@@ -142,9 +153,9 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isDrawToolActive ? 'Pen tool active' : 'Enable pen tool'}
             >
                 <span key="draw-icon" aria-hidden="true">
-                    {`✏️🖱️`}
+                    {theme === 'kid' ? '✏️' : '✏️'}
                 </span>
-                <span key="draw-label">Pen</span>
+                <span key="draw-label">Draw</span>
             </button>
 
             <button
@@ -157,7 +168,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isPaintToolActive ? 'Paint tool active' : 'Enable paint tool'}
             >
                 <span key="paint-icon" aria-hidden="true">
-                    {`🧹🎨`}
+                    {theme === 'kid' ? '🧹' : '🎨'}
                 </span>
                 <span key="paint-label">Paint</span>
             </button>
@@ -172,7 +183,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isRubberToolActive ? 'Eraser tool active' : 'Enable eraser tool'}
             >
                 <span key="erase-icon" aria-hidden="true">
-                    {'🧽🧹'}
+                    {theme === 'kid' ? '🧽' : '🧹'}
                 </span>
                 <span key="erase-label">Erase</span>
             </button>
@@ -187,7 +198,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isTextToolActive ? 'Text tool active' : 'Enable text tool'}
             >
                 <span key="text-icon" aria-hidden="true">
-                    {`\u270D📝`}
+                    {theme === 'kid' ? '\u270D' : '📝'}
                 </span>
                 <span key="text-label">Text</span>
             </button>
@@ -202,7 +213,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 disabled={!layerControls?.addImageLayer}
             >
                 <span key="add-image-icon" aria-hidden="true">
-                    {'🖼️'}
+                    {theme === 'kid' ? '🖼️' : '🖼️'}
                 </span>
                 <span key="add-image-label">Picture</span>
             </button>
