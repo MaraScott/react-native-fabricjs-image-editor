@@ -311,7 +311,12 @@ export const SimpleCanvas = ({
                     }
                 }
 
-                const dataUrl = node.toDataURL({ mimeType: 'image/png', quality: 1, pixelRatio: 1 });
+                const dataUrl = node.toDataURL({
+                    mimeType: 'image/png',
+                    quality: 1,
+                    pixelRatio: 1,
+                    backgroundColor: 'rgba(0,0,0,0)',
+                });
                 layerControls.rasterizeLayer(layerId, dataUrl, { bounds });
             } catch (error) {
                 console.warn('Unable to rasterize layer', error);
@@ -460,7 +465,6 @@ export const SimpleCanvas = ({
         const needsRasterize = selectedLayerIds.some((id) => {
             const layer = layerControls.layers.find((l) => l.id === id);
             if (!layer) return false;
-            console.log(JSON.stringify(layer));
             const hasVectorContent = (layer.texts?.length ?? 0) > 0 || typeof layer.render === 'function';
             return hasVectorContent;
         });
@@ -902,6 +906,8 @@ export const SimpleCanvas = ({
         if (event?.evt?.preventDefault) {
             event.evt.preventDefault();
         }
+
+        const finalizedStroke = pendingStroke;
         if (pendingStroke) {
             const layer = layerControls.layers.find((l) => l.id === pendingStroke.layerId);
             if (layer) {
@@ -910,13 +916,59 @@ export const SimpleCanvas = ({
             }
         }
         setPendingStroke(null);
+
         if (isDrawToolActive) {
             dispatch(drawActions.finishDrawing());
         }
+
         if (isRubberToolActive) {
             dispatch(rubberActions.stopErasing());
+
+            // Bake the erased content into the layer bitmap after the stroke is applied.
+            if (finalizedStroke && layerControls.rasterizeLayer && typeof window !== 'undefined') {
+                const targetLayerId = finalizedStroke.layerId;
+                // Wait an extra frame to ensure the stroke has been committed to the Konva scene graph.
+                window.requestAnimationFrame(() => {
+                    window.requestAnimationFrame(() => {
+                        const node = layerNodeRefs.current.get(targetLayerId);
+                        if (!node) return;
+                        try {
+                            // Force a draw so the latest erase stroke is present before capture.
+                            node.getLayer()?.batchDraw();
+
+                            let bounds: Bounds | null = null;
+                            const stage = node.getStage();
+                            if (stage) {
+                                const rect = node.getClientRect({
+                                    skipTransform: false,
+                                    relativeTo: stage,
+                                });
+                                const finite = [rect.x, rect.y, rect.width, rect.height].every((value) => Number.isFinite(value));
+                                if (finite) {
+                                    bounds = {
+                                        x: rect.x - stageViewportOffsetX,
+                                        y: rect.y - stageViewportOffsetY,
+                                        width: rect.width,
+                                        height: rect.height,
+                                    };
+                                }
+                            }
+
+                            const dataUrl = node.toDataURL({
+                                mimeType: 'image/png',
+                                quality: 1,
+                                pixelRatio: 1,
+                                backgroundColor: 'rgba(0,0,0,0)',
+                            });
+                            layerControls.rasterizeLayer(targetLayerId, dataUrl, { bounds });
+                        } catch (error) {
+                            console.warn('Unable to rasterize after erasing', error);
+                        }
+                    });
+                });
+            }
         }
-    }, [dispatch, isDrawToolActive, isRubberToolActive, layerControls, pendingStroke]);
+    }, [dispatch, isDrawToolActive, isRubberToolActive, layerControls, pendingStroke, stageViewportOffsetX, stageViewportOffsetY]);
 
     const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
         if (event.pointerType !== 'mouse' && event.pointerType !== 'pen') {
