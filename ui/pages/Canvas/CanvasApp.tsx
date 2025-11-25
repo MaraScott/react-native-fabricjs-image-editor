@@ -55,7 +55,7 @@ export const CanvasApp = ({
     id = 'tiny-artist-editor',
     width = 1024,
     height = 1024,
-    backgroundColor = '#ffffff',
+    backgroundColor = '#cccccc33',
     containerBackground = '#cccccc',
     initialZoom = 0,
 }: CanvasAppProps) => {
@@ -85,72 +85,7 @@ export const CanvasApp = ({
         }
 
         // Fallback to legacy sample layers if template is missing or empty.
-        return [
-            {
-                id: 'layer-text',
-                name: 'Title',
-                visible: true,
-                position: { x: 0, y: 0 },
-                render: () => (
-                    <Text
-                        key="title-text"
-                        x={100}
-                        y={400}
-                        text="Simple Canvas Ready!"
-                        fontSize={48}
-                        fill="#333333"
-                        fontFamily="system-ui, sans-serif"
-                        visible={true}
-                    />
-                ),
-            },
-            {
-                id: 'layer-circle',
-                name: 'Circle',
-                visible: true,
-                position: { x: 0, y: 0 },
-                render: () => (
-                    <Circle
-                        key="red-circle"
-                        x={500}
-                        y={200}
-                        radius={100}
-                        fill="#E24A4A"
-                        visible={true}
-                    />
-                ),
-            },
-            {
-                id: 'layer-rectangle',
-                name: 'Blue Rectangle',
-                visible: true,
-                position: { x: 0, y: 0 },
-                render: () => (
-                    <>
-                        <Rect
-                            key="blue-rectangle"
-                            x={100}
-                            y={100}
-                            width={200}
-                            height={200}
-                            fill="#4A90E2"
-                            visible={true}
-                            cornerRadius={8}
-                        />
-                        <Text
-                            key="title-text"
-                            x={140}
-                            y={170}
-                            text="RECT!"
-                            fontSize={48}
-                            fill="#333333"
-                            fontFamily="system-ui, sans-serif"
-                            visible={true}
-                        />
-                    </>
-                ),
-            },
-        ];
+        return [];
     }, [templateData.layers]);
 
     const handleSaveJSON = useCallback(() => {
@@ -223,11 +158,11 @@ export const CanvasApp = ({
      *
      * @param {*} (state - Parameter forwarded to useSelector.
      */
-    const isPanToolActive = useSelector((state: RootState) => state.view.pan.active);
-    /**
-     * useSelector - Auto-generated summary; refine if additional context is needed.
-     *
-     * @param {*} (state - Parameter derived from the static analyzer.
+const isPanToolActive = useSelector((state: RootState) => state.view.pan.active);
+/**
+ * useSelector - Auto-generated summary; refine if additional context is needed.
+ *
+ * @param {*} (state - Parameter derived from the static analyzer.
      */
     /**
      * useSelector - Auto-generated documentation stub.

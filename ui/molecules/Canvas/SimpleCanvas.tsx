@@ -40,6 +40,7 @@ export interface SimpleCanvasProps {
 export const SimpleCanvas = ({
     stageWidth = 1024,
     stageHeight = 1024,
+    backgroundColor = '#cccccc33',
     containerBackground = '#cccccc',
     zoom = 0,
     fitRequest = 0,
@@ -829,11 +830,11 @@ export const SimpleCanvas = ({
 
         if (isPaintToolActive) {
             if (!insideStage) return;
-            const bounds = layer.bounds ?? {
-                x: layer.position?.x ?? 0,
-                y: layer.position?.y ?? 0,
-                width: layer.bounds?.width ?? stageWidth,
-                height: layer.bounds?.height ?? stageHeight,
+            const bounds = {
+                x: 0,
+                y: 0,
+                width: stageWidth,
+                height: stageHeight,
             };
             layerControls.updateLayerRender?.(
                 layer.id,
@@ -848,8 +849,8 @@ export const SimpleCanvas = ({
                     />
                 ),
                 {
-                    position: { x: bounds?.x ?? 0, y: bounds?.y ?? 0 },
-                    bounds: bounds ? { ...bounds } : { x: 0, y: 0, width: stageWidth, height: stageHeight },
+                    position: { x: bounds.x, y: bounds.y },
+                    bounds,
                     strokes: [],
                     texts: [],
                     imageSrc: undefined,
@@ -899,7 +900,7 @@ export const SimpleCanvas = ({
         const localX = (stageX - (layer.position?.x ?? 0)) / (scaleX || 1);
         const localY = (stageY - (layer.position?.y ?? 0)) / (scaleY || 1);
 
-        if (!isDrawToolActive && !isRubberToolActive) return;
+        if (!isDrawToolActive && !isRubberToolActive && !isPaintToolActive) return;
         if ((isDrawToolActive || isPaintToolActive) && !insideStage) return;
 
         if (isRubberToolActive) {
@@ -1366,7 +1367,7 @@ export const SimpleCanvas = ({
 
     const baseCursor = (isPointerPanning || isTouchPanning)
         ? 'grabbing'
-        : (isDrawToolActive || isRubberToolActive)
+        : (isPaintToolActive || isDrawToolActive || isRubberToolActive)
             ? 'crosshair'
             : (isTextToolActive ? 'text' : (panModeActive || spacePressed ? 'grab' : 'default'));
 
@@ -1519,6 +1520,7 @@ export const SimpleCanvas = ({
                 overflow: 'hidden',
                 touchAction: 'none',
                 position: 'relative',
+                cursor: isPaintToolActive ? 'crosshair' : undefined,
             }}
         >
             <Stage

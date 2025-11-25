@@ -31,7 +31,7 @@ export const StageMimic = ({
   y,
   width,
   height,
-  fill = 'rgba(0,0,0,1)',
+  fill = 'hsla(0, 0%, 0%, 1.00)',
 }: StageMimicProps) => {
   return (
     <Rect

@@ -45,7 +45,7 @@ export interface CanvasContainerProps {
 export const CanvasContainer = ({
     width = 1024,
     height = 1024,
-    backgroundColor = '#ffffff',
+    backgroundColor = '#cccccc33',
     containerBackground = '#cccccc',
     zoom = 0,
     fitRequest = 0,
@@ -118,6 +118,7 @@ export const CanvasContainer = ({
         redo,
         canUndo,
         canRedo,
+        updateLayerRender,
     } = layerManagement;
 
     // Create layerControls object for SimpleCanvas
@@ -154,6 +155,7 @@ export const CanvasContainer = ({
         redo,
         canUndo,
         canRedo,
+        updateLayerRender,
     }), [
         layers,
         selectedLayerIds,
@@ -187,6 +189,7 @@ export const CanvasContainer = ({
         redo,
         canUndo,
         canRedo,
+        updateLayerRender,
     ]);
 
     useEffect(() => {
