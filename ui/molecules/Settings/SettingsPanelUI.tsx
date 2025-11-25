@@ -41,7 +41,22 @@ interface SettingsPanelUIProps {
     isTextToolActive?: boolean;
     textSettings?: TextSettings | null;
     isTextLayerSelected?: boolean;
+    isSelectToolActive?: boolean;
+    selectionPivot?: SelectionPivot;
+    onSelectionPivotChange?: (value: SelectionPivot) => void;
+    isRubberToolActive?: boolean;
 }
+
+export type SelectionPivot =
+    | 'topleft'
+    | 'topcenter'
+    | 'topright'
+    | 'middleleft'
+    | 'middlecenter'
+    | 'middleright'
+    | 'bottomleft'
+    | 'bottomcenter'
+    | 'bottomright';
 
 export const SettingsPanelUI = ({
     isOpen,
@@ -55,6 +70,10 @@ export const SettingsPanelUI = ({
     isTextToolActive = false,
     textSettings,
     isTextLayerSelected = false,
+    isSelectToolActive = false,
+    selectionPivot = 'middlecenter',
+    onSelectionPivotChange,
+    isRubberToolActive = false,
 }: SettingsPanelUIProps) => {
 
     const drawToolState = useSelector((state: RootState) => state.view.draw);
@@ -221,6 +240,63 @@ export const SettingsPanelUI = ({
                         <div className="empty">Select a layer to adjust opacity.</div>
                     )}
 
+                    {isSelectToolActive ? (
+                        <div className="control-group">
+                            <label style={{ marginBottom: 4, display: 'block' }}>Selection pivot</label>
+                            <div
+                                style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(3, 1fr)',
+                                    gap: 4,
+                                    width: 120,
+                                }}
+                            >
+                                {[
+                                    'topleft',
+                                    'topcenter',
+                                    'topright',
+                                    'middleleft',
+                                    'middlecenter',
+                                    'middleright',
+                                    'bottomleft',
+                                    'bottomcenter',
+                                    'bottomright',
+                                ].map((pivot) => {
+                                    const isActive = selectionPivot === pivot;
+                                    return (
+                                        <button
+                                            key={pivot}
+                                            type="button"
+                                            aria-label={`Set pivot to ${pivot}`}
+                                            onClick={() => onSelectionPivotChange?.(pivot as SelectionPivot)}
+                                            style={{
+                                                width: 36,
+                                                height: 36,
+                                                borderRadius: 4,
+                                                border: isActive ? '2px solid #60a5fa' : '1px solid #374151',
+                                                background: '#1f2937',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    width: 12,
+                                                    height: 12,
+                                                    borderRadius: '50%',
+                                                    background: isActive ? '#d1d5db' : '#4b5563',
+                                                }}
+                                            />
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ) : null}
+
+
                     {penSettings && drawToolState.active && (
                         <div className="section">
                             <div className="section-title">Pen</div>
@@ -287,7 +363,7 @@ export const SettingsPanelUI = ({
                         </div>
                     )}
 
-                    {onEraserSizeChange && (
+                    {isRubberToolActive && onEraserSizeChange && (
                         <div className="section">
                             <div className="section-title">Eraser</div>
                             <div className="control-group">

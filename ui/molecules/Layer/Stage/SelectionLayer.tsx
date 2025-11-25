@@ -47,6 +47,7 @@ export interface SelectionLayerProps {
   scheduleBoundsRefresh: () => void;
   initializeSelectionTransform: (bounds: Bounds | null) => void;
   markSelectionTransforming: (flag: boolean) => void;
+  onTransformEnd?: () => void;
 }
 
 /**
@@ -76,6 +77,7 @@ export const SelectionLayer = ({
   scheduleBoundsRefresh,
   initializeSelectionTransform,
   markSelectionTransforming,
+  onTransformEnd,
 }: SelectionLayerProps) => {
   // Read selectionTransform from Redux
   const selectionTransform = useSelector(selectSelectionTransform);
@@ -132,6 +134,7 @@ export const SelectionLayer = ({
     applySelectionTransformDelta();
     syncSelectedLayerNodeRefs();
     commitSelectedLayerNodeTransforms();
+    onTransformEnd?.();
   };
 
   if (!selectModeActive) {

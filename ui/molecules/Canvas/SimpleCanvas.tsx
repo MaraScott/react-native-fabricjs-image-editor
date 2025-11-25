@@ -19,7 +19,7 @@ import { Rect, Group, Line, Text as KonvaText } from "react-konva";
 import { drawActions } from '@store/CanvasApp/view/draw';
 import { rubberActions } from '@store/CanvasApp/view/rubber';
 import { textActions } from '@store/CanvasApp/view/text';
-import { SettingsPanelUI } from '@molecules/Settings/SettingsPanelUI';
+import { SettingsPanelUI, type SelectionPivot } from '@molecules/Settings/SettingsPanelUI';
 import type { Layer as KonvaLayerType } from 'konva/lib/Layer';
 
 export interface SimpleCanvasProps {
@@ -104,6 +104,7 @@ export const SimpleCanvas = ({
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
     const [layerRefreshKey, setLayerRefreshKey] = useState(0);
     const [eraserSize, setEraserSize] = useState(rubberToolState.eraserSize);
+    const [selectionPivot, setSelectionPivot] = useState<SelectionPivot>('middlecenter');
     const [selectedLayerBounds, setSelectedLayerBounds] = useState<Bounds | null>(null);
     const [overlaySelectionBox, setOverlaySelectionBox] = useState<
         | { x: number; y: number; width: number; height: number; rotation?: number }
@@ -417,13 +418,70 @@ export const SimpleCanvas = ({
             return;
         }
 
+        // Apply pivot offsets so rotate/scale use the chosen pivot
+        if (selectedLayerBounds) {
+            const pivotMultiplier: Record<SelectionPivot, { ox: number; oy: number }> = {
+                topleft: { ox: 0, oy: 0 },
+                topcenter: { ox: 0.5, oy: 0 },
+                topright: { ox: 1, oy: 0 },
+                middleleft: { ox: 0, oy: 0.5 },
+                middlecenter: { ox: 0.5, oy: 0.5 },
+                middleright: { ox: 1, oy: 0.5 },
+                bottomleft: { ox: 0, oy: 1 },
+                bottomcenter: { ox: 0.5, oy: 1 },
+                bottomright: { ox: 1, oy: 1 },
+            };
+            const { ox, oy } = pivotMultiplier[selectionPivot] ?? pivotMultiplier.middlecenter;
+            const pivotAbs = {
+                x: selectedLayerBounds.x + selectedLayerBounds.width * ox,
+                y: selectedLayerBounds.y + selectedLayerBounds.height * oy,
+            };
+
+            nodeSnapshots.forEach((snap) => {
+                const parent = snap.node.getParent();
+                const inverse = parent?.getAbsoluteTransform()?.copy().invert();
+                const localPivot = inverse ? inverse.point(pivotAbs) : pivotAbs;
+                const pos = snap.node.position();
+                const prevOffsetX = snap.node.offsetX() || 0;
+                const prevOffsetY = snap.node.offsetY() || 0;
+                const deltaX = localPivot.x - pos.x;
+                const deltaY = localPivot.y - pos.y;
+
+                snap.node.offset({
+                    x: prevOffsetX + deltaX,
+                    y: prevOffsetY + deltaY,
+                });
+                snap.node.position({
+                    x: pos.x + deltaX,
+                    y: pos.y + deltaY,
+                });
+
+                (snap as any).prevOffsetX = prevOffsetX;
+                (snap as any).prevOffsetY = prevOffsetY;
+                (snap as any).pivotDeltaX = deltaX;
+                (snap as any).pivotDeltaY = deltaY;
+            });
+        }
+
         selectionTransformStateRef.current = {
             nodes: nodeSnapshots,
         } as any;
-    }, [layerControls?.layers, selectedLayerIds]);
+    }, [layerControls?.layers, selectedLayerBounds, selectedLayerIds, selectionPivot]);
 
     const applySelectionTransformDelta = useCallback(() => {
-        const snapshot = selectionTransformStateRef.current as { nodes?: Array<{ id: string; node: Konva.Node; initialScaleX: number; initialScaleY: number; texts: LayerTextItem[] }> } | null;
+        const snapshot = selectionTransformStateRef.current as {
+            nodes?: Array<{
+                id: string;
+                node: Konva.Node;
+                initialScaleX: number;
+                initialScaleY: number;
+                texts: LayerTextItem[];
+                prevOffsetX?: number;
+                prevOffsetY?: number;
+                pivotDeltaX?: number;
+                pivotDeltaY?: number;
+            }>;
+        } | null;
         if (!snapshot?.nodes || !layerControls) {
             return;
         }
@@ -461,6 +519,34 @@ export const SimpleCanvas = ({
             setIsSettingsPanelOpen((prev) => prev);
         }
     }, [dispatch, layerControls]);
+
+    const resetPivotOffsets = useCallback(() => {
+        const snapshot = selectionTransformStateRef.current as {
+            nodes?: Array<{
+                node: Konva.Node;
+                prevOffsetX?: number;
+                prevOffsetY?: number;
+                pivotDeltaX?: number;
+                pivotDeltaY?: number;
+            }>;
+        } | null;
+        if (!snapshot?.nodes) return;
+        snapshot.nodes.forEach((snap) => {
+            const prevOffsetX = snap.prevOffsetX ?? 0;
+            const prevOffsetY = snap.prevOffsetY ?? 0;
+            const deltaX = snap.pivotDeltaX ?? 0;
+            const deltaY = snap.pivotDeltaY ?? 0;
+            const pos = snap.node.position();
+            snap.node.position({
+                x: pos.x - deltaX,
+                y: pos.y - deltaY,
+            });
+            snap.node.offset({
+                x: prevOffsetX,
+                y: prevOffsetY,
+            });
+        });
+    }, []);
 
     // Warn when eraser is selected but layer must be rasterized first
     const rasterizeAlertShownRef = useRef(false);
@@ -1598,6 +1684,7 @@ export const SimpleCanvas = ({
                         scheduleBoundsRefresh={scheduleBoundsRefresh}
                         initializeSelectionTransform={initializeSelectionTransform}
                         markSelectionTransforming={markSelectionTransforming}
+                        onTransformEnd={resetPivotOffsets}
                     />
                 ) : null}
 
@@ -1626,9 +1713,13 @@ export const SimpleCanvas = ({
                         setEraserSize(value);
                         dispatch(rubberActions.setEraserSize(value));
                     }}
+                    isSelectToolActive={isSelectToolActive}
                     isTextToolActive={isTextToolActive}
                     textSettings={textSettings}
                     isTextLayerSelected={Boolean(selectedTextItem)}
+                    selectionPivot={selectionPivot}
+                    onSelectionPivotChange={setSelectionPivot}
+                    isRubberToolActive={isRubberToolActive}
                 />
             )}
 
