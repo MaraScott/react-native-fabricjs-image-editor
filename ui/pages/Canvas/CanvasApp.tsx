@@ -19,6 +19,13 @@ import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 import type { LayerDescriptor } from '@molecules/Layer/Layer.types';
 import defaultTemplate from '../../../assets/public/template/default.json';
 
+const slugify = (value: string) =>
+    value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .replace(/-{2,}/g, '-') || 'canvas';
+
 /**
  * CanvasAppProps interface - Auto-generated interface summary; customize as needed.
  */
@@ -52,9 +59,11 @@ export const CanvasApp = ({
     containerBackground = '#cccccc',
     initialZoom = 0,
 }: CanvasAppProps) => {
-    const templateData = defaultTemplate as { stageWidth?: number; stageHeight?: number; layers?: InitialLayerDefinition[] };
+    const templateData = defaultTemplate as { stageWidth?: number; stageHeight?: number; layers?: InitialLayerDefinition[]; stageName?: string };
     const resolvedStageWidth = templateData.stageWidth ?? width;
     const resolvedStageHeight = templateData.stageHeight ?? height;
+    const [stageName, setStageName] = useState<string>(templateData.stageName ?? 'Canvas Stage');
+    const [isStageMenuOpen, setIsStageMenuOpen] = useState(false);
 
     const [zoom, setZoom] = useState(initialZoom);
     const [isSmallScreen, setIsSmallScreen] = useState(false);
@@ -147,6 +156,7 @@ export const CanvasApp = ({
     const handleSaveJSON = useCallback(() => {
         if (!layerControls) return;
         const payload = {
+            stageName,
             stageWidth: resolvedStageWidth,
             stageHeight: resolvedStageHeight,
             layers: layerControls.layers,
@@ -155,42 +165,52 @@ export const CanvasApp = ({
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement('a');
         anchor.href = url;
-        anchor.download = 'canvas-stage.json';
+        anchor.download = `${slugify(stageName)}.json`;
         anchor.click();
         URL.revokeObjectURL(url);
-    }, [layerControls, width, height]);
+    }, [layerControls, resolvedStageHeight, resolvedStageWidth, stageName]);
 
     const handleRequestPNG = useCallback(() => {
         try {
-            window.dispatchEvent(new Event('export-stage-png'));
+            window.dispatchEvent(
+                new CustomEvent('export-stage-png', {
+                    detail: { fileName: `${slugify(stageName)}.png` },
+                }),
+            );
         } catch {
             // ignore
         }
-    }, []);
+    }, [stageName]);
 
     const handleUploadJSONClick = useCallback(() => {
         jsonFileInputRef.current?.click();
     }, []);
 
-    const handleUploadJSON = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-            try {
-                const parsed = JSON.parse(reader.result as string);
-                const layers: LayerDescriptor[] | null = Array.isArray(parsed?.layers) ? parsed.layers : null;
-                if (layers && layerControls?.replaceLayers) {
-                    layerControls.replaceLayers(layers);
+    const handleUploadJSON = useCallback(
+        (event: ChangeEvent<HTMLInputElement>) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const parsed = JSON.parse(reader.result as string);
+                    const layers: LayerDescriptor[] | null = Array.isArray(parsed?.layers) ? parsed.layers : null;
+                    if (parsed?.stageName && typeof parsed.stageName === 'string') {
+                        setStageName(parsed.stageName);
+                    }
+                    if (layers && layerControls?.replaceLayers) {
+                        layerControls.replaceLayers(layers);
+                    }
+                } catch (error) {
+                    console.warn('Unable to load JSON', error);
+                } finally {
+                    event.target.value = '';
                 }
-            } catch (error) {
-                console.warn('Unable to load JSON', error);
-            } finally {
-                event.target.value = '';
-            }
-        };
-        reader.readAsText(file);
-    }, [layerControls]);
+            };
+            reader.readAsText(file);
+        },
+        [layerControls],
+    );
 
     // Get tool states from Redux store
     /**
@@ -260,16 +280,99 @@ export const CanvasApp = ({
             headerLeft={<HeaderLeft width={resolvedStageWidth} height={resolvedStageHeight} />}
             headerCenter={<ZoomControl zoom={zoom} onZoomChange={setZoom} onFit={() => setFitRequest((v) => v + 1)} />}
             headerRight={
-                <div className="history-controls" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button type="button" onClick={handleSaveJSON} disabled={!layerControls}>Save JSON</button>
-                    <button type="button" onClick={handleUploadJSONClick} disabled={!layerControls?.replaceLayers}>Load JSON</button>
-                    <button type="button" onClick={handleRequestPNG} disabled={!layerControls}>Save PNG</button>
-                    <button type="button" onClick={historyControls.undo} disabled={!historyControls.canUndo} title="Undo">
-                        ⎌ Undo
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative' }}>
+                    <button
+                        type="button"
+                        onClick={() => setIsStageMenuOpen((open) => !open)}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '8px 12px',
+                            borderRadius: 8,
+                            border: '1px solid #e5e7eb',
+                            background: '#fff',
+                            cursor: 'pointer',
+                        }}
+                        title="Stage menu"
+                    >
+                        <span style={{ fontWeight: 600 }}>{stageName}</span>
+                        <span aria-hidden="true">▾</span>
                     </button>
-                    <button type="button" onClick={historyControls.redo} disabled={!historyControls.canRedo} title="Redo">
-                        Redo ↻
-                    </button>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                        <button type="button" onClick={historyControls.undo} disabled={!historyControls.canUndo} title="Undo">
+                            ⎌ Undo
+                        </button>
+                        <button type="button" onClick={historyControls.redo} disabled={!historyControls.canRedo} title="Redo">
+                            Redo ↻
+                        </button>
+                    </div>
+                    {isStageMenuOpen ? (
+                        <div
+                            style={{
+                                position: 'absolute',
+                                top: '110%',
+                                right: 0,
+                                minWidth: 180,
+                                background: '#fff',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: 8,
+                                boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+                                padding: 8,
+                                zIndex: 10,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 4,
+                            }}
+                        >
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const next = window.prompt('Rename stage', stageName);
+                                    if (next && next.trim()) {
+                                        setStageName(next.trim());
+                                    }
+                                    setIsStageMenuOpen(false);
+                                }}
+                                style={{ textAlign: 'left' }}
+                            >
+                                Rename stage
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    handleSaveJSON();
+                                    setIsStageMenuOpen(false);
+                                }}
+                                disabled={!layerControls}
+                                style={{ textAlign: 'left' }}
+                            >
+                                Save JSON
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    handleUploadJSONClick();
+                                    setIsStageMenuOpen(false);
+                                }}
+                                disabled={!layerControls?.replaceLayers}
+                                style={{ textAlign: 'left' }}
+                            >
+                                Load JSON
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    handleRequestPNG();
+                                    setIsStageMenuOpen(false);
+                                }}
+                                disabled={!layerControls}
+                                style={{ textAlign: 'left' }}
+                            >
+                                Save PNG
+                            </button>
+                        </div>
+                    ) : null}
                     <input
                         ref={jsonFileInputRef}
                         type="file"

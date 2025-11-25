@@ -36,6 +36,8 @@ interface SettingsPanelUIProps {
     layerControls: LayerControlHandlers | null;
     selectedLayerIds: string[];
     penSettings: PenSettings | null;
+    eraserSize?: number;
+    onEraserSizeChange?: (value: number) => void;
     isTextToolActive?: boolean;
     textSettings?: TextSettings | null;
     isTextLayerSelected?: boolean;
@@ -48,6 +50,8 @@ export const SettingsPanelUI = ({
     layerControls,
     selectedLayerIds,
     penSettings,
+    eraserSize = 20,
+    onEraserSizeChange,
     isTextToolActive = false,
     textSettings,
     isTextLayerSelected = false,
@@ -59,6 +63,7 @@ export const SettingsPanelUI = ({
     const [penHardness, setPenHardness] = useState<number>(penSettings?.hardness ?? 1);
     const [penOpacity, setPenOpacity] = useState<number>(penSettings?.opacity ?? 1);
     const [layerOpacity, setLayerOpacity] = useState<number>(1);
+    const [localEraserSize, setLocalEraserSize] = useState<number>(eraserSize);
     const [textSize, setTextSize] = useState<number>(textSettings?.fontSize ?? 32);
     const [textColor, setTextColor] = useState<string>(textSettings?.color ?? '#000000');
     const [textFontFamily, setTextFontFamily] = useState<string>(textSettings?.fontFamily ?? 'Arial, sans-serif');
@@ -83,6 +88,10 @@ export const SettingsPanelUI = ({
         setPenHardness(penSettings.hardness);
         setPenOpacity(penSettings.opacity);
     }, [penSettings?.size, penSettings?.hardness, penSettings?.opacity]);
+
+    useEffect(() => {
+        setLocalEraserSize(eraserSize);
+    }, [eraserSize]);
 
     useEffect(() => {
         if (!textSettings) return;
@@ -274,6 +283,29 @@ export const SettingsPanelUI = ({
                                     value={penSettings.color}
                                     onChange={(event) => penSettings.onColorChange(event.target.value)}
                                 />
+                            </div>
+                        </div>
+                    )}
+
+                    {onEraserSizeChange && (
+                        <div className="section">
+                            <div className="section-title">Eraser</div>
+                            <div className="control-group">
+                                <label htmlFor="eraser-size">Size</label>
+                                <input
+                                    id="eraser-size"
+                                    type="range"
+                                    min={1}
+                                    max={200}
+                                    step={1}
+                                    value={localEraserSize}
+                                    onChange={(event) => {
+                                        const next = parseInt(event.target.value, 10) || 1;
+                                        setLocalEraserSize(next);
+                                        onEraserSizeChange(next);
+                                    }}
+                                />
+                                <div className="value">{localEraserSize}px</div>
                             </div>
                         </div>
                     )}

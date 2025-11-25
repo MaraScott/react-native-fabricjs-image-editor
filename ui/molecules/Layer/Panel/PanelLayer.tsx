@@ -59,6 +59,13 @@ const getHeaderButtonConfigs = ({
                         mode: 'replace',
                     });
                 },
+                onDoubleClick: () => {
+                    if (!layerControls.updateLayerName) return;
+                    const next = window.prompt('Rename layer', layer.name);
+                    if (next && next.trim().length > 0) {
+                        layerControls.updateLayerName(layer.id, next.trim());
+                    }
+                },
                 'aria-pressed': isSelected,
             },
             content: layer.name,

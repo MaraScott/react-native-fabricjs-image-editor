@@ -87,6 +87,7 @@ export const SimpleCanvas = ({
     const pendingSelectionRef = useRef<string[] | null>(null);
     const interactionLayerRef = useRef<Konva.Layer | null>(null);
     const selectionTransformerRef = useRef<Konva.Transformer | null>(null);
+    const selectionLayerRef = useRef<KonvaLayerType | null>(null);
     const selectionTransformStateRef = useRef<SelectionTransformSnapshot | null>(null);
     const transformAnimationFrameRef = useRef<number | null>(null);
     const isSelectionTransformingRef = useRef(false);
@@ -102,6 +103,7 @@ export const SimpleCanvas = ({
     const [isLayerPanelOpen, setIsLayerPanelOpen] = useState(false);
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
     const [layerRefreshKey, setLayerRefreshKey] = useState(0);
+    const [eraserSize, setEraserSize] = useState(rubberToolState.eraserSize);
     const [selectedLayerBounds, setSelectedLayerBounds] = useState<Bounds | null>(null);
     const [overlaySelectionBox, setOverlaySelectionBox] = useState<
         | { x: number; y: number; width: number; height: number; rotation?: number }
@@ -124,6 +126,9 @@ export const SimpleCanvas = ({
         color?: string;
     };
     const [activeTextEdit, setActiveTextEdit] = useState<TextEditState | null>(null);
+    useEffect(() => {
+        setEraserSize(rubberToolState.eraserSize);
+    }, [rubberToolState.eraserSize]);
 
     const layersToRender = useMemo(() => {
         if (!layerControls) return [];
@@ -926,9 +931,9 @@ export const SimpleCanvas = ({
         if (isRubberToolActive) {
             dispatch(rubberActions.stopErasing());
 
-            // Bake the erased content into the layer bitmap after the stroke is applied.
-            if (finalizedStroke && layerControls.rasterizeLayer && typeof window !== 'undefined') {
-                const targetLayerId = finalizedStroke.layerId;
+                // Bake the erased content into the layer bitmap after the stroke is applied.
+                if (finalizedStroke && layerControls.rasterizeLayer && typeof window !== 'undefined') {
+                    const targetLayerId = finalizedStroke.layerId;
                 // Wait an extra frame to ensure the stroke has been committed to the Konva scene graph.
                 window.requestAnimationFrame(() => {
                     window.requestAnimationFrame(() => {
@@ -972,25 +977,36 @@ export const SimpleCanvas = ({
         }
     }, [dispatch, isDrawToolActive, isRubberToolActive, layerControls, pendingStroke, stageViewportOffsetX, stageViewportOffsetY]);
 
-    const handleSavePNG = useCallback(() => {
+    const handleSavePNG = useCallback((fileName?: string) => {
         const stage = stageRef.current;
         if (!stage) return;
         const backgroundLayer = backgroundLayerRef.current;
-        const previousVisibility = backgroundLayer ? backgroundLayer.visible() : undefined;
+        const selectionLayer = selectionLayerRef.current;
+        const previousBackgroundVisibility = backgroundLayer ? backgroundLayer.visible() : undefined;
+        const previousSelectionVisibility = selectionLayer ? selectionLayer.visible() : undefined;
+        const previousScale = { x: stage.scaleX(), y: stage.scaleY() };
+        const previousPos = stage.position();
         try {
             // Hide the mimic/background so only the stage content is exported.
             if (backgroundLayer) {
                 backgroundLayer.visible(false);
                 backgroundLayer.getLayer()?.batchDraw();
             }
+            if (selectionLayer) {
+                selectionLayer.visible(false);
+                selectionLayer.getLayer()?.batchDraw();
+            }
 
-            const scaleX = stage.scaleX() || 1;
-            const scaleY = stage.scaleY() || 1;
+            // Capture at the logical stage size (independent of zoom/pan).
+            stage.scale({ x: 1, y: 1 });
+            stage.position({ x: -stageViewportOffsetX, y: -stageViewportOffsetY });
+            stage.batchDraw();
+
             const dataUrl = stage.toDataURL({
-                x: stageViewportOffsetX * scaleX,
-                y: stageViewportOffsetY * scaleY,
-                width: stageWidth * scaleX,
-                height: stageHeight * scaleY,
+                x: 0,
+                y: 0,
+                width: stageWidth,
+                height: stageHeight,
                 pixelRatio: 1,
                 mimeType: 'image/png',
                 quality: 1,
@@ -998,20 +1014,31 @@ export const SimpleCanvas = ({
             });
             const anchor = document.createElement('a');
             anchor.href = dataUrl;
-            anchor.download = 'canvas-stage.png';
+            anchor.download = fileName ?? 'canvas-stage.png';
             anchor.click();
         } catch (error) {
             console.warn('Unable to save PNG', error);
         } finally {
-            if (backgroundLayer && previousVisibility !== undefined) {
-                backgroundLayer.visible(previousVisibility);
+            // Restore transforms/visibilities.
+            stage.scale(previousScale);
+            stage.position(previousPos);
+            stage.batchDraw();
+            if (backgroundLayer && previousBackgroundVisibility !== undefined) {
+                backgroundLayer.visible(previousBackgroundVisibility);
                 backgroundLayer.getLayer()?.batchDraw();
+            }
+            if (selectionLayer && previousSelectionVisibility !== undefined) {
+                selectionLayer.visible(previousSelectionVisibility);
+                selectionLayer.getLayer()?.batchDraw();
             }
         }
     }, [stageViewportOffsetX, stageViewportOffsetY, stageWidth, stageHeight]);
 
     useEffect(() => {
-        const handler = () => handleSavePNG();
+        const handler = (event: Event) => {
+            const detail = (event as CustomEvent<{ fileName?: string }>).detail;
+            handleSavePNG(detail?.fileName);
+        };
         window.addEventListener('export-stage-png', handler as EventListener);
         return () => window.removeEventListener('export-stage-png', handler as EventListener);
     }, [handleSavePNG]);
@@ -1556,6 +1583,7 @@ export const SimpleCanvas = ({
                         selectModeActive={selectModeActive}
                         padding={transformerPadding}
                         borderDash={outlineDash}
+                        layerRef={selectionLayerRef}
                         transformerRef={selectionTransformerRef}
                         anchorSize={transformerAnchorSize}
                         anchorCornerRadius={transformerAnchorCornerRadius}
@@ -1593,6 +1621,11 @@ export const SimpleCanvas = ({
                     layerControls={layerControls}
                     selectedLayerIds={selectedLayerIds}
                     penSettings={penSettings}
+                    eraserSize={eraserSize}
+                    onEraserSizeChange={(value) => {
+                        setEraserSize(value);
+                        dispatch(rubberActions.setEraserSize(value));
+                    }}
                     isTextToolActive={isTextToolActive}
                     textSettings={textSettings}
                     isTextLayerSelected={Boolean(selectedTextItem)}

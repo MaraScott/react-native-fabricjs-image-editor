@@ -369,6 +369,16 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         );
     }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
 
+    const updateLayerName = useCallback<NonNullable<LayerControlHandlers['updateLayerName']>>((layerId, name) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        applyLayers(
+            present.layers.map((layer) => (layer.id === layerId ? { ...layer, name: trimmed } : layer)),
+            present.selectedLayerIds,
+            present.primaryLayerId,
+        );
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
     const updateLayerScale = useCallback<NonNullable<LayerControlHandlers['updateLayerScale']>>((layerId, scale) => {
         applyLayers(
             present.layers.map((layer) => (layer.id === layerId ? { ...layer, scale } : layer)),
@@ -683,6 +693,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         selectedLayerIds: present.selectedLayerIds,
         primaryLayerId: present.primaryLayerId,
         layersRevision: present.revision,
+        updateLayerName,
         addImageLayer,
         layerIndexMap,
         selectLayer,

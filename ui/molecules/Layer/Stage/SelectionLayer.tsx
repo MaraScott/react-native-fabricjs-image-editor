@@ -33,6 +33,7 @@ export interface SelectionLayerProps {
   borderDash: number[];
   padding: number;
   transformerRef: MutableRefObject<Konva.Transformer | null>;
+  layerRef?: MutableRefObject<Konva.Layer | null>;
   anchorSize: number;
   anchorCornerRadius: number;
   anchorStrokeWidth: number;
@@ -65,6 +66,7 @@ export const SelectionLayer = ({
   anchorCornerRadius,
   anchorStrokeWidth,
   hitStrokeWidth,
+  layerRef,
   stageRef,
   selectedLayerBounds,
   captureSelectionTransformState,
@@ -141,6 +143,7 @@ export const SelectionLayer = ({
     <Layer 
         key="selection-layer"
         listening={true}
+        ref={layerRef}
     >
       {shouldRenderSelection && sharedSelectionRect !== null ? (
         <Rect
