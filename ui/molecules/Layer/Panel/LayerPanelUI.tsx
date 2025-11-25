@@ -29,6 +29,7 @@ export const LayerPanelUI = ({
     const layerButtonRef = useRef<HTMLButtonElement | null>(null);
     const layerPanelRef = useRef<HTMLDivElement | null>(null);
     const [theme, setTheme] = useState<'kid' | 'adult'>('kid');
+    const toggleIcon = theme === 'kid' ? '📚' : '📑';
 
     useEffect(() => {
         if (typeof document === 'undefined') return;
@@ -70,7 +71,7 @@ export const LayerPanelUI = ({
                 onClick={onToggle}
                 onPointerDown={(event) => event.stopPropagation()}
             >
-                {theme === 'kid' ? '📚' : '☰'}
+                {toggleIcon}
             </button>
 
             {isOpen && (

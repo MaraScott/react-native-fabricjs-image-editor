@@ -383,6 +383,27 @@ export const PanelLayer = ({
                 default:
                     return btn;
             }
+        } else {
+            switch (btn.props.action) {
+                case 'copy':
+                    return { ...btn, content: '⧉' };
+                case 'duplicate':
+                    return { ...btn, content: '⧺' };
+                case 'move-up':
+                    return { ...btn, content: '▲' };
+                case 'move-down':
+                    return { ...btn, content: '▼' };
+                case 'move-top':
+                    return { ...btn, content: '⤒' };
+                case 'move-bottom':
+                    return { ...btn, content: '⤓' };
+                case 'rasterize':
+                    return { ...btn, content: '🖼️' };
+                case 'remove':
+                    return { ...btn, content: '🗑' };
+                default:
+                    return btn;
+            }
         }
         return btn;
     });

@@ -31,6 +31,15 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
     const layerControls = useSimpleCanvasStore((state) => state.layerControls);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [theme, setTheme] = useState<'kid' | 'adult'>('kid');
+    const icons = {
+        pan: theme === 'kid' ? '🐾' : '🖐️',
+        select: theme === 'kid' ? '🪄' : '🖱️',
+        draw: theme === 'kid' ? '🖍️' : '🖊️',
+        paint: theme === 'kid' ? '🎨' : '🖌️',
+        erase: theme === 'kid' ? '🧼' : '🧽',
+        text: theme === 'kid' ? '✍️' : '🅰️',
+        picture: theme === 'kid' ? '🖼️' : '🖼️',
+    };
 
     useEffect(() => {
         if (typeof document === 'undefined') return;
@@ -123,7 +132,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isPanToolActive ? 'Pan tool active' : 'Enable pan tool'}
             >
                 <span key="pan-icon" aria-hidden="true">
-                    {theme === 'kid' ? '\u270B' : '🖱️'}
+                    {icons.pan}
                 </span>
                 <span key="pan-label">Pan</span>
             </button>
@@ -138,7 +147,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isSelectToolActive ? 'Select tool active' : 'Enable select tool'}
             >
                 <span key="select-icon" aria-hidden="true">
-                    {theme === 'kid' ? '\u261D' : '\u261D'}
+                    {icons.select}
                 </span>
                 <span key="select-label">Select</span>
             </button>
@@ -153,7 +162,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isDrawToolActive ? 'Pen tool active' : 'Enable pen tool'}
             >
                 <span key="draw-icon" aria-hidden="true">
-                    {theme === 'kid' ? '✏️' : '✏️'}
+                    {icons.draw}
                 </span>
                 <span key="draw-label">Draw</span>
             </button>
@@ -168,7 +177,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isPaintToolActive ? 'Paint tool active' : 'Enable paint tool'}
             >
                 <span key="paint-icon" aria-hidden="true">
-                    {theme === 'kid' ? '🧹' : '🎨'}
+                    {icons.paint}
                 </span>
                 <span key="paint-label">Paint</span>
             </button>
@@ -183,7 +192,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isRubberToolActive ? 'Eraser tool active' : 'Enable eraser tool'}
             >
                 <span key="erase-icon" aria-hidden="true">
-                    {theme === 'kid' ? '🧽' : '🧹'}
+                    {icons.erase}
                 </span>
                 <span key="erase-label">Erase</span>
             </button>
@@ -198,7 +207,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isTextToolActive ? 'Text tool active' : 'Enable text tool'}
             >
                 <span key="text-icon" aria-hidden="true">
-                    {theme === 'kid' ? '\u270D' : '📝'}
+                    {icons.text}
                 </span>
                 <span key="text-label">Text</span>
             </button>
@@ -213,7 +222,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 disabled={!layerControls?.addImageLayer}
             >
                 <span key="add-image-icon" aria-hidden="true">
-                    {theme === 'kid' ? '🖼️' : '🖼️'}
+                    {icons.picture}
                 </span>
                 <span key="add-image-label">Picture</span>
             </button>
