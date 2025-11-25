@@ -941,9 +941,9 @@ export const SimpleCanvas = ({
         if (isRubberToolActive) {
             dispatch(rubberActions.stopErasing());
 
-                // Bake the erased content into the layer bitmap after the stroke is applied.
-                if (finalizedStroke && layerControls.rasterizeLayer && typeof window !== 'undefined') {
-                    const targetLayerId = finalizedStroke.layerId;
+            // Bake the erased content into the layer bitmap after the stroke is applied.
+            if (finalizedStroke && layerControls.rasterizeLayer && typeof window !== 'undefined') {
+                const targetLayerId = finalizedStroke.layerId;
                 // Wait an extra frame to ensure the stroke has been committed to the Konva scene graph.
                 window.requestAnimationFrame(() => {
                     window.requestAnimationFrame(() => {
@@ -1529,7 +1529,7 @@ export const SimpleCanvas = ({
                                                 fontWeight={textItem.fontWeight}
                                                 fill={textItem.fill ?? '#000000'}
                                                 listening={true}
-                                                onDblClick={(ev) => {
+                                                onDoubleClick={(ev) => {
                                                     ev.cancelBubble = true;
                                                     startTextEdit(layer.id, textItem.id);
                                                 }}

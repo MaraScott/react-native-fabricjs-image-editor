@@ -24,7 +24,7 @@ const EVENT_MAP: Record<string, string> = {
   onTouchMove: 'touchmove',
   onTouchEnd: 'touchend',
   onClick: 'click',
-  onDblClick: 'dblclick',
+  onDoubleClick: 'dblclick',
   onTap: 'tap',
   onDblTap: 'dbltap',
   onDragStart: 'dragstart',

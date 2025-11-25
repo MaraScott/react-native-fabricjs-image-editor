@@ -1,5 +1,5 @@
-import { useCallback, useMemo, type MutableRefObject } from 'react';
-import type { DragEvent } from 'react';
+import { useCallback, useMemo, useState, useEffect, useRef, type MutableRefObject } from 'react';
+import type { DragEvent, MouseEvent, ChangeEvent, KeyboardEvent } from 'react';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { ButtonLayer as Button } from '@atoms/Button/ButtonLayer';
 import { useLayerStore } from '@store/Layer';
@@ -27,51 +27,6 @@ const resolveDropPosition = (event: DragEvent<HTMLDivElement>): 'above' | 'below
     const offsetY = event.clientY - bounds.top;
     return offsetY < bounds.height / 2 ? 'above' : 'below';
 };
-
-const getHeaderButtonConfigs = ({
-    layer,
-    isSelected,
-    pendingSelectionRef,
-    layerControls,
-}: {
-    layer: PanelLayerData;
-    isSelected: boolean;
-    pendingSelectionRef: MutableRefObject<string[] | null>;
-    layerControls: LayerControlHandlers;
-}) => [
-        {
-            key: `${layer.id}-visibility`,
-            props: {
-                action: 'visibility',
-                className: `visibility ${layer.visible ? 'visible' : ''}`,
-                title: layer.visible ? 'Hide layer' : 'Show layer',
-                onClick: () => layerControls.toggleVisibility(layer.id),
-            },
-            content: layer.visible ? '👁' : '🙈',
-        },
-        {
-            key: `${layer.id}-select`,
-            props: {
-                action: 'select',
-                className: `select${isSelected ? ' selected' : ''}`,
-                title: layer.visible ? 'Hide layer' : 'Show layer',
-                onClick: () => {
-                    pendingSelectionRef.current = layerControls.selectLayer(layer.id, {
-                        mode: 'replace',
-                    });
-                },
-                onDoubleClick: () => {
-                    if (!layerControls.updateLayerName) return;
-                    const next = window.prompt('Rename layer', layer.name);
-                    if (next && next.trim().length > 0) {
-                        layerControls.updateLayerName(layer.id, next.trim());
-                    }
-                },
-                'aria-pressed': isSelected,
-            },
-            content: layer.name,
-        },
-    ];
 
 const getActionButtonConfigs = ({
     layer,
@@ -200,6 +155,37 @@ export const PanelLayer = ({
     if (!layerControls) {
         return null;
     }
+    const [displayName, setDisplayName] = useState(layer.name);
+    const [editingName, setEditingName] = useState<string | null>(null);
+    const inputRef = useRef<HTMLInputElement | null>(null);
+    const isEditing = editingName !== null;
+    const startEdit = useCallback(() => setEditingName(layer.name), [layer.name]);
+    const cancelEdit = useCallback(() => setEditingName(null), []);
+    const commitEdit = useCallback(() => {
+        if (!layerControls.updateLayerName || editingName === null) {
+            cancelEdit();
+            return;
+        }
+        const next = editingName.trim();
+        if (next.length > 0 && next !== layer.name) {
+            setDisplayName(next);
+            layerControls.updateLayerName(layer.id, next);
+        }
+        cancelEdit();
+    }, [cancelEdit, editingName, layerControls, layer.id, layer.name]);
+
+    useEffect(() => {
+        if (isEditing && inputRef.current) {
+            inputRef.current.focus();
+            inputRef.current.select();
+        }
+    }, [isEditing]);
+
+    // useEffect(() => {
+    //     if (!isEditing && layer.name !== displayName) {
+    //         setDisplayName(layer.name);
+    //     }
+    // }, [displayName, isEditing, layer.name, editingName]);
     const dragOverLayer = useLayerStore((state) => state.dragOverLayer);
     const setDragOverLayer = useLayerStore((state) => state.setDragOverLayer);
     const draggingLayerId = useLayerStore((state) => state.draggingLayerId);
@@ -325,12 +311,37 @@ export const PanelLayer = ({
         }
     }, [layer.id, setDragOverLayer]);
 
-    const headerButtons = getHeaderButtonConfigs({
-        layer,
-        isSelected,
-        pendingSelectionRef,
-        layerControls,
-    });
+    const headerButtons = [
+        {
+            key: `${layer.id}-visibility`,
+            props: {
+                action: 'visibility',
+                className: `visibility ${layer.visible ? 'visible' : ''}`,
+                title: layer.visible ? 'Hide layer' : 'Show layer',
+                onClick: () => layerControls.toggleVisibility(layer.id),
+            },
+            content: layer.visible ? '👁' : '🙈',
+        },
+        {
+            key: `${layer.id}-select`,
+            props: {
+                action: 'select',
+                className: `select${isSelected ? ' selected' : ''}`,
+                title: 'Select layer (double-click to rename)',
+                onClick: () => {
+                    pendingSelectionRef.current = layerControls.selectLayer(layer.id, {
+                        mode: 'replace',
+                    });
+                },
+                onDoubleClick: (event: MouseEvent) => {
+                    event.stopPropagation();
+                    startEdit();
+                },
+                'aria-pressed': isSelected,
+            },
+            content: displayName,
+        },
+    ];
 
     const actionButtons = getActionButtonConfigs({
         layer,
@@ -352,13 +363,56 @@ export const PanelLayer = ({
         >
             <div
                 key={`layer-panel-layer-${layer.id}-header`}
-                className="layer-header"
-            >
-                {headerButtons.map(({ key, props, content }) => (
-                    <Button key={key} {...props}>
-                        {content}
-                    </Button>
-                ))}
+            className="layer-header"
+        >
+                {headerButtons.map(({ key, props, content }) => {
+                    if (props.action === 'select' && isEditing) {
+                        return (
+                            <div key={key} className="layer-name-edit" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                    ref={inputRef}
+                                    type="text"
+                                    value={editingName ?? ''}
+                                    onChange={(e: ChangeEvent<HTMLInputElement>) => setEditingName(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onDoubleClick={(e) => e.stopPropagation()}
+                                    className="layer-name-input"
+                                />
+                                <button
+                                    type="button"
+                                    className="layer-name-commit"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        commitEdit();
+                                    }}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    title="Save layer name"
+                                    aria-label="Save layer name"
+                                >
+                                    ✓
+                                </button>
+                                <button
+                                    type="button"
+                                    className="layer-name-cancel"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        cancelEdit();
+                                    }}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    title="Cancel layer name"
+                                    aria-label="Cancel layer name"
+                                >
+                                    X
+                                </button>
+                            </div>
+                        );
+                    }
+                    return (
+                        <Button key={key} {...props}>
+                            {content}
+                        </Button>
+                    );
+                })}
             </div>
 
             <div
