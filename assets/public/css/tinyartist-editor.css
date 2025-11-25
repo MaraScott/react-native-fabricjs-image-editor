@@ -189,10 +189,12 @@ body {
   font-size: 0.75rem;
 }
 
-.layer-panel-ui > button {
+.layer-panel-ui {
   position: absolute;
-  left: 16px;
-  bottom: 16px;
+  top: 16px;
+  right: 16px;
+}
+.layer-panel-ui > button {
   width: 48px;
   height: 48px;
   border-radius: 12px;
@@ -214,8 +216,8 @@ body {
 }
 .layer-panel-ui .panel {
   position: absolute;
-  left: 16px;
-  bottom: 80px;
+  top: 52px;
+  right: 0;
   width: 280px;
   max-height: 65vh;
   display: flex;
@@ -376,8 +378,8 @@ body {
 
 .settings-panel-ui {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  left: 16px;
+  bottom: 16px;
 }
 .settings-panel-ui > button {
   width: 44px;
@@ -401,8 +403,8 @@ body {
 }
 .settings-panel-ui .panel {
   position: absolute;
-  top: 52px;
-  right: 0;
+  left: 16px;
+  bottom: 80px;
   width: 280px;
   max-height: 65vh;
   display: flex;
