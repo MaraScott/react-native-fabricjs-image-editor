@@ -14,6 +14,7 @@ interface PanelLayerData {
     strokes?: unknown[];
     texts?: unknown[];
     type?: string;
+    imageSrc?: string;
 }
 
 interface PanelLayerProps {
@@ -154,11 +155,12 @@ const getActionButtonConfigs = ({
             action: 'rasterize',
             className: 'rasterize',
             onClick: () => {
+                const isImageLayer = !!layer.imageSrc;
                 const hasContent =
                     (layer.strokes && layer.strokes.length > 0) ||
                     (layer.texts && layer.texts.length > 0) ||
                     typeof layer.render === 'function';
-                if (layerControls.rasterizeLayer === undefined || !hasContent) return;
+                if (layerControls.rasterizeLayer === undefined || isImageLayer || !hasContent) return;
                 try {
                     window.dispatchEvent(new CustomEvent('rasterize-layer-request', { detail: { layerId: layer.id } }));
                 } catch {
@@ -167,7 +169,7 @@ const getActionButtonConfigs = ({
             },
             title: 'Rasterize layer',
             'aria-label': 'Rasterize layer',
-            disabled: layerControls.rasterizeLayer === undefined || !(
+            disabled: layerControls.rasterizeLayer === undefined || !!layer.imageSrc || !(
                 (layer.strokes && layer.strokes.length > 0) ||
                 (layer.texts && layer.texts.length > 0) ||
                 typeof layer.render === 'function'
