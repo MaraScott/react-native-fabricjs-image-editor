@@ -290,8 +290,26 @@ export const SimpleCanvas = ({
             const node = layerNodeRefs.current.get(layerId);
             if (!node) return;
             try {
+                let bounds: Bounds | null = null;
+                const stage = node.getStage();
+                if (stage) {
+                    const rect = node.getClientRect({
+                        skipTransform: false,
+                        relativeTo: stage,
+                    });
+                    const finite = [rect.x, rect.y, rect.width, rect.height].every((value) => Number.isFinite(value));
+                    if (finite) {
+                        bounds = {
+                            x: rect.x - stageViewportOffsetX,
+                            y: rect.y - stageViewportOffsetY,
+                            width: rect.width,
+                            height: rect.height,
+                        };
+                    }
+                }
+
                 const dataUrl = node.toDataURL({ mimeType: 'image/png', quality: 1, pixelRatio: 1 });
-                layerControls.rasterizeLayer(layerId, dataUrl);
+                layerControls.rasterizeLayer(layerId, dataUrl, { bounds });
             } catch (error) {
                 console.warn('Unable to rasterize layer', error);
             }

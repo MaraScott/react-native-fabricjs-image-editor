@@ -35,6 +35,10 @@ export type ScaleVector = {
   y: number;
 };
 
+export interface RasterizeLayerOptions {
+  bounds?: Bounds | null;
+}
+
 /**
  * Common render and transform fields shared by input definitions and runtime descriptors.
  */
@@ -127,7 +131,7 @@ export interface LayerControlHandlers {
   addTextToLayer?: (layerId: string, text: LayerTextInput) => void;
   addImageLayer?: (src: string) => void;
   addTextLayer?: (text: LayerTextInput) => { layerId: string; textId: string } | void;
-  rasterizeLayer?: (layerId: string, dataUrl?: string) => void;
+  rasterizeLayer?: (layerId: string, dataUrl?: string, options?: RasterizeLayerOptions) => void;
   undo?: () => void;
   redo?: () => void;
   canUndo?: boolean;

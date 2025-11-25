@@ -6,7 +6,7 @@
 
 import React, { useMemo, useCallback, useEffect } from 'react';
 import { Image as KonvaImage } from 'react-konva';
-import type { LayerDescriptor, LayerControlHandlers, LayerMoveDirection, ScaleVector, PanOffset, InitialLayerDefinition, LayerTextInput, LayerTextItem } from '@molecules/Layer/Layer.types';
+import type { LayerDescriptor, LayerControlHandlers, LayerMoveDirection, ScaleVector, PanOffset, InitialLayerDefinition, LayerTextInput, LayerTextItem, RasterizeLayerOptions } from '@molecules/Layer/Layer.types';
 import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 import { areBoundsEqual } from '@molecules/Canvas/utils/bounds';
 import { generateLayerId, normaliseLayerDefinitions, areSelectionsEqual } from './utils';
@@ -517,22 +517,47 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         applyLayers(nextLayers, present.selectedLayerIds, present.primaryLayerId);
     }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
 
-    const rasterizeLayer = useCallback((layerId: string, dataUrl?: string) => {
+    const rasterizeLayer = useCallback((layerId: string, dataUrl?: string, options?: RasterizeLayerOptions) => {
         if (!dataUrl) return;
         const target = present.layers.find((layer) => layer.id === layerId);
         if (!target) return;
         if (typeof window === 'undefined') return;
 
+        const boundsFromOptions = options?.bounds ?? target.bounds ?? null;
+        const resolvedPosition = boundsFromOptions
+            ? { x: boundsFromOptions.x, y: boundsFromOptions.y }
+            : target.position;
+
         const img = new window.Image();
         img.onload = () => {
+            const naturalWidth = img.naturalWidth || img.width || 0;
+            const naturalHeight = img.naturalHeight || img.height || 0;
+            const width = Math.max(
+                1,
+                boundsFromOptions?.width && boundsFromOptions.width > 0 ? boundsFromOptions.width : naturalWidth
+            );
+            const height = Math.max(
+                1,
+                boundsFromOptions?.height && boundsFromOptions.height > 0 ? boundsFromOptions.height : naturalHeight
+            );
+
             const imageNode = React.createElement(KonvaImage, {
                 image: img,
                 listening: true,
-                width: img.naturalWidth || img.width,
-                height: img.naturalHeight || img.height,
+                width,
+                height,
                 x: 0,
                 y: 0,
             });
+
+            const nextBounds: Bounds = boundsFromOptions
+                ? { ...boundsFromOptions, width, height }
+                : {
+                    x: resolvedPosition.x,
+                    y: resolvedPosition.y,
+                    width,
+                    height,
+                };
 
             const nextLayers = present.layers.map((layer) =>
                 layer.id === layerId
@@ -541,6 +566,10 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                         render: () => imageNode,
                         strokes: [],
                         texts: [],
+                        position: resolvedPosition,
+                        bounds: nextBounds,
+                        rotation: 0,
+                        scale: { x: 1, y: 1 },
                     }
                     : layer
             );
