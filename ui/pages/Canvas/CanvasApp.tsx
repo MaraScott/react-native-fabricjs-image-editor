@@ -59,6 +59,7 @@ export const CanvasApp = ({
     containerBackground = '#cccccc',
     initialZoom = 0,
 }: CanvasAppProps) => {
+    const [theme, setTheme] = useState<'kid' | 'adult'>('kid');
     const templateData = defaultTemplate as { stageWidth?: number; stageHeight?: number; layers?: InitialLayerDefinition[]; stageName?: string };
     const resolvedStageWidth = templateData.stageWidth ?? width;
     const resolvedStageHeight = templateData.stageHeight ?? height;
@@ -213,7 +214,15 @@ const isPaintToolActive = useSelector((state: RootState) => state.view.paint.act
 
     return (
         <CanvasLayout
-            headerLeft={<HeaderLeft width={resolvedStageWidth} height={resolvedStageHeight} />}
+            theme={theme}
+            headerLeft={
+                <HeaderLeft
+                    width={resolvedStageWidth}
+                    height={resolvedStageHeight}
+                    theme={theme}
+                    onThemeChange={setTheme}
+                />
+            }
             headerCenter={<ZoomControl zoom={zoom} onZoomChange={setZoom} onFit={() => setFitRequest((v) => v + 1)} />}
             headerRight={
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative' }}>

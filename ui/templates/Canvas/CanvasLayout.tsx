@@ -9,6 +9,7 @@ import '../../../assets/public/css/tinyartist-editor.css';
 
 export interface CanvasLayoutProps {
     classNameId?: string;
+    theme?: string;
     children: ReactNode;
     headerLeft?: ReactNode;
     headerCenter?: ReactNode;
@@ -32,6 +33,7 @@ export interface CanvasLayoutProps {
  */
 export const CanvasLayout = ({
     classNameId = "canvas-layout",
+    theme = "kid",
     children,
     headerLeft,
     headerCenter,
@@ -40,7 +42,7 @@ export const CanvasLayout = ({
     footer,
 }: CanvasLayoutProps) => {
     return (
-        <div className={`${classNameId}`}
+        <div className={`${classNameId} ${theme}`}
         >
             {(headerLeft || headerCenter || headerRight) && (
                 <div
