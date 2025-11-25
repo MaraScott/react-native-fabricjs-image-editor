@@ -20,6 +20,7 @@ import { drawActions } from '@store/CanvasApp/view/draw';
 import { rubberActions } from '@store/CanvasApp/view/rubber';
 import { textActions } from '@store/CanvasApp/view/text';
 import { SettingsPanelUI } from '@molecules/Settings/SettingsPanelUI';
+import type { Layer as KonvaLayerType } from 'konva/lib/Layer';
 
 export interface SimpleCanvasProps {
     stageWidth?: number;
@@ -91,6 +92,7 @@ export const SimpleCanvas = ({
     const isSelectionTransformingRef = useRef(false);
     const [internalZoom, setInternalZoom] = useState<number>(zoom);
     const [panOffset, setPanOffset] = useState<PanOffset>({ x: 0, y: 0 });
+    const backgroundLayerRef = useRef<KonvaLayerType | null>(null);
     // Use useResize hook for containerDimensions and scale (keep single containerRef)
     const { dimensions: containerDimensions, scale, setDimensions: setContainerDimensions, setScale } = useResize(containerRef, stageWidth, stageHeight, internalZoom);
     const panOffsetRef = useRef(panOffset);
@@ -970,6 +972,50 @@ export const SimpleCanvas = ({
         }
     }, [dispatch, isDrawToolActive, isRubberToolActive, layerControls, pendingStroke, stageViewportOffsetX, stageViewportOffsetY]);
 
+    const handleSavePNG = useCallback(() => {
+        const stage = stageRef.current;
+        if (!stage) return;
+        const backgroundLayer = backgroundLayerRef.current;
+        const previousVisibility = backgroundLayer ? backgroundLayer.visible() : undefined;
+        try {
+            // Hide the mimic/background so only the stage content is exported.
+            if (backgroundLayer) {
+                backgroundLayer.visible(false);
+                backgroundLayer.getLayer()?.batchDraw();
+            }
+
+            const scaleX = stage.scaleX() || 1;
+            const scaleY = stage.scaleY() || 1;
+            const dataUrl = stage.toDataURL({
+                x: stageViewportOffsetX * scaleX,
+                y: stageViewportOffsetY * scaleY,
+                width: stageWidth * scaleX,
+                height: stageHeight * scaleY,
+                pixelRatio: 1,
+                mimeType: 'image/png',
+                quality: 1,
+                backgroundColor: 'rgba(0,0,0,0)',
+            });
+            const anchor = document.createElement('a');
+            anchor.href = dataUrl;
+            anchor.download = 'canvas-stage.png';
+            anchor.click();
+        } catch (error) {
+            console.warn('Unable to save PNG', error);
+        } finally {
+            if (backgroundLayer && previousVisibility !== undefined) {
+                backgroundLayer.visible(previousVisibility);
+                backgroundLayer.getLayer()?.batchDraw();
+            }
+        }
+    }, [stageViewportOffsetX, stageViewportOffsetY, stageWidth, stageHeight]);
+
+    useEffect(() => {
+        const handler = () => handleSavePNG();
+        window.addEventListener('export-stage-png', handler as EventListener);
+        return () => window.removeEventListener('export-stage-png', handler as EventListener);
+    }, [handleSavePNG]);
+
     const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
         if (event.pointerType !== 'mouse' && event.pointerType !== 'pen') {
             return;
@@ -1502,6 +1548,7 @@ export const SimpleCanvas = ({
                     stageHeight={stageHeight}
                     stageViewportOffsetX={stageViewportOffsetX}
                     stageViewportOffsetY={stageViewportOffsetY}
+                    layerRef={backgroundLayerRef}
                 />
                 {layerControls && layersToRender.length > 0 ? (
                     <SelectionLayer

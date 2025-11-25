@@ -3,7 +3,8 @@
  * Main application page for the simple canvas with zoom controls
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import type { ChangeEvent } from 'react';
 import type { RootState } from '@store/CanvasApp';
 import { useSelector } from 'react-redux';
 import { CanvasLayout } from '@templates/Canvas';
@@ -14,6 +15,9 @@ import { SideBarLeft } from '@organisms/SideBar';
 import type { InitialLayerDefinition } from '@organisms/Canvas';
 import { ZoomControl } from '@molecules/Controls';
 import { Rect, Circle, Text } from 'react-konva';
+import { useSimpleCanvasStore } from '@store/SimpleCanvas';
+import type { LayerDescriptor } from '@molecules/Layer/Layer.types';
+import defaultTemplate from '../../../assets/public/template/default.json';
 
 /**
  * CanvasAppProps interface - Auto-generated interface summary; customize as needed.
@@ -48,6 +52,10 @@ export const CanvasApp = ({
     containerBackground = '#cccccc',
     initialZoom = 0,
 }: CanvasAppProps) => {
+    const templateData = defaultTemplate as { stageWidth?: number; stageHeight?: number; layers?: InitialLayerDefinition[] };
+    const resolvedStageWidth = templateData.stageWidth ?? width;
+    const resolvedStageHeight = templateData.stageHeight ?? height;
+
     const [zoom, setZoom] = useState(initialZoom);
     const [isSmallScreen, setIsSmallScreen] = useState(false);
     const [fitRequest, setFitRequest] = useState(0);
@@ -58,73 +66,131 @@ export const CanvasApp = ({
         canRedo: false,
         revision: 0,
     });
+    const layerControls = useSimpleCanvasStore((state) => state.layerControls);
+    const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
 
-    const initialCanvasLayers = useMemo<InitialLayerDefinition[]>(() => [
-        {
-            id: 'layer-text',
-            name: 'Title',
-            visible: true,
-            position: { x: 0, y: 0 },
-            render: () => (
-                <Text
-                    key="title-text"
-                    x={100}
-                    y={400}
-                    text="Simple Canvas Ready!"
-                    fontSize={48}
-                    fill="#333333"
-                    fontFamily="system-ui, sans-serif"
-                    visible={true}
-                />
-            ),
-        },
-        {
-            id: 'layer-circle',
-            name: 'Circle',
-            visible: true,
-            position: { x: 0, y: 0 },
-            render: () => (
-                <Circle
-                    key="red-circle"
-                    x={500}
-                    y={200}
-                    radius={100}
-                    fill="#E24A4A"
-                    visible={true}
-                />
-            ),
-        },
-        {
-            id: 'layer-rectangle',
-            name: 'Blue Rectangle',
-            visible: true,
-            position: { x: 0, y: 0 },
-            render: () => (
-                <>
-                <Rect
-                    key="blue-rectangle"
-                    x={100}
-                    y={100}
-                    width={200}
-                    height={200}
-                    fill="#4A90E2"
-                    visible={true}
-                    cornerRadius={8}
-                />
-                <Text
-                    key="title-text"
-                    x={140}
-                    y={170}
-                    text="RECT!"
-                    fontSize={48}
-                    fill="#333333"
-                    fontFamily="system-ui, sans-serif"
-                    visible={true}
-                />
-                </>
-            ),
-        },
-    ], []);
+    const initialCanvasLayers = useMemo<InitialLayerDefinition[]>(() => {
+        const templateLayers = templateData.layers;
+        if (Array.isArray(templateLayers) && templateLayers.length > 0) {
+            return templateLayers;
+        }
+
+        // Fallback to legacy sample layers if template is missing or empty.
+        return [
+            {
+                id: 'layer-text',
+                name: 'Title',
+                visible: true,
+                position: { x: 0, y: 0 },
+                render: () => (
+                    <Text
+                        key="title-text"
+                        x={100}
+                        y={400}
+                        text="Simple Canvas Ready!"
+                        fontSize={48}
+                        fill="#333333"
+                        fontFamily="system-ui, sans-serif"
+                        visible={true}
+                    />
+                ),
+            },
+            {
+                id: 'layer-circle',
+                name: 'Circle',
+                visible: true,
+                position: { x: 0, y: 0 },
+                render: () => (
+                    <Circle
+                        key="red-circle"
+                        x={500}
+                        y={200}
+                        radius={100}
+                        fill="#E24A4A"
+                        visible={true}
+                    />
+                ),
+            },
+            {
+                id: 'layer-rectangle',
+                name: 'Blue Rectangle',
+                visible: true,
+                position: { x: 0, y: 0 },
+                render: () => (
+                    <>
+                        <Rect
+                            key="blue-rectangle"
+                            x={100}
+                            y={100}
+                            width={200}
+                            height={200}
+                            fill="#4A90E2"
+                            visible={true}
+                            cornerRadius={8}
+                        />
+                        <Text
+                            key="title-text"
+                            x={140}
+                            y={170}
+                            text="RECT!"
+                            fontSize={48}
+                            fill="#333333"
+                            fontFamily="system-ui, sans-serif"
+                            visible={true}
+                        />
+                    </>
+                ),
+            },
+        ];
+    }, [templateData.layers]);
+
+    const handleSaveJSON = useCallback(() => {
+        if (!layerControls) return;
+        const payload = {
+            stageWidth: resolvedStageWidth,
+            stageHeight: resolvedStageHeight,
+            layers: layerControls.layers,
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = 'canvas-stage.json';
+        anchor.click();
+        URL.revokeObjectURL(url);
+    }, [layerControls, width, height]);
+
+    const handleRequestPNG = useCallback(() => {
+        try {
+            window.dispatchEvent(new Event('export-stage-png'));
+        } catch {
+            // ignore
+        }
+    }, []);
+
+    const handleUploadJSONClick = useCallback(() => {
+        jsonFileInputRef.current?.click();
+    }, []);
+
+    const handleUploadJSON = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const parsed = JSON.parse(reader.result as string);
+                const layers: LayerDescriptor[] | null = Array.isArray(parsed?.layers) ? parsed.layers : null;
+                if (layers && layerControls?.replaceLayers) {
+                    layerControls.replaceLayers(layers);
+                }
+            } catch (error) {
+                console.warn('Unable to load JSON', error);
+            } finally {
+                event.target.value = '';
+            }
+        };
+        reader.readAsText(file);
+    }, [layerControls]);
 
     // Get tool states from Redux store
     /**
@@ -191,16 +257,26 @@ export const CanvasApp = ({
 
     return (
         <CanvasLayout
-            headerLeft={<HeaderLeft width={width} height={height} />}
+            headerLeft={<HeaderLeft width={resolvedStageWidth} height={resolvedStageHeight} />}
             headerCenter={<ZoomControl zoom={zoom} onZoomChange={setZoom} onFit={() => setFitRequest((v) => v + 1)} />}
             headerRight={
-                <div className="history-controls">
+                <div className="history-controls" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button type="button" onClick={handleSaveJSON} disabled={!layerControls}>Save JSON</button>
+                    <button type="button" onClick={handleUploadJSONClick} disabled={!layerControls?.replaceLayers}>Load JSON</button>
+                    <button type="button" onClick={handleRequestPNG} disabled={!layerControls}>Save PNG</button>
                     <button type="button" onClick={historyControls.undo} disabled={!historyControls.canUndo} title="Undo">
                         ⎌ Undo
                     </button>
                     <button type="button" onClick={historyControls.redo} disabled={!historyControls.canRedo} title="Redo">
                         Redo ↻
                     </button>
+                    <input
+                        ref={jsonFileInputRef}
+                        type="file"
+                        accept="application/json"
+                        style={{ display: 'none' }}
+                        onChange={handleUploadJSON}
+                    />
                 </div>
             }
             sidebarLeft={<SideBarLeft isPanToolActive={isPanToolActive} isSelectToolActive={isSelectToolActive} isDrawToolActive={isDrawToolActive} isRubberToolActive={isRubberToolActive} isTextToolActive={isTextToolActive} />}
@@ -208,8 +284,8 @@ export const CanvasApp = ({
         >
             <CanvasContainer
                 key="canvas-container"
-                width={width}
-                height={height}
+                width={resolvedStageWidth}
+                height={resolvedStageHeight}
                 backgroundColor={backgroundColor}
                 containerBackground={containerBackground}
                 zoom={zoom}

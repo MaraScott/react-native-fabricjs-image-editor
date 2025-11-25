@@ -18,6 +18,7 @@ export interface BackgroundLayerProps {
     stageViewportOffsetY: number;
     stageWidth: number;
     stageHeight: number;
+    layerRef?: React.RefObject<Konva.Layer | null>;
 }
 
 /**
@@ -37,9 +38,10 @@ export const BackgroundLayer = ({
     stageViewportOffsetY,
     stageWidth,
     stageHeight,
+    layerRef,
 }: BackgroundLayerProps) => {
     return (
-        <KonvaLayer listening={false}>
+        <KonvaLayer listening={false} ref={layerRef}>
             <FullContainerBackground
                 key="canvas-background"
                 width={containerWidth}

@@ -52,6 +52,8 @@ export interface LayerRenderable {
   opacity?: number;
   strokes?: LayerStroke[];
   texts?: LayerTextItem[];
+  imageSrc?: string;
+  bounds?: Bounds | null;
 }
 
 /**
@@ -132,6 +134,7 @@ export interface LayerControlHandlers {
   addImageLayer?: (src: string) => void;
   addTextLayer?: (text: LayerTextInput) => { layerId: string; textId: string } | void;
   rasterizeLayer?: (layerId: string, dataUrl?: string, options?: RasterizeLayerOptions) => void;
+  replaceLayers?: (layers: LayerDescriptor[]) => void;
   undo?: () => void;
   redo?: () => void;
   canUndo?: boolean;

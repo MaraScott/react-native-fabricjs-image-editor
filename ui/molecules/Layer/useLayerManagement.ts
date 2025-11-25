@@ -9,7 +9,7 @@ import { Image as KonvaImage } from 'react-konva';
 import type { LayerDescriptor, LayerControlHandlers, LayerMoveDirection, ScaleVector, PanOffset, InitialLayerDefinition, LayerTextInput, LayerTextItem, RasterizeLayerOptions } from '@molecules/Layer/Layer.types';
 import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 import { areBoundsEqual } from '@molecules/Canvas/utils/bounds';
-import { generateLayerId, normaliseLayerDefinitions, areSelectionsEqual } from './utils';
+import { generateLayerId, normaliseLayerDefinitions, areSelectionsEqual, trimTransparentImage } from './utils';
 import {
     initLayersHistory,
     applyLayersSnapshot,
@@ -269,6 +269,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
             opacity: layer.opacity ?? 1,
             strokes: layer.strokes ? layer.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })) : [],
             texts: layer.texts ? layer.texts.map((text) => ({ ...text })) : [],
+            imageSrc: layer.imageSrc,
         };
         const layerIndex = present.layers.findIndex((l) => l.id === layerId);
         const nextLayers = [...present.layers];
@@ -570,6 +571,21 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                     height,
                 };
 
+            const trimmed = trimTransparentImage(img, width, height);
+            const finalDataUrl = trimmed?.dataUrl ?? dataUrl;
+            const finalWidth = trimmed?.width ?? width;
+            const finalHeight = trimmed?.height ?? height;
+            const finalPosition = {
+                x: resolvedPosition.x + (trimmed?.offsetX ?? 0),
+                y: resolvedPosition.y + (trimmed?.offsetY ?? 0),
+            };
+            const finalBounds: Bounds = {
+                x: finalPosition.x,
+                y: finalPosition.y,
+                width: finalWidth,
+                height: finalHeight,
+            };
+
             const nextLayers = present.layers.map((layer) =>
                 layer.id === layerId
                     ? {
@@ -577,10 +593,11 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                         render: () => imageNode,
                         strokes: [],
                         texts: [],
-                        position: resolvedPosition,
-                        bounds: nextBounds,
+                        position: finalPosition,
+                        bounds: finalBounds,
                         rotation: 0,
                         scale: { x: 1, y: 1 },
+                        imageSrc: finalDataUrl,
                     }
                     : layer
             );
@@ -589,6 +606,17 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         };
         img.src = dataUrl;
     }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const replaceLayers = useCallback<NonNullable<LayerControlHandlers['replaceLayers']>>((layers) => {
+        const normalized = normaliseLayerDefinitions(layers);
+        const first = normalized[0] ?? null;
+        apply({
+            layers: normalized,
+            selectedLayerIds: first ? [first.id] : [],
+            primaryLayerId: first ? first.id : null,
+            revision: present.revision + 1,
+        });
+    }, [apply, present.revision]);
 
     const addImageLayer = useCallback<NonNullable<LayerControlHandlers['addImageLayer']>>((src) => {
         if (typeof window === 'undefined') {
@@ -627,6 +655,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                 opacity: 1,
                 strokes: [],
                 texts: [],
+                imageSrc: src,
                 render: () => imageNode,
             };
 
@@ -677,6 +706,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         addTextLayer,
         addTextToLayer,
         rasterizeLayer,
+        replaceLayers,
         updateLayerBounds,
         undo,
         redo,
