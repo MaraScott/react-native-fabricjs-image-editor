@@ -345,7 +345,16 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
 
     const updateLayerPosition = useCallback<LayerControlHandlers['updateLayerPosition']>((layerId, position) => {
         applyLayers(
-            present.layers.map((layer) => (layer.id === layerId ? { ...layer, position } : layer)),
+            present.layers.map((layer) =>
+                layer.id === layerId
+                    ? {
+                        ...layer,
+                        position,
+                        // Drop cached bounds so the next render re-measures at the new position.
+                        bounds: null,
+                    }
+                    : layer
+            ),
             present.selectedLayerIds,
             present.primaryLayerId,
         );
