@@ -42,6 +42,19 @@ export interface RasterizeLayerOptions {
 /**
  * Common render and transform fields shared by input definitions and runtime descriptors.
  */
+export type LayerShape =
+  | {
+      id: string;
+      type: 'rect';
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      fill?: string;
+      stroke?: string;
+      strokeWidth?: number;
+    };
+
 export interface LayerRenderable {
   name: string;
   render: () => ReactNode;
@@ -54,6 +67,7 @@ export interface LayerRenderable {
   texts?: LayerTextItem[];
   imageSrc?: string;
   bounds?: Bounds | null;
+  shapes?: LayerShape[];
 }
 
 /**

@@ -137,6 +137,15 @@ export const CanvasApp = ({
                     if (layers && layerControls?.replaceLayers) {
                         layerControls.replaceLayers(layers);
                     }
+                    // Restore view/tool state if present (includes paint tool settings)
+                    if (parsed?.view) {
+                        try {
+                            // Re-dispatch a bootstrap event to let reducers hydrate if needed.
+                            window.dispatchEvent(new CustomEvent('hydrate-view-state', { detail: parsed.view }));
+                        } catch {
+                            // ignore
+                        }
+                    }
                 } catch (error) {
                     console.warn('Unable to load JSON', error);
                 } finally {

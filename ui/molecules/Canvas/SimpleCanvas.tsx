@@ -872,6 +872,17 @@ export const SimpleCanvas = ({
                     imageSrc: undefined,
                     rotation: 0,
                     scale: { x: 1, y: 1 },
+                    shapes: [
+                        {
+                            id: `paint-rect-${Date.now()}`,
+                            type: 'rect',
+                            x: 0,
+                            y: 0,
+                            width: bounds.width,
+                            height: bounds.height,
+                            fill: paintToolState.color ?? '#ffffff',
+                        },
+                    ],
                 }
             );
             return;

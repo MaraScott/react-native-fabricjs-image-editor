@@ -5,9 +5,9 @@
  */
 
 import React from 'react';
-import { Image as KonvaImage } from 'react-konva';
+import { Image as KonvaImage, Rect } from 'react-konva';
 import type { LayerDescriptor } from '@molecules/Canvas';
-import type { InitialLayerDefinition } from '@molecules/Layer/Layer.types';
+import type { InitialLayerDefinition, LayerShape } from '@molecules/Layer/Layer.types';
 import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 
 /**
@@ -100,6 +100,30 @@ export const trimTransparentImage = (
 export const normaliseLayerDefinitions = (
   definitions: InitialLayerDefinition[]
 ): LayerDescriptor[] => {
+  const buildRenderFromShapes = (shapes: LayerShape[]) => {
+    return () =>
+      React.createElement(
+        React.Fragment,
+        null,
+        shapes.map((shape, index) => {
+          if (shape.type === 'rect') {
+            return React.createElement(Rect, {
+              key: shape.id ?? `rect-${index}`,
+              x: shape.x,
+              y: shape.y,
+              width: shape.width,
+              height: shape.height,
+              fill: shape.fill,
+              stroke: shape.stroke,
+              strokeWidth: shape.strokeWidth,
+              listening: true,
+            });
+          }
+          return null;
+        }),
+      );
+  };
+
   return definitions.map((definition, index) => {
     const base: LayerDescriptor = {
       id: definition.id ?? generateLayerId(),
@@ -111,6 +135,7 @@ export const normaliseLayerDefinitions = (
       opacity: definition.opacity ?? 1,
       strokes: definition.strokes ? definition.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })) : [],
       texts: definition.texts ? definition.texts.map((text) => ({ ...text })) : [],
+      shapes: definition.shapes ? definition.shapes.map((shape) => ({ ...shape })) : [],
       render: definition.render,
       imageSrc: definition.imageSrc,
     };
@@ -118,6 +143,9 @@ export const normaliseLayerDefinitions = (
     let hasTrimmed = false;
 
     if (!base.render) {
+      if (base.shapes && base.shapes.length > 0) {
+        base.render = buildRenderFromShapes(base.shapes);
+      } else
       if (definition.imageSrc && typeof window !== 'undefined') {
         const img = new window.Image();
 

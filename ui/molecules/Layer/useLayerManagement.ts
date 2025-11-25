@@ -77,14 +77,15 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                         name: 'Layer 1',
                         visible: true,
                         position: { x: 0, y: 0 },
-                        rotation: 0,
-                        scale: { x: 1, y: 1 },
-                        opacity: 1,
-                        strokes: [],
-                        texts: [],
-                        render: () => null,
-                    },
-                ];
+                    rotation: 0,
+                    scale: { x: 1, y: 1 },
+                    opacity: 1,
+                    strokes: [],
+                    texts: [],
+                    shapes: [],
+                    render: () => null,
+                },
+            ];
         const first = seedLayers[0];
         return {
             layers: seedLayers,
@@ -235,6 +236,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
             opacity: 1,
             strokes: [],
             texts: [],
+            shapes: [],
             render: () => null,
         };
         const insertIndex = getInsertIndexAboveSelection();

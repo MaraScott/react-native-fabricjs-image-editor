@@ -18,7 +18,24 @@
       },
       "opacity": 1,
       "strokes": [],
-      "texts": []
+      "texts": [],
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 1024
+      },
+      "shapes": [
+        {
+          "id": "paint-rect-1764112709664",
+          "type": "rect",
+          "x": 0,
+          "y": 0,
+          "width": 1024,
+          "height": 1024,
+          "fill": "#FFFFFF"
+        }
+      ]
     }
   ]
 }
