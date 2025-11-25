@@ -215,8 +215,8 @@ body {
 }
 .layer-panel-ui .panel {
   position: absolute;
-  top: 52px;
-  right: 0;
+  top: 80px;
+  right: 16px;
   width: 280px;
   max-height: 65vh;
   display: flex;
@@ -525,10 +525,12 @@ body {
   --ta-zoom-display-bg: transparent;
 }
 .canvas-layout.kid .settings-panel-ui > button {
-  top: calc(50% - 22px);
+  top: calc(50% - 42px);
   left: 0px;
   border-top-left-radius: 0px;
   border-bottom-left-radius: 0;
+  width: 34px;
+  height: 84px;
 }
 .canvas-layout.kid .settings-panel-ui > button::before {
   content: "▶";

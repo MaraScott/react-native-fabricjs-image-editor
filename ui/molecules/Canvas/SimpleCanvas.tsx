@@ -133,6 +133,22 @@ export const SimpleCanvas = ({
         setEraserSize(rubberToolState.eraserSize);
     }, [rubberToolState.eraserSize]);
 
+    // Open settings panel by default for kid theme; watch for theme class changes.
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+        const layout = document.querySelector('.canvas-layout');
+        const updateFromTheme = () => {
+            if (layout?.classList.contains('kid')) {
+                setIsSettingsPanelOpen(true);
+            }
+        };
+        updateFromTheme();
+        if (!layout) return;
+        const observer = new MutationObserver(updateFromTheme);
+        observer.observe(layout, { attributes: true, attributeFilter: ['class'] });
+        return () => observer.disconnect();
+    }, []);
+
     const layersToRender = useMemo(() => {
         if (!layerControls) return [];
 

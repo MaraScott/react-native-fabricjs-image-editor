@@ -14,7 +14,7 @@ import { textReducer, textActions } from './text';
 import { paintReducer, paintActions } from './paint';
 
 const initialState: ViewState = {
-    activeTool: 'select',
+    activeTool: 'draw',
     ready: {
         player: false,
         videos: false,
@@ -24,7 +24,7 @@ const initialState: ViewState = {
         settings: false,
     },
     select: {
-        active: true,
+        active: false,
         selectedIds: [],
         selectionRect: null,
         selectionTransform: null,
@@ -36,7 +36,7 @@ const initialState: ViewState = {
         spacePressedMode: false,
     },
     draw: {
-        active: false,
+        active: true,
         brushSize: 5,
         brushColor: '#000000',
         brushOpacity: 1,

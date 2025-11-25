@@ -29,20 +29,26 @@
     .settings-panel-ui {
 
         > button {
-            top: calc(50% - 22px);
+            top: calc(50% - 42px);
             left: 0px;
             border-top-left-radius: 0px;
             border-bottom-left-radius: 0;
+            width: 34px;
+            height: 84px;
+
             &::before {
                 content: '▶'
             }
+
             &.open {
                 left: calc(280px + 2rem);
+
                 &::before {
                     content: '◀'
                 }
             }
         }
+
         > .panel {
             top: 0px;
             left: 0px;
