@@ -194,7 +194,7 @@ export const SettingsPanelUI = ({
                 onClick={onToggle}
                 onPointerDown={(event) => event.stopPropagation()}
             >
-                ⚙️
+                {theme === 'kid' ? `` : `⚙️`}
             </button>
 
             {isOpen && (

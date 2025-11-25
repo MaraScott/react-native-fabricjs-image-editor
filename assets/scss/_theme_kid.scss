@@ -25,4 +25,33 @@
     --ta-zoom-border: #ffcf88;
     --ta-zoom-color: #8a4b00;
     --ta-zoom-display-bg: transparent;
+
+    .settings-panel-ui {
+
+        > button {
+            top: calc(50% - 22px);
+            left: 0px;
+            border-top-left-radius: 0px;
+            border-bottom-left-radius: 0;
+            &::before {
+                content: '▶'
+            }
+            &.open {
+                left: calc(280px + 2rem);
+                &::before {
+                    content: '◀'
+                }
+            }
+        }
+        > .panel {
+            top: 0px;
+            left: 0px;
+            bottom: 0px;
+            max-height: 100%;
+            border-top-left-radius: 0px;
+            border-bottom-left-radius: 0;
+        }
+
+    }
+
 }

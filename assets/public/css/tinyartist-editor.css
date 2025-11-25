@@ -1,3 +1,4 @@
+@charset "UTF-8";
 body {
   margin: 0;
 }
@@ -189,12 +190,10 @@ body {
   font-size: 0.75rem;
 }
 
-.layer-panel-ui {
+.layer-panel-ui > button {
   position: absolute;
   top: 16px;
   right: 16px;
-}
-.layer-panel-ui > button {
   width: 48px;
   height: 48px;
   border-radius: 12px;
@@ -376,12 +375,10 @@ body {
   background-color: #e3f0ff;
 }
 
-.settings-panel-ui {
+.settings-panel-ui > button {
   position: absolute;
   left: 16px;
   bottom: 16px;
-}
-.settings-panel-ui > button {
   width: 44px;
   height: 44px;
   border-radius: 12px;
@@ -526,6 +523,29 @@ body {
   --ta-zoom-border: #ffcf88;
   --ta-zoom-color: #8a4b00;
   --ta-zoom-display-bg: transparent;
+}
+.canvas-layout.kid .settings-panel-ui > button {
+  top: calc(50% - 22px);
+  left: 0px;
+  border-top-left-radius: 0px;
+  border-bottom-left-radius: 0;
+}
+.canvas-layout.kid .settings-panel-ui > button::before {
+  content: "▶";
+}
+.canvas-layout.kid .settings-panel-ui > button.open {
+  left: calc(280px + 2rem);
+}
+.canvas-layout.kid .settings-panel-ui > button.open::before {
+  content: "◀";
+}
+.canvas-layout.kid .settings-panel-ui > .panel {
+  top: 0px;
+  left: 0px;
+  bottom: 0px;
+  max-height: 100%;
+  border-top-left-radius: 0px;
+  border-bottom-left-radius: 0;
 }
 
 .canvas-layout.adult {

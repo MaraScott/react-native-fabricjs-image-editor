@@ -1680,7 +1680,7 @@ export const SimpleCanvas = ({
 
             </Stage>
             {layerControls && !panModeActive && (
-                <LayerPanelUI
+                <LayerPanelUI 
                     key="layer-panel"
                     isOpen={isLayerPanelOpen}
                     onToggle={() => setIsLayerPanelOpen((previous) => !previous)}
