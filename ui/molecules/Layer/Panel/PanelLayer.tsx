@@ -98,39 +98,12 @@ const getActionButtonConfigs = ({
             props: {
                 action: 'move-bottom',
                 className: 'move-bottom',
-                onClick: () => layerControls.moveLayer(layer.id, 'bottom'),
-                title: 'Send layer to bottom',
-                'aria-label': 'Send layer to bottom',
-                disabled: isBottom,
-            },
-            content: '⤓',
-        }, {
-            key: `layer-panel-layer-${layer.id}-rasterize-button`,
-            props: {
-                action: 'rasterize',
-                className: 'rasterize',
-                onClick: () => {
-                    const isImageLayer = !!layer.imageSrc;
-                    const hasContent =
-                        (layer.strokes && layer.strokes.length > 0) ||
-                        (layer.texts && layer.texts.length > 0) ||
-                        typeof layer.render === 'function';
-                    if (layerControls.rasterizeLayer === undefined || isImageLayer || !hasContent) return;
-                    try {
-                        window.dispatchEvent(new CustomEvent('rasterize-layer-request', { detail: { layerId: layer.id } }));
-                    } catch {
-                        // noop
-                    }
-                },
-                title: 'Rasterize layer',
-                'aria-label': 'Rasterize layer',
-                disabled: layerControls.rasterizeLayer === undefined || !!layer.imageSrc || !(
-                    (layer.strokes && layer.strokes.length > 0) ||
-                    (layer.texts && layer.texts.length > 0) ||
-                    typeof layer.render === 'function'
-                ),
-            },
-            content: '🖼️',
+            onClick: () => layerControls.moveLayer(layer.id, 'bottom'),
+            title: 'Send layer to bottom',
+            'aria-label': 'Send layer to bottom',
+            disabled: isBottom,
+        },
+        content: '⤓',
         }, {
             key: `layer-panel-layer-${layer.id}-remove-button`,
             props: {

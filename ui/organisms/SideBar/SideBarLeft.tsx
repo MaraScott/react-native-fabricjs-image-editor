@@ -1,5 +1,5 @@
 import { useDispatch } from 'react-redux';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { viewActions } from '@store/CanvasApp/view';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 
@@ -31,15 +31,18 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
     const layerControls = useSimpleCanvasStore((state) => state.layerControls);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [theme, setTheme] = useState<'kid' | 'adult'>('kid');
-    const icons = {
-        pan: theme === 'kid' ? '🐾' : '🖐️',
-        select: theme === 'kid' ? '🪄' : '🖱️',
-        draw: theme === 'kid' ? '🖍️' : '🖊️',
-        paint: theme === 'kid' ? '🎨' : '🖌️',
-        erase: theme === 'kid' ? '🧼' : '🧽',
-        text: theme === 'kid' ? '✍️' : '🅰️',
-        picture: theme === 'kid' ? '🖼️' : '🖼️',
-    };
+    const iconSrc = useMemo(() => {
+        const base = './assets/public/img';
+        return {
+            pan: `${base}/tinyartist-icon-pan.png`,
+            select: `${base}/tinyartist-icon-layer.png`,
+            draw: `${base}/tinyartist-icon-pencil.png`,
+            paint: `${base}/tinyartist-icon-paint.png`,
+            erase: `${base}/tinyartist-icon-eraser.png`,
+            text: `${base}/tinyartist-icon-text.png`,
+            picture: `${base}/tinyartist-icon-picture.png`,
+        };
+    }, []);
 
     useEffect(() => {
         if (typeof document === 'undefined') return;
@@ -131,10 +134,8 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 aria-label={isPanToolActive ? 'Disable pan tool' : 'Enable pan tool'}
                 title={isPanToolActive ? 'Pan tool active' : 'Enable pan tool'}
             >
-                <span key="pan-icon" aria-hidden="true">
-                    {icons.pan}
-                </span>
-                <span key="pan-label">Pan</span>
+                <img width="44px" key="pan-icon" aria-hidden="true" src={iconSrc.pan} alt="Pan" />
+                {/* <span key="pan-label">Pan</span> */}
             </button>
 
             <button
@@ -146,10 +147,8 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 aria-label={isSelectToolActive ? 'Disable select tool' : 'Enable select tool'}
                 title={isSelectToolActive ? 'Select tool active' : 'Enable select tool'}
             >
-                <span key="select-icon" aria-hidden="true">
-                    {icons.select}
-                </span>
-                <span key="select-label">Select</span>
+                <img width="44px" key="select-icon" aria-hidden="true" src={iconSrc.select} alt="Select" />
+                {/* <span key="select-label">Select</span> */}
             </button>
 
             <button
@@ -161,10 +160,8 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 aria-label={isDrawToolActive ? 'Disable pen tool' : 'Enable pen tool'}
                 title={isDrawToolActive ? 'Pen tool active' : 'Enable pen tool'}
             >
-                <span key="draw-icon" aria-hidden="true">
-                    {icons.draw}
-                </span>
-                <span key="draw-label">Draw</span>
+                <img width="44px" key="draw-icon" aria-hidden="true" src={iconSrc.draw} alt="Draw" />
+                {/* <span key="draw-label">Draw</span> */}
             </button>
 
             <button
@@ -176,10 +173,8 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 aria-label={isPaintToolActive ? 'Disable paint tool' : 'Enable paint tool'}
                 title={isPaintToolActive ? 'Paint tool active' : 'Enable paint tool'}
             >
-                <span key="paint-icon" aria-hidden="true">
-                    {icons.paint}
-                </span>
-                <span key="paint-label">Paint</span>
+                <img width="44px" key="paint-icon" aria-hidden="true" src={iconSrc.paint} alt="Paint" />
+                {/* <span key="paint-label">Paint</span> */}
             </button>
 
             <button
@@ -191,10 +186,8 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 aria-label={isRubberToolActive ? 'Disable eraser tool' : 'Enable eraser tool'}
                 title={isRubberToolActive ? 'Eraser tool active' : 'Enable eraser tool'}
             >
-                <span key="erase-icon" aria-hidden="true">
-                    {icons.erase}
-                </span>
-                <span key="erase-label">Erase</span>
+                <img width="44px" key="erase-icon" aria-hidden="true" src={iconSrc.erase} alt="Erase" />
+                {/* <span key="erase-label">Erase</span> */}
             </button>
 
             <button
@@ -206,25 +199,21 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 aria-label={isTextToolActive ? 'Disable text tool' : 'Enable text tool'}
                 title={isTextToolActive ? 'Text tool active' : 'Enable text tool'}
             >
-                <span key="text-icon" aria-hidden="true">
-                    {icons.text}
-                </span>
-                <span key="text-label">Text</span>
+                <img width="44px" key="text-icon" aria-hidden="true" src={iconSrc.text} alt="Text" />
+                {/* <span key="text-label">Text</span> */}
             </button>
 
             <button
                 key="button-add-image"
                 type="button"
-                className="add-image"
-                onClick={handleAddImageClick}
-                aria-label="Add picture"
-                title="Add picture"
-                disabled={!layerControls?.addImageLayer}
-            >
-                <span key="add-image-icon" aria-hidden="true">
-                    {icons.picture}
-                </span>
-                <span key="add-image-label">Picture</span>
+            className="add-image"
+            onClick={handleAddImageClick}
+            aria-label="Add picture"
+            title="Add picture"
+            disabled={!layerControls?.addImageLayer}
+        >
+                <img width="44px" key="add-image-icon" aria-hidden="true" src={iconSrc.picture} alt="Picture" />
+                {/* <span key="add-image-label">Picture</span> */}
             </button>
             <input
                 ref={fileInputRef}

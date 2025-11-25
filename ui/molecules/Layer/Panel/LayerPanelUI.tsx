@@ -29,7 +29,7 @@ export const LayerPanelUI = ({
     const layerButtonRef = useRef<HTMLButtonElement | null>(null);
     const layerPanelRef = useRef<HTMLDivElement | null>(null);
     const [theme, setTheme] = useState<'kid' | 'adult'>('kid');
-    const toggleIcon = theme === 'kid' ? '📚' : '📑';
+    const toggleIconSrc = '/wp-content/plugins/marascott-genai/src_expo/tinyartist-editor/assets/fabric-editor/src/assets/public/img/tinyartist-icon-layer.png';
 
     useEffect(() => {
         if (typeof document === 'undefined') return;
@@ -71,7 +71,7 @@ export const LayerPanelUI = ({
                 onClick={onToggle}
                 onPointerDown={(event) => event.stopPropagation()}
             >
-                {toggleIcon}
+                <img src={toggleIconSrc} alt="" aria-hidden="true" />
             </button>
 
             {isOpen && (
