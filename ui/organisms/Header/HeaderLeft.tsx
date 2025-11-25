@@ -12,7 +12,7 @@ export const HeaderLeft = ({ width, height, theme, onThemeChange }: HeaderLeftPr
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div>
                 <h1 key={`header-left-title`} style={{ margin: 0 }}>
-                    TinyArtist Editor
+                    🎨 TinyArtist Editor
                 </h1>
                 <p key={`header-left-tag-line`} style={{ margin: 0 }}>
                     Let's DreamDraw - {width}x{height}px canvas

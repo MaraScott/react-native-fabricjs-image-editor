@@ -63,6 +63,16 @@ export const SettingsPanelUI = ({
     const dispatch = useDispatch();
     const drawToolState = useSelector((state: RootState) => state.view.draw);
     const paintToolState = useSelector((state: RootState) => state.view.paint);
+    const [theme, setTheme] = useState<'kid' | 'adult'>('kid');
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+        const layout = document.querySelector('.canvas-layout');
+        if (layout?.classList.contains('adult')) {
+            setTheme('adult');
+        } else {
+            setTheme('kid');
+        }
+    }, [isOpen]);
 
     const [penSize, setPenSize] = useState<number>(penSettings?.size ?? 1);
     const [penHardness, setPenHardness] = useState<number>(penSettings?.hardness ?? 1);
@@ -163,6 +173,13 @@ export const SettingsPanelUI = ({
         '"Times New Roman", serif',
         'Georgia, serif',
         '"Courier New", monospace',
+    ];
+
+    const kidPalette = [
+        '#4BB26C', '#72CFA2', '#388E4D', '#1C5ACE',
+        '#0C2266', '#F0C800', '#F7D53D', '#D9C1BB',
+        '#B53E63', '#6E0A1E', '#F9B2BD', '#F59E00',
+        '#FFFFFF', '#2C3F52', '#8B4B1F',
     ];
 
     return (
@@ -283,12 +300,28 @@ export const SettingsPanelUI = ({
                             </div>
                             <div className="control-group">
                                 <label htmlFor="pen-color">Color</label>
-                                <input
-                                    id="pen-color"
-                                    type="color"
-                                    value={penSettings.color}
-                                    onChange={(event) => penSettings.onColorChange(event.target.value)}
-                                />
+                                {theme === 'kid' ? (
+                                    <div className="color-swatch-grid">
+                                        {kidPalette.map((c) => (
+                                            <button
+                                                key={`pen-${c}`}
+                                                type="button"
+                                                className={`color-dot ${penSettings.color === c ? 'selected' : ''}`}
+                                                style={{ background: c }}
+                                                onClick={() => penSettings.onColorChange(c)}
+                                                aria-label={`Set pen color ${c}`}
+                                                onPointerDown={(event) => event.stopPropagation()}
+                                            />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <input
+                                        id="pen-color"
+                                        type="color"
+                                        value={penSettings.color}
+                                        onChange={(event) => penSettings.onColorChange(event.target.value)}
+                                    />
+                                )}
                             </div>
                         </div>
                     )}
@@ -298,13 +331,29 @@ export const SettingsPanelUI = ({
                             <div className="section-title">Paint</div>
                             <div className="control-group">
                                 <label htmlFor="paint-color">Fill color</label>
-                                <input
-                                    id="paint-color"
-                                    type="color"
-                                    value={paintToolState.color}
-                                    onChange={(event) => dispatch(viewActions.paint.setColor(event.target.value))}
-                                    onPointerDown={(event) => event.stopPropagation()}
-                                />
+                                {theme === 'kid' ? (
+                                    <div className="color-swatch-grid">
+                                        {kidPalette.map((c) => (
+                                            <button
+                                                key={`paint-${c}`}
+                                                type="button"
+                                                className={`color-dot ${paintToolState.color === c ? 'selected' : ''}`}
+                                                style={{ background: c }}
+                                                onClick={() => dispatch(viewActions.paint.setColor(c))}
+                                                aria-label={`Set paint color ${c}`}
+                                                onPointerDown={(event) => event.stopPropagation()}
+                                            />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <input
+                                        id="paint-color"
+                                        type="color"
+                                        value={paintToolState.color}
+                                        onChange={(event) => dispatch(viewActions.paint.setColor(event.target.value))}
+                                        onPointerDown={(event) => event.stopPropagation()}
+                                    />
+                                )}
                             </div>
                         </div>
                     )}
@@ -354,16 +403,35 @@ export const SettingsPanelUI = ({
                             </div>
                             <div className="control-group">
                                 <label htmlFor="text-color">Font color</label>
-                                <input
-                                    id="text-color"
-                                    type="color"
-                                    value={textColor}
-                                    onChange={(event) => {
-                                        const next = event.target.value;
-                                        setTextColor(next);
-                                        textSettings.onColorChange(next);
-                                    }}
-                                />
+                                {theme === 'kid' ? (
+                                    <div className="color-swatch-grid">
+                                        {kidPalette.map((c) => (
+                                            <button
+                                                key={`text-${c}`}
+                                                type="button"
+                                                className={`color-dot ${textColor === c ? 'selected' : ''}`}
+                                                style={{ background: c }}
+                                                onClick={() => {
+                                                    setTextColor(c);
+                                                    textSettings.onColorChange(c);
+                                                }}
+                                                aria-label={`Set text color ${c}`}
+                                                onPointerDown={(event) => event.stopPropagation()}
+                                            />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <input
+                                        id="text-color"
+                                        type="color"
+                                        value={textColor}
+                                        onChange={(event) => {
+                                            const next = event.target.value;
+                                            setTextColor(next);
+                                            textSettings.onColorChange(next);
+                                        }}
+                                    />
+                                )}
                             </div>
                             <div className="control-group">
                                 <label htmlFor="text-font-family">Font family</label>

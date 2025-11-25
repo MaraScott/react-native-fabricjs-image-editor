@@ -30,7 +30,7 @@
     top: 52px;
     right: 0;
     width: 280px;
-    max-height: 70vh;
+    max-height: 65vh;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
@@ -89,6 +89,36 @@
       .value {
         font-size: 0.8rem;
         color: #444444;
+      }
+
+      .color-swatch-grid {
+        grid-column: 1 / span 2;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0.35rem;
+      }
+
+      .color-dot {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 2px solid #ffffff;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+        padding: 0;
+
+        &:hover {
+          transform: translateY(-2px) scale(1.02);
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+        }
+
+        &.selected {
+          border-color: #ffbf00;
+          box-shadow: 0 0 0 3px rgba(255, 191, 0, 0.6), 0 4px 10px rgba(0, 0, 0, 0.25);
+          outline: 2px solid #ffbf00;
+          outline-offset: 2px;
+        }
       }
     }
 

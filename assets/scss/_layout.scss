@@ -39,7 +39,7 @@
     .header {
         padding: 1rem;
         border-bottom: 1px solid var(--ta-header-border);
-        background-color: var(--ta-header-bg);
+        background: var(--ta-header-bg);
         display: flex;
         align-items: center;
         gap: 1rem;
@@ -88,7 +88,7 @@
         &.left {
             width: 64px;
             border-right: 1px solid var(--ta-sidebar-border);
-            background-color: var(--ta-sidebar-bg);
+            background: var(--ta-sidebar-bg);
             display: flex;
             flex-direction: column;
             align-items: center;

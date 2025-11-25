@@ -43,7 +43,7 @@ body {
 .canvas-layout .header {
   padding: 1rem;
   border-bottom: 1px solid var(--ta-header-border);
-  background-color: var(--ta-header-bg);
+  background: var(--ta-header-bg);
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -84,7 +84,7 @@ body {
 .canvas-layout .sidebar.left {
   width: 64px;
   border-right: 1px solid var(--ta-sidebar-border);
-  background-color: var(--ta-sidebar-bg);
+  background: var(--ta-sidebar-bg);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -217,7 +217,7 @@ body {
   left: 16px;
   bottom: 80px;
   width: 280px;
-  max-height: 70%;
+  max-height: 65vh;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -404,7 +404,7 @@ body {
   top: 52px;
   right: 0;
   width: 280px;
-  max-height: 70vh;
+  max-height: 65vh;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -458,6 +458,32 @@ body {
   font-size: 0.8rem;
   color: #444444;
 }
+.settings-panel-ui .panel .control-group .color-swatch-grid {
+  grid-column: 1/span 2;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.35rem;
+}
+.settings-panel-ui .panel .control-group .color-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  padding: 0;
+}
+.settings-panel-ui .panel .control-group .color-dot:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+}
+.settings-panel-ui .panel .control-group .color-dot.selected {
+  border-color: #ffbf00;
+  box-shadow: 0 0 0 3px rgba(255, 191, 0, 0.6), 0 4px 10px rgba(0, 0, 0, 0.25);
+  outline: 2px solid #ffbf00;
+  outline-offset: 2px;
+}
 .settings-panel-ui .panel .section {
   border-top: 1px solid #ececec;
   padding-top: 0.5rem;
@@ -474,7 +500,7 @@ body {
 
 .canvas-layout.kid {
   --ta-app-bg: linear-gradient(180deg, #fffaf2 0%, #fff5e6 100%);
-  --ta-header-bg: #ffe9cc;
+  --ta-header-bg: linear-gradient(135deg, #1c5ace 0%, #4bb26c 100%);
   --ta-header-border: #ffd9a1;
   --ta-header-title: #b35c00;
   --ta-header-subtitle: #8a4b00;
@@ -484,7 +510,7 @@ body {
   --ta-header-button-hover-bg: #ffe3be;
   --ta-header-button-hover-border: #ffa733;
   --ta-main-bg: transparent;
-  --ta-sidebar-bg: #fff3de;
+  --ta-sidebar-bg: linear-gradient(135deg, #1c5ace 0%, #4bb26c 100%);
   --ta-sidebar-border: #ffd9a1;
   --ta-sidebar-button-bg: #ffe9cc;
   --ta-sidebar-button-border: #ffb45c;

@@ -142,7 +142,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isDrawToolActive ? 'Pen tool active' : 'Enable pen tool'}
             >
                 <span key="draw-icon" aria-hidden="true">
-                    {'\u270F'}
+                    {`✏️🖱️`}
                 </span>
                 <span key="draw-label">Pen</span>
             </button>
@@ -157,7 +157,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isPaintToolActive ? 'Paint tool active' : 'Enable paint tool'}
             >
                 <span key="paint-icon" aria-hidden="true">
-                    🎨
+                    {`🧹🎨`}
                 </span>
                 <span key="paint-label">Paint</span>
             </button>
@@ -172,7 +172,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isRubberToolActive ? 'Eraser tool active' : 'Enable eraser tool'}
             >
                 <span key="erase-icon" aria-hidden="true">
-                    {'🧽'}
+                    {'🧽🧹'}
                 </span>
                 <span key="erase-label">Erase</span>
             </button>
@@ -187,7 +187,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 title={isTextToolActive ? 'Text tool active' : 'Enable text tool'}
             >
                 <span key="text-icon" aria-hidden="true">
-                    {'\u270D'}
+                    {`\u270D📝`}
                 </span>
                 <span key="text-label">Text</span>
             </button>
