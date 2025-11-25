@@ -377,6 +377,8 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                         rotation: transform.rotation,
                         scale: transform.scale,
                         opacity: layer.opacity ?? 1,
+                        // Clear cached bounds so StageGroup can re-measure after transforms.
+                        bounds: null,
                     }
                     : layer
             ),

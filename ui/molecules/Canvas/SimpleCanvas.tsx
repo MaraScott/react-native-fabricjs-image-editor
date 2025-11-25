@@ -287,24 +287,27 @@ export const SimpleCanvas = ({
             const detail = (event as CustomEvent<{ layerId: string }>).detail;
             const layerId = detail?.layerId;
             if (!layerId || !layerControls?.rasterizeLayer) return;
+            const layerDescriptor = layerControls.layers.find((layer) => layer.id === layerId);
             const node = layerNodeRefs.current.get(layerId);
             if (!node) return;
             try {
-                let bounds: Bounds | null = null;
-                const stage = node.getStage();
-                if (stage) {
-                    const rect = node.getClientRect({
-                        skipTransform: false,
-                        relativeTo: stage,
-                    });
-                    const finite = [rect.x, rect.y, rect.width, rect.height].every((value) => Number.isFinite(value));
-                    if (finite) {
-                        bounds = {
-                            x: rect.x - stageViewportOffsetX,
-                            y: rect.y - stageViewportOffsetY,
-                            width: rect.width,
-                            height: rect.height,
-                        };
+                let bounds: Bounds | null = layerDescriptor?.bounds ?? null;
+                if (!bounds) {
+                    const stage = node.getStage();
+                    if (stage) {
+                        const rect = node.getClientRect({
+                            skipTransform: false,
+                            relativeTo: stage,
+                        });
+                        const finite = [rect.x, rect.y, rect.width, rect.height].every((value) => Number.isFinite(value));
+                        if (finite) {
+                            bounds = {
+                                x: rect.x - stageViewportOffsetX,
+                                y: rect.y - stageViewportOffsetY,
+                                width: rect.width,
+                                height: rect.height,
+                            };
+                        }
                     }
                 }
 
@@ -457,6 +460,7 @@ export const SimpleCanvas = ({
         const needsRasterize = selectedLayerIds.some((id) => {
             const layer = layerControls.layers.find((l) => l.id === id);
             if (!layer) return false;
+            console.log(JSON.stringify(layer));
             const hasVectorContent = (layer.texts?.length ?? 0) > 0 || typeof layer.render === 'function';
             return hasVectorContent;
         });
