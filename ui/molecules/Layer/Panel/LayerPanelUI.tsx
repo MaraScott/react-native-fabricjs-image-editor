@@ -1,4 +1,4 @@
-import { useEffect, useRef, type MutableRefObject } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { ButtonLayer as Button } from '@atoms/Button/ButtonLayer';
 import { PanelLayer as Layer } from '@molecules/Layer/Panel/PanelLayer';
 import { useLayerStore } from '@store/Layer';
@@ -28,6 +28,17 @@ export const LayerPanelUI = ({
 
     const layerButtonRef = useRef<HTMLButtonElement | null>(null);
     const layerPanelRef = useRef<HTMLDivElement | null>(null);
+    const [theme, setTheme] = useState<'kid' | 'adult'>('kid');
+
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+        const layout = document.querySelector('.canvas-layout');
+        if (layout?.classList.contains('adult')) {
+            setTheme('adult');
+        } else {
+            setTheme('kid');
+        }
+    }, []);
 
     useEffect(() => {
         if (!isOpen) {
@@ -59,7 +70,7 @@ export const LayerPanelUI = ({
                 onClick={onToggle}
                 onPointerDown={(event) => event.stopPropagation()}
             >
-                ☰
+                {theme === 'kid' ? '📚' : '☰'}
             </button>
 
             {isOpen && (

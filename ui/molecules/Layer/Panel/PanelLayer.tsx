@@ -156,6 +156,16 @@ export const PanelLayer = ({
     if (!layerControls) {
         return null;
     }
+    const [theme, setTheme] = useState<'kid' | 'adult'>('kid');
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+        const layout = document.querySelector('.canvas-layout');
+        if (layout?.classList.contains('adult')) {
+            setTheme('adult');
+        } else {
+            setTheme('kid');
+        }
+    }, []);
     const [displayName, setDisplayName] = useState(layer.name);
     const [editingName, setEditingName] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
@@ -321,7 +331,7 @@ export const PanelLayer = ({
                 title: layer.visible ? 'Hide layer' : 'Show layer',
                 onClick: () => layerControls.toggleVisibility(layer.id),
             },
-            content: layer.visible ? '👁' : '🙈',
+            content: layer.visible ? (theme === 'kid' ? '👀' : '👁') : '🙈',
         },
         {
             key: `${layer.id}-select`,
@@ -350,6 +360,31 @@ export const PanelLayer = ({
         isBottom,
         handleCopyLayer,
         layerControls,
+    }).map((btn) => {
+        // Swap icons based on theme
+        if (theme === 'kid') {
+            switch (btn.props.action) {
+                case 'copy':
+                    return { ...btn, content: '📄' };
+                case 'duplicate':
+                    return { ...btn, content: '➕' };
+                case 'move-up':
+                    return { ...btn, content: '⬆️' };
+                case 'move-down':
+                    return { ...btn, content: '⬇️' };
+                case 'move-top':
+                    return { ...btn, content: '⏫' };
+                case 'move-bottom':
+                    return { ...btn, content: '⏬' };
+                case 'rasterize':
+                    return { ...btn, content: '🎞️' };
+                case 'remove':
+                    return { ...btn, content: '🧹' };
+                default:
+                    return btn;
+            }
+        }
+        return btn;
     });
 
     return (
