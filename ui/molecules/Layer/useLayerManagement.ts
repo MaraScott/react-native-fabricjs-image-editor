@@ -517,16 +517,37 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         applyLayers(nextLayers, present.selectedLayerIds, present.primaryLayerId);
     }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
 
-    const rasterizeLayer = useCallback((layerId: string) => {
+    const rasterizeLayer = useCallback((layerId: string, dataUrl?: string) => {
+        if (!dataUrl) return;
         const target = present.layers.find((layer) => layer.id === layerId);
         if (!target) return;
-        applyLayers(
-            present.layers.map((layer) =>
-                layer.id === layerId ? { ...layer } : layer
-            ),
-            present.selectedLayerIds,
-            present.primaryLayerId,
-        );
+        if (typeof window === 'undefined') return;
+
+        const img = new window.Image();
+        img.onload = () => {
+            const imageNode = React.createElement(KonvaImage, {
+                image: img,
+                listening: true,
+                width: img.naturalWidth || img.width,
+                height: img.naturalHeight || img.height,
+                x: 0,
+                y: 0,
+            });
+
+            const nextLayers = present.layers.map((layer) =>
+                layer.id === layerId
+                    ? {
+                        ...layer,
+                        render: () => imageNode,
+                        strokes: [],
+                        texts: [],
+                    }
+                    : layer
+            );
+
+            applyLayers(nextLayers, present.selectedLayerIds, present.primaryLayerId);
+        };
+        img.src = dataUrl;
     }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
 
     const addImageLayer = useCallback<NonNullable<LayerControlHandlers['addImageLayer']>>((src) => {

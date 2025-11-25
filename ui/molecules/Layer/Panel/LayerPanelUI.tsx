@@ -109,7 +109,7 @@ export const LayerPanelUI = ({
                                     <Layer
                                         key={`${layerKey}-${index}`}
                                         index={index}
-                                        data={layer}
+                                        data={layer as any}
                                         pendingSelectionRef={pendingSelectionRef}
                                     />
                                 );

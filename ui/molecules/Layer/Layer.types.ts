@@ -127,7 +127,7 @@ export interface LayerControlHandlers {
   addTextToLayer?: (layerId: string, text: LayerTextInput) => void;
   addImageLayer?: (src: string) => void;
   addTextLayer?: (text: LayerTextInput) => { layerId: string; textId: string } | void;
-  rasterizeLayer?: (layerId: string) => void;
+  rasterizeLayer?: (layerId: string, dataUrl?: string) => void;
   undo?: () => void;
   redo?: () => void;
   canUndo?: boolean;

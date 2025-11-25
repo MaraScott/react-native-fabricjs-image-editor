@@ -281,6 +281,26 @@ export const SimpleCanvas = ({
     }, [selectedLayerIds]);
 
     const layerNodeRefs = useRef<Map<string, Konva.Node>>(new Map());
+    // Handle rasterize requests (convert layer group into bitmap image)
+    useEffect(() => {
+        const handleRasterizeRequest = (event: Event) => {
+            const detail = (event as CustomEvent<{ layerId: string }>).detail;
+            const layerId = detail?.layerId;
+            if (!layerId || !layerControls?.rasterizeLayer) return;
+            const node = layerNodeRefs.current.get(layerId);
+            if (!node) return;
+            try {
+                const dataUrl = node.toDataURL({ mimeType: 'image/png', quality: 1, pixelRatio: 1 });
+                layerControls.rasterizeLayer(layerId, dataUrl);
+            } catch (error) {
+                console.warn('Unable to rasterize layer', error);
+            }
+        };
+        window.addEventListener('rasterize-layer-request', handleRasterizeRequest as EventListener);
+        return () => {
+            window.removeEventListener('rasterize-layer-request', handleRasterizeRequest as EventListener);
+        };
+    }, [layerControls]);
 
     // Use selection bounds hook (must be before using resolveSelectionRotation)
     const {
@@ -409,42 +429,28 @@ export const SimpleCanvas = ({
         }
     }, [dispatch, layerControls]);
 
-    // On transform finalize, update Redux selectionTransform
-    const finalizeSelectionTransform = useCallback(() => {
-        if (layerControls) {
-            selectedLayerIds.forEach((layerId) => {
-                const node = layerNodeRefs.current.get(layerId);
-                if (!node) {
-                    return;
-                }
-                const position = node.position();
-                layerControls.updateLayerPosition(layerId, {
-                    x: position.x,
-                    y: position.y,
-                });
-                const rotation = node.rotation();
-                const scaleX = node.scaleX();
-                const scaleY = node.scaleY();
-                if (typeof layerControls.updateLayerTransform === 'function') {
-                    layerControls.updateLayerTransform(layerId, {
-                        position: { x: position.x, y: position.y },
-                        rotation,
-                        scale: { x: scaleX, y: scaleY },
-                    });
-                } else {
-                    if (typeof layerControls.updateLayerRotation === 'function') {
-                        layerControls.updateLayerRotation(layerId, rotation);
-                    }
-                    if (typeof layerControls.updateLayerScale === 'function') {
-                        layerControls.updateLayerScale(layerId, { x: scaleX, y: scaleY });
-                    }
-                }
-            });
+    // Warn when eraser is selected but layer must be rasterized first
+    const rasterizeAlertShownRef = useRef(false);
+    useEffect(() => {
+        if (!isRubberToolActive || !layerControls) {
+            rasterizeAlertShownRef.current = false;
+            return;
         }
-        selectionTransformStateRef.current = null;
-        isSelectionTransformingRef.current = false;
-        scheduleBoundsRefresh();
-    }, [dispatch, layerControls, scheduleBoundsRefresh, selectedLayerIds]);
+        const needsRasterize = selectedLayerIds.some((id) => {
+            const layer = layerControls.layers.find((l) => l.id === id);
+            if (!layer) return false;
+            const hasVectorContent = (layer.texts?.length ?? 0) > 0 || typeof layer.render === 'function';
+            return hasVectorContent;
+        });
+        if (needsRasterize && !rasterizeAlertShownRef.current) {
+            rasterizeAlertShownRef.current = true;
+            try {
+                window.alert('You need to rasterize before erasing.');
+            } catch {
+                // ignore
+            }
+        }
+    }, [isRubberToolActive, layerControls, selectedLayerIds]);
 
     // Unified effect for selection bounds refresh
     useEffect(() => {
@@ -1449,6 +1455,7 @@ export const SimpleCanvas = ({
             </Stage>
             {layerControls && !panModeActive && (
                 <LayerPanelUI
+                    key="layer-panel"
                     isOpen={isLayerPanelOpen}
                     onToggle={() => setIsLayerPanelOpen((previous) => !previous)}
                     onClose={() => setIsLayerPanelOpen(false)}
@@ -1458,6 +1465,7 @@ export const SimpleCanvas = ({
 
             {layerControls && !panModeActive && (
                 <SettingsPanelUI
+                    key="setting-panel"
                     isOpen={isSettingsPanelOpen}
                     onToggle={() => setIsSettingsPanelOpen((prev) => !prev)}
                     onClose={() => setIsSettingsPanelOpen(false)}
