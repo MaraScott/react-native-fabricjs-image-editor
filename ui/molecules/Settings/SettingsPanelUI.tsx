@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LayerControlHandlers } from '@molecules/Layer/Layer.types';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '@store/CanvasApp';
+import { viewActions } from '@store/CanvasApp/view';
 
 type PenSettings = {
     size: number;
@@ -59,7 +60,9 @@ export const SettingsPanelUI = ({
     isRubberToolActive = false,
 }: SettingsPanelUIProps) => {
 
+    const dispatch = useDispatch();
     const drawToolState = useSelector((state: RootState) => state.view.draw);
+    const paintToolState = useSelector((state: RootState) => state.view.paint);
 
     const [penSize, setPenSize] = useState<number>(penSettings?.size ?? 1);
     const [penHardness, setPenHardness] = useState<number>(penSettings?.hardness ?? 1);
@@ -285,6 +288,22 @@ export const SettingsPanelUI = ({
                                     type="color"
                                     value={penSettings.color}
                                     onChange={(event) => penSettings.onColorChange(event.target.value)}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {paintToolState.active && (
+                        <div className="section">
+                            <div className="section-title">Paint</div>
+                            <div className="control-group">
+                                <label htmlFor="paint-color">Fill color</label>
+                                <input
+                                    id="paint-color"
+                                    type="color"
+                                    value={paintToolState.color}
+                                    onChange={(event) => dispatch(viewActions.paint.setColor(event.target.value))}
+                                    onPointerDown={(event) => event.stopPropagation()}
                                 />
                             </div>
                         </div>

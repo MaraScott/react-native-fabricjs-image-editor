@@ -11,6 +11,7 @@ import { drawReducer, drawActions } from './draw';
 import { rubberReducer, rubberActions } from './rubber';
 import { cropReducer, cropActions } from './crop';
 import { textReducer, textActions } from './text';
+import { paintReducer, paintActions } from './paint';
 
 const initialState: ViewState = {
     activeTool: 'select',
@@ -26,6 +27,7 @@ const initialState: ViewState = {
         active: true,
         selectedIds: [],
         selectionRect: null,
+        selectionTransform: null,
     },
     pan: {
         active: false,
@@ -46,6 +48,10 @@ const initialState: ViewState = {
         active: false,
         eraserSize: 20,
         isErasing: false,
+    },
+    paint: {
+        active: false,
+        color: '#ffffff',
     },
     text: {
         active: false,
@@ -93,6 +99,7 @@ export const viewReducer = createReducer(initialState, (builder) => {
             state.pan.active = false;
             state.draw.active = false;
             state.rubber.active = false;
+            state.paint.active = false;
             state.text.active = false;
             state.crop.active = false;
             
@@ -117,6 +124,9 @@ export const viewReducer = createReducer(initialState, (builder) => {
                     break;
                 case 'rubber':
                     state.rubber.active = true;
+                    break;
+                case 'paint':
+                    state.paint.active = true;
                     break;
                 case 'text':
                     state.text.active = true;
@@ -715,6 +725,18 @@ export const viewReducer = createReducer(initialState, (builder) => {
              */
             rubberReducer(state.rubber, action);
         });
+
+    // Paint tool actions
+    builder
+        .addCase('view/paint/activate', (state, action) => {
+            paintReducer(state.paint, action);
+        })
+        .addCase('view/paint/deactivate', (state, action) => {
+            paintReducer(state.paint, action);
+        })
+        .addCase('view/paint/setColor', (state, action) => {
+            paintReducer(state.paint, action);
+        });
     
     // Crop tool actions
     builder
@@ -898,6 +920,7 @@ export const viewActions = {
     pan: panActions,
     draw: drawActions,
     rubber: rubberActions,
+    paint: paintActions,
     text: textActions,
     crop: cropActions,
     

@@ -234,10 +234,11 @@ export const CanvasApp = ({
      *
      * @param {*} (state - Parameter forwarded to useSelector.
      */
-    const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
-    const isDrawToolActive = useSelector((state: RootState) => state.view.draw.active);
-    const isRubberToolActive = useSelector((state: RootState) => state.view.rubber.active);
-    const isTextToolActive = useSelector((state: RootState) => state.view.text.active);
+const isSelectToolActive = useSelector((state: RootState) => state.view.select.active);
+const isDrawToolActive = useSelector((state: RootState) => state.view.draw.active);
+const isRubberToolActive = useSelector((state: RootState) => state.view.rubber.active);
+const isTextToolActive = useSelector((state: RootState) => state.view.text.active);
+const isPaintToolActive = useSelector((state: RootState) => state.view.paint.active);
 
     useEffect(() => {
         const updateScreenSize = () => {
@@ -382,7 +383,16 @@ export const CanvasApp = ({
                     />
                 </div>
             }
-            sidebarLeft={<SideBarLeft isPanToolActive={isPanToolActive} isSelectToolActive={isSelectToolActive} isDrawToolActive={isDrawToolActive} isRubberToolActive={isRubberToolActive} isTextToolActive={isTextToolActive} />}
+            sidebarLeft={
+                <SideBarLeft
+                    isPanToolActive={isPanToolActive}
+                    isSelectToolActive={isSelectToolActive}
+                    isDrawToolActive={isDrawToolActive}
+                    isRubberToolActive={isRubberToolActive}
+                    isTextToolActive={isTextToolActive}
+                    isPaintToolActive={isPaintToolActive}
+                />
+            }
             footer={<Footer />}
         >
             <CanvasContainer

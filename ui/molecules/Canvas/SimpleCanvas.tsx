@@ -65,9 +65,11 @@ export const SimpleCanvas = ({
     const drawToolState = useSelector((state: RootState) => state.view.draw);
     const rubberToolState = useSelector((state: RootState) => state.view.rubber);
     const textToolState = useSelector((state: RootState) => state.view.text);
+    const paintToolState = useSelector((state: RootState) => state.view.paint);
     const isDrawToolActive = drawToolState.active;
     const isRubberToolActive = rubberToolState.active;
     const isTextToolActive = textToolState.active;
+    const isPaintToolActive = paintToolState.active;
     // Read selectionTransform from Redux
     const reduxSelectionTransform = useSelector(selectSelectionTransform);
     const stageRef = useRef<Konva.Stage>(null);
@@ -819,6 +821,44 @@ export const SimpleCanvas = ({
 
         const stageX = point.x;
         const stageY = point.y;
+        const insideStage =
+            stageX >= 0 &&
+            stageY >= 0 &&
+            stageX <= stageWidth &&
+            stageY <= stageHeight;
+
+        if (isPaintToolActive) {
+            if (!insideStage) return;
+            const bounds = layer.bounds ?? {
+                x: layer.position?.x ?? 0,
+                y: layer.position?.y ?? 0,
+                width: layer.bounds?.width ?? stageWidth,
+                height: layer.bounds?.height ?? stageHeight,
+            };
+            layerControls.updateLayerRender?.(
+                layer.id,
+                () => (
+                    <Rect
+                        x={0}
+                        y={0}
+                        width={bounds?.width ?? stageWidth}
+                        height={bounds?.height ?? stageHeight}
+                        fill={paintToolState.color ?? '#ffffff'}
+                        listening
+                    />
+                ),
+                {
+                    position: { x: bounds?.x ?? 0, y: bounds?.y ?? 0 },
+                    bounds: bounds ? { ...bounds } : { x: 0, y: 0, width: stageWidth, height: stageHeight },
+                    strokes: [],
+                    texts: [],
+                    imageSrc: undefined,
+                    rotation: 0,
+                    scale: { x: 1, y: 1 },
+                }
+            );
+            return;
+        }
 
         if (isTextToolActive) {
             if (activeTextEdit) {
@@ -860,6 +900,7 @@ export const SimpleCanvas = ({
         const localY = (stageY - (layer.position?.y ?? 0)) / (scaleY || 1);
 
         if (!isDrawToolActive && !isRubberToolActive) return;
+        if ((isDrawToolActive || isPaintToolActive) && !insideStage) return;
 
         if (isRubberToolActive) {
             const strokeId = `erase-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -890,7 +931,32 @@ export const SimpleCanvas = ({
         };
         setPendingStroke({ layerId: targetLayerId, stroke });
         dispatch(drawActions.startDrawing(strokeId));
-    }, [activeTextEdit, dispatch, drawToolState.brushColor, drawToolState.brushHardness, drawToolState.brushOpacity, drawToolState.brushSize, finishTextEdit, getRelativePointerPosition, isDrawToolActive, isRubberToolActive, isTextToolActive, layerControls, rubberToolState.eraserSize, selectedLayerIds, startTextEdit, textToolState.color, textToolState.fontFamily, textToolState.fontSize, textToolState.fontStyle, textToolState.fontWeight]);
+    }, [
+        activeTextEdit,
+        dispatch,
+        drawToolState.brushColor,
+        drawToolState.brushHardness,
+        drawToolState.brushOpacity,
+        drawToolState.brushSize,
+        finishTextEdit,
+        getRelativePointerPosition,
+        isDrawToolActive,
+        isRubberToolActive,
+        isTextToolActive,
+        isPaintToolActive,
+        paintToolState.color,
+        layerControls,
+        rubberToolState.eraserSize,
+        selectedLayerIds,
+        startTextEdit,
+        textToolState.color,
+        textToolState.fontFamily,
+        textToolState.fontSize,
+        textToolState.fontStyle,
+        textToolState.fontWeight,
+        stageHeight,
+        stageWidth,
+    ]);
 
     const handleStagePointerMove = useCallback((event: any) => {
         if ((!isDrawToolActive && !isRubberToolActive) || !pendingStroke || !layerControls) return;

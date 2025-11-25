@@ -539,6 +539,22 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         applyLayers(nextLayers, present.selectedLayerIds, present.primaryLayerId);
     }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
 
+    const updateLayerRender = useCallback<NonNullable<LayerControlHandlers['updateLayerRender']>>((layerId, render, extras = {}) => {
+        applyLayers(
+            present.layers.map((layer) =>
+                layer.id === layerId
+                    ? {
+                        ...layer,
+                        ...extras,
+                        render,
+                    }
+                    : layer
+            ),
+            present.selectedLayerIds,
+            present.primaryLayerId,
+        );
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
     const rasterizeLayer = useCallback((layerId: string, dataUrl?: string, options?: RasterizeLayerOptions) => {
         if (!dataUrl) return;
         const target = present.layers.find((layer) => layer.id === layerId);
@@ -714,6 +730,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         updateLayerOpacityCommit,
         updateLayerStrokes,
         updateLayerTexts,
+        updateLayerRender,
         addTextLayer,
         addTextToLayer,
         rasterizeLayer,

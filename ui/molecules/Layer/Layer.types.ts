@@ -131,6 +131,7 @@ export interface LayerControlHandlers {
   updateLayerBounds?: (layerId: string, bounds: Bounds | null) => void;
   updateLayerStrokes?: (layerId: string, strokes: LayerStroke[]) => void;
   updateLayerTexts?: (layerId: string, texts: LayerTextItem[]) => void;
+  updateLayerRender?: (layerId: string, render: () => ReactNode, extras?: Partial<LayerRenderable>) => void;
   addTextToLayer?: (layerId: string, text: LayerTextInput) => void;
   addImageLayer?: (src: string) => void;
   addTextLayer?: (text: LayerTextInput) => { layerId: string; textId: string } | void;

@@ -2,7 +2,7 @@
  * Types for tool state management
  */
 
-export type ToolName = 'select' | 'pan' | 'draw' | 'rubber' | 'text' | 'crop';
+export type ToolName = 'select' | 'pan' | 'draw' | 'rubber' | 'text' | 'crop' | 'paint';
 
 export interface ToolReadyState {
     player: boolean;
@@ -85,6 +85,11 @@ export interface RubberToolState {
     isErasing: boolean;
 }
 
+export interface PaintToolState {
+    active: boolean;
+    color: string;
+}
+
 export interface TextToolState {
     active: boolean;
     text: string;
@@ -125,6 +130,7 @@ export interface ViewState {
     pan: PanToolState;
     draw: DrawToolState;
     rubber: RubberToolState;
+    paint: PaintToolState;
     text: TextToolState;
     crop: CropToolState;
 }
