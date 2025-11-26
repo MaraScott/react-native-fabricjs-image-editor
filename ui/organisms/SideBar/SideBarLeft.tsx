@@ -4,6 +4,8 @@ import { viewActions } from '@store/CanvasApp/view';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 import type { Language } from '@i18n';
 import { translate } from '@i18n';
+import type { RootState } from '@store/CanvasApp';
+import { useSelector } from 'react-redux';
 
 /**
  * SideBarLeftProps Interface
@@ -28,17 +30,29 @@ export interface SideBarLeftProps {
  */
 export const SideBarLeft = (props: SideBarLeftProps) => {
 
-    const { isPanToolActive, isSelectToolActive, isDrawToolActive, isRubberToolActive, isTextToolActive, isPaintToolActive, language = 'en' } = props;
+    const { 
+        isPanToolActive, 
+        isSelectToolActive, 
+        isDrawToolActive, 
+        isRubberToolActive, 
+        isTextToolActive, 
+        isPaintToolActive, 
+    } = props;
 
-  const dispatch = useDispatch();
+    const dispatch = useDispatch();
     const layerControls = useSimpleCanvasStore((state) => state.layerControls);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+    const bootstrapConfig = useSelector((state: RootState) => state.settings.bootstrap);
+    const language = bootstrapConfig.i18n as Language;
+    const assetsPath = bootstrapConfig.assets_path;
+
     const [theme, setTheme] = useState<'kid' | 'adult'>('kid');
     const iconSrc = useMemo(() => {
-        const base = 'https://uat.marascott.ai/wp-content/plugins/marascott-genai/src_expo/tinyartist-editor/assets/fabric-editor/src/assets/public/img';
+        const base = `${assetsPath}/img`;
         return {
             pan: `${base}/tinyartist-icon-pan.png`,
-            select: `${base}/tinyartist-icon-layer.png`,
+            select: `${base}/tinyartist-icon-select.png`,
             draw: `${base}/tinyartist-icon-pencil.png`,
             paint: `${base}/tinyartist-icon-paint.png`,
             erase: `${base}/tinyartist-icon-eraser.png`,
@@ -211,12 +225,12 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
             <button
                 key="button-add-image"
                 type="button"
-            className="add-image"
-            onClick={handleAddImageClick}
-            aria-label={t('picture')}
-            title={t('picture')}
-            disabled={!layerControls?.addImageLayer}
-        >
+                className="add-image"
+                onClick={handleAddImageClick}
+                aria-label={t('picture')}
+                title={t('picture')}
+                disabled={!layerControls?.addImageLayer}
+            >
                 <img width="44px" key="add-image-icon" aria-hidden="true" src={iconSrc.picture} alt="Picture" />
                 {/* <span key="add-image-label">Picture</span> */}
             </button>

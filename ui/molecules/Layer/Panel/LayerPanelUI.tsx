@@ -5,13 +5,15 @@ import { useLayerStore } from '@store/Layer';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 import type { Language } from '@i18n';
 import { translate } from '@i18n';
+import type { RootState } from '@store/CanvasApp';
+import { useSelector } from 'react-redux';
+
 
 interface LayerPanelUIProps {
     isOpen: boolean;
     onToggle: () => void;
     onClose: () => void;
     pendingSelectionRef: MutableRefObject<string[] | null>;
-    language?: Language;
 }
 
 export const LayerPanelUI = ({
@@ -19,7 +21,6 @@ export const LayerPanelUI = ({
     onToggle,
     onClose,
     pendingSelectionRef,
-    language = 'en',
 }: LayerPanelUIProps) => {
 
     const layerControls = useSimpleCanvasStore((state) => state.layerControls);
@@ -32,18 +33,12 @@ export const LayerPanelUI = ({
 
     const layerButtonRef = useRef<HTMLButtonElement | null>(null);
     const layerPanelRef = useRef<HTMLDivElement | null>(null);
-    const [theme, setTheme] = useState<'kid' | 'adult'>('kid');
-    const toggleIconSrc = 'https://uat.marascott.ai/wp-content/plugins/marascott-genai/src_expo/tinyartist-editor/assets/fabric-editor/src/assets/public/img/tinyartist-icon-layer.png';
 
-    useEffect(() => {
-        if (typeof document === 'undefined') return;
-        const layout = document.querySelector('.canvas-layout');
-        if (layout?.classList.contains('adult')) {
-            setTheme('adult');
-        } else {
-            setTheme('kid');
-        }
-    }, []);
+    const bootstrapConfig = useSelector((state: RootState) => state.settings.bootstrap);
+    const language = bootstrapConfig.i18n as Language;
+    const assetsPath = bootstrapConfig.assets_path;
+
+    const toggleIconSrc = `${assetsPath}/img/tinyartist-icon-layer.png`;
 
     useEffect(() => {
         if (!isOpen) {

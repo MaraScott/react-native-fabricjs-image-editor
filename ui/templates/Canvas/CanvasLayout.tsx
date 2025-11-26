@@ -5,7 +5,6 @@
 
 import React, { isValidElement } from 'react';
 import type { ReactNode } from 'react';
-import '../../../assets/public/css/tinyartist-editor.css';
 
 export interface CanvasLayoutProps {
     classNameId?: string;

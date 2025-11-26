@@ -6,9 +6,8 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import type { ChangeEvent } from 'react';
 import type { RootState } from '@store/CanvasApp';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import type { Language } from '@i18n';
-import { translate } from '@i18n';
 import { CanvasLayout } from '@templates/Canvas';
 import { CanvasContainer } from '@organisms/Canvas';
 import { HeaderLeft } from '@organisms/Header';
@@ -19,7 +18,7 @@ import { ZoomControl } from '@molecules/Controls';
 import { Rect, Circle, Text } from 'react-konva';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 import type { LayerDescriptor } from '@molecules/Layer/Layer.types';
-import defaultTemplate from '../../../assets/public/template/default.json';
+import defaultTemplate from '@assets/public/template/default.json';
 
 const slugify = (value: string) =>
     value
@@ -47,6 +46,7 @@ export interface CanvasAppProps {
     containerBackground?: string;
     theme?: 'adult' | 'kid';
     i18n?: string;
+    assets_path?: string;
     initialZoom?: number;
 }
 
@@ -57,21 +57,36 @@ export interface CanvasAppProps {
  */
 export const CanvasApp = ({
     id = 'tiny-artist-editor',
-    width = 1024,
-    height = 1024,
-    backgroundColor = '#cccccc33',
+    width: widthProp,
+    height: heightProp,
+    backgroundColor: backgroundColorProp,
     containerBackground = '#cccccc',
-    theme = 'adult',
-    i18n = 'en',
+    theme: themeProp,
+    i18n: i18nProp,
+    assets_path: assetsPathProp,
     initialZoom = 0,
 }: CanvasAppProps) => {
-    const [_theme, setTheme] = useState<'kid' | 'adult'>(theme || 'kid');
+    const dispatch = useDispatch();
+    const bootstrapConfig = useSelector((state: RootState) => state.settings.bootstrap);
+    const width = widthProp ?? bootstrapConfig.width;
+    const height = heightProp ?? bootstrapConfig.height;
+    const theme = themeProp ?? bootstrapConfig.theme;
+    const backgroundColor = backgroundColorProp ?? bootstrapConfig.backgroundColor;
+    const assetsPath = assetsPathProp ?? bootstrapConfig.assets_path;
+
+    const handleThemeChange = (nextTheme: 'kid' | 'adult') => {
+        dispatch({ type: 'configuration/bootstrap', payload: { theme: nextTheme } });
+    };
+
+    const handleLanguageChange = (nextLanguage: Language) => {
+        dispatch({ type: 'configuration/bootstrap', payload: { i18n: nextLanguage } });
+    };
+
     const templateData = defaultTemplate as { stageWidth?: number; stageHeight?: number; layers?: InitialLayerDefinition[]; stageName?: string };
     const resolvedStageWidth = templateData.stageWidth ?? width;
     const resolvedStageHeight = templateData.stageHeight ?? height;
     const [stageName, setStageName] = useState<string>(templateData.stageName ?? 'Canvas Stage');
     const [isStageMenuOpen, setIsStageMenuOpen] = useState(false);
-    const [language, setLanguage] = useState<Language>(i18n || 'en');
 
     const [zoom, setZoom] = useState(initialZoom);
     const [isSmallScreen, setIsSmallScreen] = useState(false);
@@ -230,15 +245,14 @@ const isPaintToolActive = useSelector((state: RootState) => state.view.paint.act
 
     return (
             <CanvasLayout
-                classNameId={`canvas-layout ${_theme}`}
+                classNameId={`canvas-layout ${theme}`}
                 headerLeft={
-                    <HeaderLeft
+                <HeaderLeft
                         width={resolvedStageWidth}
                         height={resolvedStageHeight}
-                        theme={_theme}
-                        language={language}
-                        onThemeChange={setTheme}
-                        onLanguageChange={setLanguage}
+                        theme={theme}
+                        onThemeChange={handleThemeChange}
+                        onLanguageChange={handleLanguageChange}
                     />
                 }
                 headerCenter={<ZoomControl zoom={zoom} onZoomChange={setZoom} onFit={() => setFitRequest((v) => v + 1)} />}
@@ -353,7 +367,6 @@ const isPaintToolActive = useSelector((state: RootState) => state.view.paint.act
                     isRubberToolActive={isRubberToolActive}
                     isTextToolActive={isTextToolActive}
                     isPaintToolActive={isPaintToolActive}
-                    language={language}
                 />
             }
             // footer={<Footer />}
@@ -371,7 +384,6 @@ const isPaintToolActive = useSelector((state: RootState) => state.view.paint.act
                 panModeActive={isPanToolActive}
                 selectModeActive={isSelectToolActive}
                 initialLayers={initialCanvasLayers}
-                language={language}
             />
         </CanvasLayout>
     );

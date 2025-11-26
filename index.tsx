@@ -17,11 +17,22 @@ import { CanvasApp } from '@pages/Canvas';
  * host does not expose any overrides.
  */
 const bootstrap = (window as any).__EDITOR_BOOTSTRAP__ || {};
-const width = bootstrap.width || 800;
-const height = bootstrap.height || 800;
-const backgroundColor = bootstrap.backgroundColor || '#ffffff';
-const theme = bootstrap.theme || 'adult';
-const i18n = bootstrap.i18n || 'en';
+const width = bootstrap.width ?? 1024;
+const height = bootstrap.height ?? 1024;
+const backgroundColor = bootstrap.backgroundColor ?? '#cccccc33';
+const theme = bootstrap.theme ?? 'kid';
+const i18n = bootstrap.i18n ?? 'fr';
+const assets_path = bootstrap.assets_path ?? './assets/public';
+
+const bootstrapConfig = {
+    width,
+    height,
+    backgroundColor,
+    theme,
+    i18n,
+    assets_path,
+};
+CanvasAppStore.dispatch({ type: 'configuration/bootstrap', payload: bootstrapConfig });
 
 // Mount the application
 /**
@@ -47,14 +58,7 @@ if (container) {
         <StrictMode>
             <ErrorBoundary fallback="Error">
                 <Provider store={CanvasAppStore}>
-                    <CanvasApp
-                        id={`tae`}
-                        width={width}
-                        height={height}
-                        backgroundColor={backgroundColor}
-                        theme={theme}
-                        i18n={i18n}
-                    />
+                    <CanvasApp id={`tae`} />
                 </Provider>
             </ErrorBoundary>
         </StrictMode>

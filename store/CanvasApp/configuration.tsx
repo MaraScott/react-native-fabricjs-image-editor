@@ -1,10 +1,36 @@
-import { createReducer } from '@reduxjs/toolkit'
+import { createReducer } from '@reduxjs/toolkit';
 
-const initialState = { 
+export interface BootstrapConfiguration {
+    width: number;
+    height: number;
+    backgroundColor: string;
+    theme: 'kid' | 'adult';
+    i18n: string;
+    assets_path: string;
+}
+
+const defaultBootstrap: BootstrapConfiguration = {
+    width: 1024,
+    height: 1024,
+    backgroundColor: '#cccccc33',
+    theme: 'kid',
+    i18n: 'fr',
+    assets_path: './assets/public',
+};
+
+interface ConfigurationState {
+    logo: string;
+    poster: string;
+    translations: Record<string, string>;
+    bootstrap: BootstrapConfiguration;
+}
+
+const initialState: ConfigurationState = {
     logo: '',
     poster: '',
-	translations: {}
-}
+    translations: {},
+    bootstrap: defaultBootstrap,
+};
 
 /**
  * Reducer responsible for storing editor level configuration such as the
@@ -29,6 +55,15 @@ const configurationReducer = createReducer(initialState, (builder) => {
       .addCase('configuration/translations', (state, action) => {
         state.translations = action.payload;
       })
+      /**
+       * addCase - Store bootstrap initialization and partial updates.
+       */
+      .addCase('configuration/bootstrap', (state, action) => {
+        state.bootstrap = {
+            ...state.bootstrap,
+            ...action.payload,
+        };
+      });
 });
 
-export {configurationReducer as configuration };
+export { configurationReducer as configuration };
