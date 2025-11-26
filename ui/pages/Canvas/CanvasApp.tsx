@@ -356,7 +356,7 @@ const isPaintToolActive = useSelector((state: RootState) => state.view.paint.act
                     language={language}
                 />
             }
-            footer={<Footer />}
+            // footer={<Footer />}
         >
             <CanvasContainer
                 key="canvas-container"

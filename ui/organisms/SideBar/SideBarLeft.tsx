@@ -35,7 +35,7 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [theme, setTheme] = useState<'kid' | 'adult'>('kid');
     const iconSrc = useMemo(() => {
-        const base = './assets/public/img';
+        const base = 'https://uat.marascott.ai/wp-content/plugins/marascott-genai/src_expo/tinyartist-editor/assets/fabric-editor/src/assets/public/img';
         return {
             pan: `${base}/tinyartist-icon-pan.png`,
             select: `${base}/tinyartist-icon-layer.png`,
