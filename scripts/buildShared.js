@@ -486,7 +486,8 @@ const aliasMap = {
    *
    * @returns {projectRoot, 'assets'} Result produced by resolve.
    */
-  '@assets': path.resolve(projectRoot, 'assets'),
+  // Point to the actual source assets directory (icons, css, etc.)
+  '@assets': path.resolve(projectRoot, 'src', 'assets'),
 };
 
 /**
