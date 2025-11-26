@@ -1,11 +1,11 @@
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { viewActions } from '@store/CanvasApp/view';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 import type { Language } from '@i18n';
 import { translate } from '@i18n';
 import type { RootState } from '@store/CanvasApp';
-import { useSelector } from 'react-redux';
+import { buildIconUrl } from '@utils/assetPaths';
 
 /**
  * SideBarLeftProps Interface
@@ -20,7 +20,6 @@ export interface SideBarLeftProps {
     isRubberToolActive: boolean;
     isTextToolActive: boolean;
     isPaintToolActive: boolean;
-    language?: Language;
 }
 
 /**
@@ -28,38 +27,35 @@ export interface SideBarLeftProps {
  * 
  * Renders the SideBarLeft component.
  */
-export const SideBarLeft = (props: SideBarLeftProps) => {
-
-    const { 
-        isPanToolActive, 
-        isSelectToolActive, 
-        isDrawToolActive, 
-        isRubberToolActive, 
-        isTextToolActive, 
-        isPaintToolActive, 
-    } = props;
+export const SideBarLeft = ({ 
+    isPanToolActive, 
+    isSelectToolActive, 
+    isDrawToolActive, 
+    isRubberToolActive, 
+    isTextToolActive, 
+    isPaintToolActive, 
+}: SideBarLeftProps) => {
 
     const dispatch = useDispatch();
     const layerControls = useSimpleCanvasStore((state) => state.layerControls);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
-
     const bootstrapConfig = useSelector((state: RootState) => state.settings.bootstrap);
     const language = bootstrapConfig.i18n as Language;
     const assetsPath = bootstrapConfig.assets_path;
 
-    const [theme, setTheme] = useState<'kid' | 'adult'>('kid');
     const iconSrc = useMemo(() => {
-        const base = `${assetsPath}/img`;
         return {
-            pan: `${base}/tinyartist-icon-pan.png`,
-            select: `${base}/tinyartist-icon-select.png`,
-            draw: `${base}/tinyartist-icon-pencil.png`,
-            paint: `${base}/tinyartist-icon-paint.png`,
-            erase: `${base}/tinyartist-icon-eraser.png`,
-            text: `${base}/tinyartist-icon-text.png`,
-            picture: `${base}/tinyartist-icon-picture.png`,
+            pan: buildIconUrl(assetsPath, 'tinyartist-icon-pan.png'),
+            select: buildIconUrl(assetsPath, 'tinyartist-icon-layer.png'),
+            draw: buildIconUrl(assetsPath, 'tinyartist-icon-pencil.png'),
+            paint: buildIconUrl(assetsPath, 'tinyartist-icon-paint.png'),
+            erase: buildIconUrl(assetsPath, 'tinyartist-icon-eraser.png'),
+            text: buildIconUrl(assetsPath, 'tinyartist-icon-text.png'),
+            picture: buildIconUrl(assetsPath, 'tinyartist-icon-picture.png'),
         };
-    }, []);
+    }, [assetsPath]);
+
+    const [theme, setTheme] = useState<'kid' | 'adult'>('kid');
 
     useEffect(() => {
         if (typeof document === 'undefined') return;

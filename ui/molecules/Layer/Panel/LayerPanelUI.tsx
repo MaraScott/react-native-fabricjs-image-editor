@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MutableRefObject } from 'react';
+import { useEffect, useRef, useState, useMemo, type MutableRefObject } from 'react';
 import { ButtonLayer as Button } from '@atoms/Button/ButtonLayer';
 import { PanelLayer as Layer } from '@molecules/Layer/Panel/PanelLayer';
 import { useLayerStore } from '@store/Layer';
@@ -7,6 +7,7 @@ import type { Language } from '@i18n';
 import { translate } from '@i18n';
 import type { RootState } from '@store/CanvasApp';
 import { useSelector } from 'react-redux';
+import { buildIconUrl } from '@utils/assetPaths';
 
 
 interface LayerPanelUIProps {
@@ -37,8 +38,10 @@ export const LayerPanelUI = ({
     const bootstrapConfig = useSelector((state: RootState) => state.settings.bootstrap);
     const language = bootstrapConfig.i18n as Language;
     const assetsPath = bootstrapConfig.assets_path;
-
-    const toggleIconSrc = `${assetsPath}/img/tinyartist-icon-layer.png`;
+    const toggleIconSrc = useMemo(
+        () => buildIconUrl(assetsPath, 'tinyartist-icon-layer.png'),
+        [assetsPath],
+    );
 
     useEffect(() => {
         if (!isOpen) {
