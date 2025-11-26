@@ -1,0 +1,19 @@
+{
+  "headerTitle": "🎨 Éditeur TinyArtist",
+  "headerSubtitle": "Créons des rêves - toile {{width}}x{{height}}px",
+  "themeLabel": "Thème",
+  "languageLabel": "Langue",
+  "pan": "Panorama",
+  "select": "Sélection",
+  "draw": "Dessiner",
+  "paint": "Peindre",
+  "erase": "Gommer",
+  "text": "Texte",
+  "picture": "Image",
+  "layersTitle": "Calques",
+  "addLayer": "+ Ajouter un calque",
+  "noLayers": "Pas encore de calque. Ajoutez-en un pour commencer.",
+  "hideLayerControls": "Masquer les calques",
+  "showLayerControls": "Afficher les calques",
+  "Settings": "Paramètres"
+}

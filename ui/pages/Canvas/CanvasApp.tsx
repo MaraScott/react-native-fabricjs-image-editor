@@ -7,6 +7,8 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import type { ChangeEvent } from 'react';
 import type { RootState } from '@store/CanvasApp';
 import { useSelector } from 'react-redux';
+import type { Language } from '@i18n';
+import { translate } from '@i18n';
 import { CanvasLayout } from '@templates/Canvas';
 import { CanvasContainer } from '@organisms/Canvas';
 import { HeaderLeft } from '@organisms/Header';
@@ -43,6 +45,8 @@ export interface CanvasAppProps {
     height?: number;
     backgroundColor?: string;
     containerBackground?: string;
+    theme?: 'adult' | 'kid';
+    i18n?: string;
     initialZoom?: number;
 }
 
@@ -57,14 +61,17 @@ export const CanvasApp = ({
     height = 1024,
     backgroundColor = '#cccccc33',
     containerBackground = '#cccccc',
+    theme = 'adult',
+    i18n = 'en',
     initialZoom = 0,
 }: CanvasAppProps) => {
-    const [theme, setTheme] = useState<'kid' | 'adult'>('kid');
+    const [_theme, setTheme] = useState<'kid' | 'adult'>(theme || 'kid');
     const templateData = defaultTemplate as { stageWidth?: number; stageHeight?: number; layers?: InitialLayerDefinition[]; stageName?: string };
     const resolvedStageWidth = templateData.stageWidth ?? width;
     const resolvedStageHeight = templateData.stageHeight ?? height;
     const [stageName, setStageName] = useState<string>(templateData.stageName ?? 'Canvas Stage');
     const [isStageMenuOpen, setIsStageMenuOpen] = useState(false);
+    const [language, setLanguage] = useState<Language>(i18n || 'en');
 
     const [zoom, setZoom] = useState(initialZoom);
     const [isSmallScreen, setIsSmallScreen] = useState(false);
@@ -222,17 +229,19 @@ const isPaintToolActive = useSelector((state: RootState) => state.view.paint.act
     }
 
     return (
-        <CanvasLayout
-            classNameId={`canvas-layout ${theme}`}
-            headerLeft={
-                <HeaderLeft
-                    width={resolvedStageWidth}
-                    height={resolvedStageHeight}
-                    theme={theme}
-                    onThemeChange={setTheme}
-                />
-            }
-            headerCenter={<ZoomControl zoom={zoom} onZoomChange={setZoom} onFit={() => setFitRequest((v) => v + 1)} />}
+            <CanvasLayout
+                classNameId={`canvas-layout ${_theme}`}
+                headerLeft={
+                    <HeaderLeft
+                        width={resolvedStageWidth}
+                        height={resolvedStageHeight}
+                        theme={_theme}
+                        language={language}
+                        onThemeChange={setTheme}
+                        onLanguageChange={setLanguage}
+                    />
+                }
+                headerCenter={<ZoomControl zoom={zoom} onZoomChange={setZoom} onFit={() => setFitRequest((v) => v + 1)} />}
             headerRight={
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative' }}>
                     <button
@@ -344,6 +353,7 @@ const isPaintToolActive = useSelector((state: RootState) => state.view.paint.act
                     isRubberToolActive={isRubberToolActive}
                     isTextToolActive={isTextToolActive}
                     isPaintToolActive={isPaintToolActive}
+                    language={language}
                 />
             }
             footer={<Footer />}
@@ -361,6 +371,7 @@ const isPaintToolActive = useSelector((state: RootState) => state.view.paint.act
                 panModeActive={isPanToolActive}
                 selectModeActive={isSelectToolActive}
                 initialLayers={initialCanvasLayers}
+                language={language}
             />
         </CanvasLayout>
     );

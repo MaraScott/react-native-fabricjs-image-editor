@@ -22,6 +22,9 @@ import { textActions } from '@store/CanvasApp/view/text';
 import { SettingsPanelUI } from '@molecules/Settings/SettingsPanelUI';
 import type { Layer as KonvaLayerType } from 'konva/lib/Layer';
 
+import type { Language } from '@i18n';
+import { translate } from '@i18n';
+
 export interface SimpleCanvasProps {
     stageWidth?: number;
     stageHeight?: number;
@@ -35,6 +38,7 @@ export interface SimpleCanvasProps {
     panModeActive?: boolean;
     layersRevision?: number;
     selectModeActive?: boolean;
+    language?: Language;
 }
 
 export const SimpleCanvas = ({
@@ -50,6 +54,7 @@ export const SimpleCanvas = ({
     panModeActive = false,
     layersRevision = 0,
     selectModeActive = false,
+    language = 'en',
 }: SimpleCanvasProps) => {
     type Stroke = {
         id: string;
@@ -1713,6 +1718,7 @@ export const SimpleCanvas = ({
                     onToggle={() => setIsLayerPanelOpen((previous) => !previous)}
                     onClose={() => setIsLayerPanelOpen(false)}
                     pendingSelectionRef={pendingSelectionRef}
+                    language={language}
                 />
             )}
 
@@ -1734,6 +1740,7 @@ export const SimpleCanvas = ({
                     textSettings={textSettings}
                     isTextLayerSelected={Boolean(selectedTextItem)}
                     isRubberToolActive={isRubberToolActive}
+                    language={language}
                 />
             )}
 

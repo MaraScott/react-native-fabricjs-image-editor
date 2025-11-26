@@ -3,12 +3,15 @@ import { ButtonLayer as Button } from '@atoms/Button/ButtonLayer';
 import { PanelLayer as Layer } from '@molecules/Layer/Panel/PanelLayer';
 import { useLayerStore } from '@store/Layer';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
+import type { Language } from '@i18n';
+import { translate } from '@i18n';
 
 interface LayerPanelUIProps {
     isOpen: boolean;
     onToggle: () => void;
     onClose: () => void;
     pendingSelectionRef: MutableRefObject<string[] | null>;
+    language?: Language;
 }
 
 export const LayerPanelUI = ({
@@ -16,6 +19,7 @@ export const LayerPanelUI = ({
     onToggle,
     onClose,
     pendingSelectionRef,
+    language = 'en',
 }: LayerPanelUIProps) => {
 
     const layerControls = useSimpleCanvasStore((state) => state.layerControls);
@@ -55,6 +59,8 @@ export const LayerPanelUI = ({
         return null;
     }
 
+    const t = (key: string) => translate(language, key);
+
     // Layers array is ordered bottom -> top, so the bottom-most layer is index 0.
     const bottomLayerId = layerControls.layers[0]?.id ?? null;
 
@@ -66,8 +72,8 @@ export const LayerPanelUI = ({
                 ref={layerButtonRef}
                 type="button"
                 aria-expanded={isOpen}
-                aria-label={isOpen ? 'Hide layer controls' : 'Show layer controls'}
-                title={isOpen ? 'Hide layer controls' : 'Show layer controls'}
+                aria-label={isOpen ? t('hideLayerControls') : t('showLayerControls')}
+                title={isOpen ? t('hideLayerControls') : t('showLayerControls')}
                 onClick={onToggle}
                 onPointerDown={(event) => event.stopPropagation()}
             >
@@ -87,12 +93,12 @@ export const LayerPanelUI = ({
                         key="layer-panel-header"
                         className="header"
                     >
-                        <span key="layer-panel-header-title" className="title">Layers</span>
+                        <span key="layer-panel-header-title" className="title">{t('layersTitle')}</span>
 
                         <Button action="close" onClick={onClose}>×</Button>
                     </div>
 
-                    <Button action="add-layer" onClick={() => { layerControls.addLayer(); }}>+ Add Layer</Button>
+                    <Button action="add-layer" onClick={() => { layerControls.addLayer(); }}>{t('addLayer')}</Button>
 
                     {copyFeedback && (
                         <div
@@ -112,7 +118,7 @@ export const LayerPanelUI = ({
                                 key="layer-panel-no-layers"
                                 className="no-layers"
                             >
-                                No layers yet. Add one to get started.
+                                {t('noLayers')}
                             </div>
                         ) : (
                             [...layerControls.layers].reverse().map((layer, index) => {

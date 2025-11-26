@@ -3,6 +3,8 @@ import type { LayerControlHandlers } from '@molecules/Layer/Layer.types';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '@store/CanvasApp';
 import { viewActions } from '@store/CanvasApp/view';
+import type { Language } from '@i18n';
+import { translate } from '@i18n';
 
 type PenSettings = {
     size: number;
@@ -43,6 +45,7 @@ interface SettingsPanelUIProps {
     textSettings?: TextSettings | null;
     isTextLayerSelected?: boolean;
     isRubberToolActive?: boolean;
+    language?: Language;
 }
 
 export const SettingsPanelUI = ({
@@ -58,6 +61,7 @@ export const SettingsPanelUI = ({
     textSettings,
     isTextLayerSelected = false,
     isRubberToolActive = false,
+    language = 'en',
 }: SettingsPanelUIProps) => {
 
     const dispatch = useDispatch();
@@ -182,6 +186,8 @@ export const SettingsPanelUI = ({
         '#FFFFFF', '#2C3F52', '#8B4B1F',
     ];
 
+    const t = (key: string) => translate(language, key);
+
     return (
         <div className="settings-panel-ui">
             <button
@@ -206,7 +212,7 @@ export const SettingsPanelUI = ({
                     onWheel={(event) => event.stopPropagation()}
                 >
                     <div className="header">
-                        <span className="title">Settings</span>
+                        <span className="title">{t('Settings')}</span> 
                         <button type="button" className="close" onClick={onClose} aria-label="Close settings">
                             ×
                         </button>

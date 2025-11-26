@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 import { SimpleCanvas } from '@molecules/Canvas';
 import type { LayerControlHandlers, InitialLayerDefinition } from '@molecules/Layer/Layer.types';
 import { useLayerManagement } from '@molecules/Layer';
+import type { Language } from '@i18n';
 import {
     setSimpleCanvasLayerState,
     clearSimpleCanvasLayerControls,
@@ -36,6 +37,7 @@ export interface CanvasContainerProps {
     panModeActive?: boolean;
     initialLayers?: InitialLayerDefinition[];
     selectModeActive?: boolean;
+    language?: Language;
 }
 
 /**
@@ -56,6 +58,7 @@ export const CanvasContainer = ({
     panModeActive = false,
     initialLayers,
     selectModeActive = false,
+    language = 'en',
 }: CanvasContainerProps) => {
     const [, setStage] = useState<Konva.Stage | null>(null);
 
@@ -239,6 +242,7 @@ export const CanvasContainer = ({
                 panModeActive={panModeActive}
                 layersRevision={layersRevision}
                 selectModeActive={selectModeActive}
+                language={language}
             />
         </div>
     );

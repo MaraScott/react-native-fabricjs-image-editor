@@ -20,6 +20,8 @@ const bootstrap = (window as any).__EDITOR_BOOTSTRAP__ || {};
 const width = bootstrap.width || 800;
 const height = bootstrap.height || 800;
 const backgroundColor = bootstrap.backgroundColor || '#ffffff';
+const theme = bootstrap.theme || 'adult';
+const i18n = bootstrap.i18n || 'en';
 
 // Mount the application
 /**
@@ -50,6 +52,8 @@ if (container) {
                         width={width}
                         height={height}
                         backgroundColor={backgroundColor}
+                        theme={theme}
+                        i18n={i18n}
                     />
                 </Provider>
             </ErrorBoundary>

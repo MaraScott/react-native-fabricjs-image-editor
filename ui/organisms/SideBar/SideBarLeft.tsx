@@ -2,6 +2,8 @@ import { useDispatch } from 'react-redux';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { viewActions } from '@store/CanvasApp/view';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
+import type { Language } from '@i18n';
+import { translate } from '@i18n';
 
 /**
  * SideBarLeftProps Interface
@@ -16,6 +18,7 @@ export interface SideBarLeftProps {
     isRubberToolActive: boolean;
     isTextToolActive: boolean;
     isPaintToolActive: boolean;
+    language?: Language;
 }
 
 /**
@@ -25,7 +28,7 @@ export interface SideBarLeftProps {
  */
 export const SideBarLeft = (props: SideBarLeftProps) => {
 
-    const { isPanToolActive, isSelectToolActive, isDrawToolActive, isRubberToolActive, isTextToolActive, isPaintToolActive } = props;
+    const { isPanToolActive, isSelectToolActive, isDrawToolActive, isRubberToolActive, isTextToolActive, isPaintToolActive, language = 'en' } = props;
 
   const dispatch = useDispatch();
     const layerControls = useSimpleCanvasStore((state) => state.layerControls);
@@ -121,6 +124,8 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
         reader.readAsDataURL(file);
     };
 
+    const t = useMemo(() => (key: string) => translate(language, key), [language]);
+
     return (
         <div
             className="sidebar left"
@@ -131,8 +136,8 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 onClick={togglePanTool}
                 className={`pan ${isPanToolActive ? 'active' : null}`}
                 aria-pressed={isPanToolActive}
-                aria-label={isPanToolActive ? 'Disable pan tool' : 'Enable pan tool'}
-                title={isPanToolActive ? 'Pan tool active' : 'Enable pan tool'}
+                aria-label={t('pan')}
+                title={t('pan')}
             >
                 <img width="44px" key="pan-icon" aria-hidden="true" src={iconSrc.pan} alt="Pan" />
                 {/* <span key="pan-label">Pan</span> */}
@@ -144,8 +149,8 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 className={`select ${isSelectToolActive ? 'active' : null}`}
                 onClick={toggleSelectTool}
                 aria-pressed={isSelectToolActive}
-                aria-label={isSelectToolActive ? 'Disable select tool' : 'Enable select tool'}
-                title={isSelectToolActive ? 'Select tool active' : 'Enable select tool'}
+                aria-label={t('select')}
+                title={t('select')}
             >
                 <img width="44px" key="select-icon" aria-hidden="true" src={iconSrc.select} alt="Select" />
                 {/* <span key="select-label">Select</span> */}
@@ -157,8 +162,8 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 className={`draw ${isDrawToolActive ? 'active' : null}`}
                 onClick={toggleDrawTool}
                 aria-pressed={isDrawToolActive}
-                aria-label={isDrawToolActive ? 'Disable pen tool' : 'Enable pen tool'}
-                title={isDrawToolActive ? 'Pen tool active' : 'Enable pen tool'}
+                aria-label={t('draw')}
+                title={t('draw')}
             >
                 <img width="44px" key="draw-icon" aria-hidden="true" src={iconSrc.draw} alt="Draw" />
                 {/* <span key="draw-label">Draw</span> */}
@@ -170,8 +175,8 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 className={`paint ${isPaintToolActive ? 'active' : null}`}
                 onClick={togglePaintTool}
                 aria-pressed={isPaintToolActive}
-                aria-label={isPaintToolActive ? 'Disable paint tool' : 'Enable paint tool'}
-                title={isPaintToolActive ? 'Paint tool active' : 'Enable paint tool'}
+                aria-label={t('paint')}
+                title={t('paint')}
             >
                 <img width="44px" key="paint-icon" aria-hidden="true" src={iconSrc.paint} alt="Paint" />
                 {/* <span key="paint-label">Paint</span> */}
@@ -183,8 +188,8 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 className={`erase ${isRubberToolActive ? 'active' : null}`}
                 onClick={toggleRubberTool}
                 aria-pressed={isRubberToolActive}
-                aria-label={isRubberToolActive ? 'Disable eraser tool' : 'Enable eraser tool'}
-                title={isRubberToolActive ? 'Eraser tool active' : 'Enable eraser tool'}
+                aria-label={t('erase')}
+                title={t('erase')}
             >
                 <img width="44px" key="erase-icon" aria-hidden="true" src={iconSrc.erase} alt="Erase" />
                 {/* <span key="erase-label">Erase</span> */}
@@ -196,8 +201,8 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 className={`text ${isTextToolActive ? 'active' : null}`}
                 onClick={toggleTextTool}
                 aria-pressed={isTextToolActive}
-                aria-label={isTextToolActive ? 'Disable text tool' : 'Enable text tool'}
-                title={isTextToolActive ? 'Text tool active' : 'Enable text tool'}
+                aria-label={t('text')}
+                title={t('text')}
             >
                 <img width="44px" key="text-icon" aria-hidden="true" src={iconSrc.text} alt="Text" />
                 {/* <span key="text-label">Text</span> */}
@@ -208,8 +213,8 @@ export const SideBarLeft = (props: SideBarLeftProps) => {
                 type="button"
             className="add-image"
             onClick={handleAddImageClick}
-            aria-label="Add picture"
-            title="Add picture"
+            aria-label={t('picture')}
+            title={t('picture')}
             disabled={!layerControls?.addImageLayer}
         >
                 <img width="44px" key="add-image-icon" aria-hidden="true" src={iconSrc.picture} alt="Picture" />

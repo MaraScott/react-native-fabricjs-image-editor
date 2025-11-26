@@ -1,0 +1,19 @@
+{
+  "headerTitle": "🎨 TinyArtist Editor",
+  "headerSubtitle": "Let's DreamDraw - {{width}}x{{height}}px canvas",
+  "themeLabel": "Theme",
+  "languageLabel": "Language",
+  "pan": "Pan",
+  "select": "Select",
+  "draw": "Draw",
+  "paint": "Paint",
+  "erase": "Erase",
+  "text": "Text",
+  "picture": "Picture",
+  "layersTitle": "Layers",
+  "addLayer": "+ Add Layer",
+  "noLayers": "No layers yet. Add one to get started.",
+  "hideLayerControls": "Hide layer controls",
+  "showLayerControls": "Show layer controls",
+  "Settings": "Settings"
+}

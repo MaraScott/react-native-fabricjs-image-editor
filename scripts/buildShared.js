@@ -350,6 +350,7 @@ const aliasMap = {
    * @returns {projectRoot, 'ui/pages'} Result produced by resolve.
    */
   '@pages': path.resolve(projectRoot, 'ui/pages'),
+  '@i18n': path.resolve(projectRoot, 'i18n'),
   /**
    * resolve - Auto-generated summary; refine if additional context is needed.
    *
