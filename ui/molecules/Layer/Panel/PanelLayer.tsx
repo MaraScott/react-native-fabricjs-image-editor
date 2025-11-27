@@ -41,6 +41,17 @@ const getActionButtonConfigs = ({
     handleCopyLayer: (layerId: string) => void;
     layerControls: LayerControlHandlers;
 }) => {
+    const requestRasterize = () => {
+        if (!layerControls.rasterizeLayer || typeof window === 'undefined') {
+            return;
+        }
+
+        const rasterizeEvent = new CustomEvent('rasterize-layer-request', {
+            detail: { layerId: layer.id },
+        });
+        window.dispatchEvent(rasterizeEvent);
+    };
+
     return [
         {
             key: `${layer.id}-copy`,
@@ -98,12 +109,24 @@ const getActionButtonConfigs = ({
             props: {
                 action: 'move-bottom',
                 className: 'move-bottom',
-            onClick: () => layerControls.moveLayer(layer.id, 'bottom'),
-            title: 'Send layer to bottom',
-            'aria-label': 'Send layer to bottom',
-            disabled: isBottom,
+                onClick: () => layerControls.moveLayer(layer.id, 'bottom'),
+                title: 'Send layer to bottom',
+                'aria-label': 'Send layer to bottom',
+                disabled: isBottom,
+            },
+            content: '⤓',
         },
-        content: '⤓',
+        {
+            key: `layer-panel-layer-${layer.id}-rasterize-button`,
+            props: {
+                action: 'rasterize',
+                className: 'rasterize',
+                onClick: requestRasterize,
+                title: 'Rasterize layer',
+                'aria-label': 'Rasterize layer',
+                disabled: !layerControls.rasterizeLayer,
+            },
+            content: 'Rasterize',
         }, {
             key: `layer-panel-layer-${layer.id}-remove-button`,
             props: {

@@ -36,6 +36,7 @@ export const StageMimic = ({
   return (
     <Rect
       key="stage-mimic"
+      name="stage-mimic"
       x={x}
       y={y}
       width={width}
