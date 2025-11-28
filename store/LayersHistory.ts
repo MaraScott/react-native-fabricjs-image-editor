@@ -26,6 +26,7 @@ const cloneSnapshot = (snapshot: LayersSnapshot): LayersSnapshot => ({
         scale: layer.scale ? { ...layer.scale } : undefined,
         bounds: layer.bounds ? { ...layer.bounds } : undefined,
         strokes: layer.strokes ? layer.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })) : undefined,
+        imageSrc: layer.imageSrc, // Ensure imageSrc is preserved in clone
     })),
     selectedLayerIds: [...snapshot.selectedLayerIds],
     primaryLayerId: snapshot.primaryLayerId,
@@ -45,6 +46,18 @@ const layersEqual = (a: LayersSnapshot | null, b: LayersSnapshot | null): boolea
         if (sa.x !== sb.x || sa.y !== sb.y) return false;
         if (la.visible !== lb.visible) return false;
         if ((la.opacity ?? 1) !== (lb.opacity ?? 1)) return false;
+        
+        // Check imageSrc - important for paint operations
+        if ((la.imageSrc ?? null) !== (lb.imageSrc ?? null)) return false;
+        
+        // Check bounds - important for content that's been trimmed
+        const baA = la.bounds;
+        const baB = lb.bounds;
+        if ((baA === null) !== (baB === null)) return false;
+        if (baA && baB && (baA.x !== baB.x || baA.y !== baB.y || baA.width !== baB.width || baA.height !== baB.height)) {
+            return false;
+        }
+        
         const strokesA = la.strokes ?? [];
         const strokesB = lb.strokes ?? [];
         if (strokesA.length !== strokesB.length) return false;
