@@ -1064,9 +1064,89 @@ export const SimpleCanvas = ({
                         }
                     }
 
+                    // Calculate the bounding box of the painted content by scanning the canvas
+                    const calculatePaintedBounds = (canvas: HTMLCanvasElement): { x: number; y: number; width: number; height: number } | null => {
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) return null;
+                        
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const data = imageData.data;
+                        
+                        let minX = canvas.width;
+                        let maxX = -1;
+                        let minY = canvas.height;
+                        let maxY = -1;
+                        
+                        // Scan for any non-transparent pixels
+                        for (let i = 3; i < data.length; i += 4) {
+                            if (data[i] > 0) { // If alpha > 0
+                                const pixelIndex = i / 4;
+                                const x = pixelIndex % canvas.width;
+                                const y = Math.floor(pixelIndex / canvas.width);
+                                
+                                minX = Math.min(minX, x);
+                                maxX = Math.max(maxX, x);
+                                minY = Math.min(minY, y);
+                                maxY = Math.max(maxY, y);
+                            }
+                        }
+                        
+                        if (maxX < minX) {
+                            // No painted pixels found, return null
+                            return null;
+                        }
+                        
+                        return {
+                            x: minX,
+                            y: minY,
+                            width: maxX - minX + 1,
+                            height: maxY - minY + 1,
+                        };
+                    };
+
+                    // Calculate painted bounds and trim the canvas if needed
+                    const paintedBounds = calculatePaintedBounds(outCanvas);
+                    let finalBounds = { x: boundsX, y: boundsY, width: w, height: h };
+                    let imageWidth = w;
+                    let imageHeight = h;
+                    let imageX = 0;
+                    let imageY = 0;
+                    let trimmedDataUrl = outCanvas.toDataURL('image/png');
+
+                    if (paintedBounds) {
+                        // Trim the canvas to only include painted content
+                        const trimmedCanvas = document.createElement('canvas');
+                        trimmedCanvas.width = paintedBounds.width;
+                        trimmedCanvas.height = paintedBounds.height;
+                        const trimmedCtx = trimmedCanvas.getContext('2d');
+                        
+                        if (trimmedCtx) {
+                            trimmedCtx.drawImage(
+                                outCanvas,
+                                paintedBounds.x, paintedBounds.y, paintedBounds.width, paintedBounds.height,
+                                0, 0, paintedBounds.width, paintedBounds.height
+                            );
+                            trimmedDataUrl = trimmedCanvas.toDataURL('image/png');
+                        }
+
+                        // Bounds remain at the layer's original position, but with trimmed dimensions
+                        // The image will be positioned at the offset within the layer space
+                        finalBounds = {
+                            x: boundsX,
+                            y: boundsY,
+                            width: paintedBounds.width,
+                            height: paintedBounds.height,
+                        };
+                        
+                        imageWidth = paintedBounds.width;
+                        imageHeight = paintedBounds.height;
+                        // Position the image at the painted content offset within the layer
+                        imageX = paintedBounds.x;
+                        imageY = paintedBounds.y;
+                    }
+
                     // Create dataUrl and rasterize into layer (replace strokes/texts)
-                    const dataUrl = outCanvas.toDataURL('image/png');
-                    const finalBounds = { x: boundsX, y: boundsY, width: w, height: h };
+                    const dataUrl = trimmedDataUrl;
 
                     // Prefer rasterizeLayer when available to keep trimming behavior, but rasterizeLayer replaces strokes/texts.
                     // To preserve strokes/texts we use updateLayerRender when possible and set imageSrc + bounds/position
@@ -1075,7 +1155,7 @@ export const SimpleCanvas = ({
                         if (typeof window !== 'undefined') {
                             const img = new window.Image();
                             img.onload = () => {
-                                const imageNode = <KonvaImage image={img as any} listening width={w} height={h} x={0} y={0} />;
+                                const imageNode = <KonvaImage key={`paint-image-${targetLayerId}`} image={img as any} listening width={imageWidth} height={imageHeight} x={imageX} y={imageY} />;
                                 layerControls.updateLayerRender(targetLayerId, () => imageNode as any, {
                                     position: { x: finalBounds.x, y: finalBounds.y },
                                     bounds: finalBounds,
@@ -1115,6 +1195,7 @@ export const SimpleCanvas = ({
                     layer.id,
                     () => (
                         <Rect
+                            key={`paint-fill-${layer.id}`}
                             x={0}
                             y={0}
                             width={bounds?.width ?? stageWidth}
@@ -1133,7 +1214,7 @@ export const SimpleCanvas = ({
                         scale: { x: 1, y: 1 },
                         shapes: [
                             {
-                                id: `paint-rect-${Date.now()}`,
+                                id: `paint-rect-${layer.id}`,
                                 type: 'rect',
                                 x: 0,
                                 y: 0,

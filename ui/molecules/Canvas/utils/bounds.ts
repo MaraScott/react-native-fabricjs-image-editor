@@ -96,6 +96,70 @@ export const normaliseBounds = (rect: Bounds | null | undefined): Bounds | null 
   };
 };
 
+/**
+ * Compute bounds from child elements of a Group/Layer
+ * This calculates the tightest bounding box around visible content,
+ * excluding empty canvas areas.
+ */
+const computeChildrenBounds = (node: Konva.Node): Bounds | null => {
+  if (!('getChildren' in node)) {
+    return null;
+  }
+
+  const children = (node as any).getChildren?.();
+  if (!children || children.length === 0) {
+    return null;
+  }
+
+  let minX: number | null = null;
+  let minY: number | null = null;
+  let maxX: number | null = null;
+  let maxY: number | null = null;
+
+  for (const child of children) {
+    try {
+      const childRect = child.getClientRect({
+        skipTransform: false,
+        relativeTo: node.getStage() ?? undefined,
+      });
+
+      if (
+        childRect &&
+        Number.isFinite(childRect.x) &&
+        Number.isFinite(childRect.y) &&
+        Number.isFinite(childRect.width) &&
+        Number.isFinite(childRect.height) &&
+        childRect.width > 0 &&
+        childRect.height > 0
+      ) {
+        const childMinX = childRect.x;
+        const childMinY = childRect.y;
+        const childMaxX = childRect.x + childRect.width;
+        const childMaxY = childRect.y + childRect.height;
+
+        minX = minX === null ? childMinX : Math.min(minX, childMinX);
+        minY = minY === null ? childMinY : Math.min(minY, childMinY);
+        maxX = maxX === null ? childMaxX : Math.max(maxX, childMaxX);
+        maxY = maxY === null ? childMaxY : Math.max(maxY, childMaxY);
+      }
+    } catch (e) {
+      // Skip children that can't compute bounds
+      continue;
+    }
+  }
+
+  if (minX === null || minY === null || maxX === null || maxY === null) {
+    return null;
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+};
+
 export const computeNodeBounds = (node: Konva.Node | null): Bounds | null => {
   /**
    * if - Auto-generated summary; refine if additional context is needed.
@@ -111,6 +175,14 @@ export const computeNodeBounds = (node: Konva.Node | null): Bounds | null => {
     return null;
   }
 
+  // Try to compute bounds from children first (for Groups/Layers)
+  // This gives us a tighter bounding box around actual content
+  const childrenBounds = computeChildrenBounds(node);
+  if (childrenBounds) {
+    return childrenBounds;
+  }
+
+  // Fallback to the node's own bounds if it has no children or they can't be computed
   const rect = node.getClientRect({
     skipTransform: false,
     /**
