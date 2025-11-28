@@ -9,7 +9,7 @@ import { Image as KonvaImage } from 'react-konva';
 import type { LayerDescriptor, LayerControlHandlers, LayerMoveDirection, ScaleVector, PanOffset, InitialLayerDefinition, LayerTextInput, LayerTextItem, RasterizeLayerOptions } from '@molecules/Layer/Layer.types';
 import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 import { areBoundsEqual } from '@molecules/Canvas/utils/bounds';
-import { generateLayerId, normaliseLayerDefinitions, areSelectionsEqual, trimTransparentImage } from './utils';
+import { generateLayerId, normaliseLayerDefinitions, areSelectionsEqual, trimTransparentImage } from '@molecules/Layer/utils';
 import {
     initLayersHistory,
     applyLayersSnapshot,

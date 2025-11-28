@@ -14,8 +14,8 @@ import {
     TOUCH_DELTA_THRESHOLD,
     useUpdateZoom,
     useApplyZoomDelta,
-} from "./hooks/zoomUtils";
-import { useResize } from "./hooks/useResize";
+} from "@molecules/Canvas/hooks/zoomUtils";
+import { useResize } from "@molecules/Canvas/hooks/useResize";
 import { useSelector, useDispatch } from "react-redux";
 import { selectActions } from "@store/CanvasApp/view/select";
 import { selectSelectionTransform } from "@store/CanvasApp/view/selectors";
@@ -34,21 +34,20 @@ import type {
     TouchPanState,
     SelectionDragState,
     Bounds,
-} from "./types/canvas.types";
+} from "@molecules/Canvas/types/canvas.types";
 import type {
     PanOffset,
     LayerStroke,
     LayerTextItem,
 } from "@molecules/Layer/Layer.types";
-import { Rect, Group, Line, Text as KonvaText } from "react-konva";
-import { drawActions } from "@store/CanvasApp/view/draw";
+import { Group, Line, Text as KonvaText } from "react-konva";
 import { rubberActions } from "@store/CanvasApp/view/rubber";
 import { textActions } from "@store/CanvasApp/view/text";
 import { SettingsPanelUI } from "@molecules/Settings/SettingsPanelUI";
 import type { Layer as KonvaLayerType } from "konva/lib/Layer";
-import { floodFillLayer } from "@molecules/Canvas/utils/floodFill";
-import { useTextEditing } from "./hooks/useTextEditing";
-import { useSelectionTransform } from "./hooks/useSelectionTransform";
+import { useTextEditing } from "@molecules/Canvas/hooks/useTextEditing";
+import { useSelectionTransform } from "@molecules/Canvas/hooks/useSelectionTransform";
+import { useDrawingTools } from "@molecules/Canvas/hooks/useDrawingTools";
 
 export interface SimpleCanvasProps {
     stageWidth?: number;
@@ -79,15 +78,6 @@ export const SimpleCanvas = ({
     layersRevision = 0,
     selectModeActive = false,
 }: SimpleCanvasProps) => {
-    type Stroke = {
-        id: string;
-        points: number[];
-        color: string;
-        size: number;
-        hardness: number;
-        opacity: number;
-    };
-
     const { layerControls, renderableLayers } = useSimpleCanvasStore(
         (state) => state
     );
@@ -114,7 +104,7 @@ export const SimpleCanvas = ({
     const isTextToolActive = textToolState.active;
     const isPaintToolActive = paintToolState.active;
 
-    // Redux selection transform (still exposed separately)
+    // Redux selection transform
     const reduxSelectionTransform = useSelector(selectSelectionTransform);
 
     const stageRef = useRef<Konva.Stage>(null);
@@ -153,7 +143,7 @@ export const SimpleCanvas = ({
         | null
     >(null);
 
-    // Use useResize for container dimensions & scale
+    // Resize hook
     const {
         dimensions: containerDimensions,
         scale,
@@ -161,21 +151,15 @@ export const SimpleCanvas = ({
         setScale,
     } = useResize(containerRef, stageWidth, stageHeight, internalZoom);
 
-    // Keep pan offset ref in sync
     useEffect(() => {
         panOffsetRef.current = panOffset;
     }, [panOffset]);
-
-    const [pendingStroke, setPendingStroke] = useState<{
-        layerId: string;
-        stroke: LayerStroke;
-    } | null>(null);
 
     useEffect(() => {
         setEraserSize(rubberToolState.eraserSize);
     }, [rubberToolState.eraserSize]);
 
-    // Open settings panel by default for kid theme; watch for theme class changes
+    // Open settings panel by default for kid theme
     useEffect(() => {
         if (typeof document === "undefined") return;
         const layout = document.querySelector(".canvas-layout");
@@ -232,7 +216,7 @@ export const SimpleCanvas = ({
         ]
     );
 
-    // Keep Konva node order in sync when moveLayer fires
+    // Keep node order in sync when moveLayer fires.
     useEffect(() => {
         if (typeof window === "undefined") return;
 
@@ -264,16 +248,12 @@ export const SimpleCanvas = ({
     }, [layerOrderSignature, layersToRender]);
 
     const selectedLayerIds = layerControls?.selectedLayerIds ?? [];
-    const stableSelectedLayerIds = useMemo(
-        () => selectedLayerIds,
-        [JSON.stringify(selectedLayerIds)]
-    );
     const selectedLayerSet = useMemo(
         () => new Set(selectedLayerIds),
         [selectedLayerIds]
     );
 
-    // Derived text selection (used for text settings panel)
+    // Derived text selection
     const selectedTextLayer = useMemo(() => {
         if (!layerControls) return null;
         for (const id of selectedLayerIds) {
@@ -296,13 +276,13 @@ export const SimpleCanvas = ({
     const renderWidth = Math.max(1, stageWidth * scale);
     const renderHeight = Math.max(1, stageHeight * scale);
     const safeScale = Math.max(scale, 0.0001);
+    const denom = Math.max(safeScale, 0.000001);
     const stageViewportOffsetX =
-        (containerDimensions.width - renderWidth) / 2 / Math.max(safeScale, 0.000001) +
-        panOffset.x / Math.max(safeScale, 0.000001);
+        (containerDimensions.width - renderWidth) / 2 / denom +
+        panOffset.x / denom;
     const stageViewportOffsetY =
-        (containerDimensions.height - renderHeight) / 2 /
-            Math.max(safeScale, 0.000001) +
-        panOffset.y / Math.max(safeScale, 0.000001);
+        (containerDimensions.height - renderHeight) / 2 / denom +
+        panOffset.y / denom;
 
     // --- Text editing hook ---
     const {
@@ -354,7 +334,40 @@ export const SimpleCanvas = ({
         finishTextEdit,
     });
 
-    // Text settings panel adapter (reuses textToolState or selected text)
+    // --- Drawing tools hook (draw / erase / paint) ---
+    const getRelativePointerPosition = useCallback(() => {
+        const stage = stageRef.current;
+        if (!stage) return null;
+        const pos = stage.getPointerPosition();
+        if (!pos) return null;
+        return {
+            x: pos.x / safeScale - stageViewportOffsetX,
+            y: pos.y / safeScale - stageViewportOffsetY,
+        };
+    }, [safeScale, stageViewportOffsetX, stageViewportOffsetY]);
+
+    const {
+        pendingStroke,
+        handleStagePointerDown,
+        handleStagePointerMove,
+        handleStagePointerUp,
+    } = useDrawingTools({
+        layerControls,
+        selectedLayerIds,
+        drawToolState,
+        rubberToolState,
+        paintToolState,
+        getRelativePointerPosition,
+        resolveEffectiveLayerTransform,
+        stageWidth,
+        stageHeight,
+        stageViewportOffsetX,
+        stageViewportOffsetY,
+        layerNodeRefs,
+        dispatch,
+    });
+
+    // Text settings adapter
     const applyTextStyleToSelection = useCallback(
         (updates: Partial<LayerTextItem>) => {
             if (!selectedTextLayer || !selectedTextItem || !layerControls?.updateLayerTexts)
@@ -423,11 +436,6 @@ export const SimpleCanvas = ({
         }
     }, [layerControls, selectedLayerIds]);
 
-    // Keep pan offset ref
-    useEffect(() => {
-        panOffsetRef.current = panOffset;
-    }, [panOffset]);
-
     // Sync selection bounds to overlay box (screen-space)
     useEffect(() => {
         if (!selectedLayerBounds) {
@@ -456,17 +464,6 @@ export const SimpleCanvas = ({
     const updateZoom = useUpdateZoom(onZoomChange, setInternalZoom);
     const applyZoomDelta = useApplyZoomDelta(updateZoom);
 
-    const getRelativePointerPosition = useCallback(() => {
-        const stage = stageRef.current;
-        if (!stage) return null;
-        const pos = stage.getPointerPosition();
-        if (!pos) return null;
-        return {
-            x: pos.x / safeScale - stageViewportOffsetX,
-            y: pos.y / safeScale - stageViewportOffsetY,
-        };
-    }, [safeScale, stageViewportOffsetX, stageViewportOffsetY]);
-
     // Sync selectedLayerNodeRefs from layerNodeRefs and selectedLayerIds
     const selectedLayerNodeRefs = useRef<Map<string, Konva.Node>>(
         new Map()
@@ -488,10 +485,9 @@ export const SimpleCanvas = ({
         } else {
             layerNodeRefs.current.delete(layer.id);
         }
-        // Transformer sync handled by hook/SelectionLayer, but this keeps refs fresh
     };
 
-    // Handle rasterize requests (convert layer group into bitmap image)
+    // Handle rasterize requests
     useEffect(() => {
         const handleRasterizeRequest = (event: Event) => {
             const detail = (event as CustomEvent<{ layerId: string }>)
@@ -582,32 +578,7 @@ export const SimpleCanvas = ({
         dispatch,
     ]);
 
-    // Warn when eraser is selected but layer must be rasterized first
-    const rasterizeAlertShownRef = useRef(false);
-    useEffect(() => {
-        if (!isRubberToolActive || !layerControls) {
-            rasterizeAlertShownRef.current = false;
-            return;
-        }
-        const needsRasterize = selectedLayerIds.some((id) => {
-            const layer = layerControls.layers.find((l) => l.id === id);
-            if (!layer) return false;
-            const hasVectorContent =
-                (layer.texts?.length ?? 0) > 0 ||
-                typeof layer.render === "function";
-            return hasVectorContent;
-        });
-        if (needsRasterize && !rasterizeAlertShownRef.current) {
-            rasterizeAlertShownRef.current = true;
-            try {
-                window.alert("You need to rasterize before erasing.");
-            } catch {
-                // ignore
-            }
-        }
-    }, [isRubberToolActive, layerControls, selectedLayerIds]);
-
-    // Unified effect: handle stage ready & scale
+    // Stage ready & scale
     useEffect(() => {
         if (stageRef.current) {
             if (onStageReady) onStageReady(stageRef.current);
@@ -767,536 +738,6 @@ export const SimpleCanvas = ({
         },
         []
     );
-
-    const handleStagePointerDown = useCallback(
-        (event: any) => {
-            if (!layerControls) return;
-            if (event?.evt?.preventDefault) {
-                event.evt.preventDefault();
-            }
-            const point = getRelativePointerPosition();
-            if (!point) return;
-
-            // If editing existing text, finish edit first on background click
-            if (isTextToolActive && activeTextEdit) {
-                finishTextEdit();
-                return;
-            }
-
-            const targetLayerId =
-                selectedLayerIds[0] ??
-                layerControls.layers[layerControls.layers.length - 1]
-                    ?.id ??
-                null;
-            if (!targetLayerId) return;
-
-            if (selectedLayerIds.length === 0) {
-                layerControls.selectLayer(targetLayerId, {
-                    mode: "replace",
-                });
-            }
-
-            const layer = layerControls.layers.find(
-                (l) => l.id === targetLayerId
-            );
-            if (!layer) return;
-
-            const stageX = point.x;
-            const stageY = point.y;
-            const insideStage =
-                stageX >= 0 &&
-                stageY >= 0 &&
-                stageX <= stageWidth &&
-                stageY <= stageHeight;
-
-            // Paint tool
-            if (isPaintToolActive) {
-                if (!insideStage) return;
-                const effectiveLayerId =
-                    selectedLayerIds[0] ??
-                    layerControls.layers[
-                        layerControls.layers.length - 1
-                    ]?.id ??
-                    null;
-                if (!effectiveLayerId) return;
-                const paintLayer = layerControls.layers.find(
-                    (l) => l.id === effectiveLayerId
-                );
-                if (
-                    paintLayer &&
-                    (paintLayer.strokes?.length ?? 0) > 0
-                ) {
-                    floodFillLayer(
-                        effectiveLayerId,
-                        paintLayer,
-                        layerControls,
-                        paintToolState.color ?? "#ffffff",
-                        resolveEffectiveLayerTransform,
-                        stageWidth,
-                        stageHeight,
-                        stageX,
-                        stageY
-                    );
-                } else if (paintLayer) {
-                    const bounds = {
-                        x: 0,
-                        y: 0,
-                        width: stageWidth,
-                        height: stageHeight,
-                    };
-                    layerControls.updateLayerRender?.(
-                        paintLayer.id,
-                        () => (
-                            <Rect
-                                key={`paint-fill-${paintLayer.id}`}
-                                x={0}
-                                y={0}
-                                width={bounds.width}
-                                height={bounds.height}
-                                fill={
-                                    paintToolState.color ?? "#ffffff"
-                                }
-                                listening
-                            />
-                        ),
-                        {
-                            position: { x: bounds.x, y: bounds.y },
-                            bounds,
-                            strokes: [],
-                            texts: [],
-                            imageSrc: undefined,
-                            rotation: 0,
-                            scale: { x: 1, y: 1 },
-                            shapes: [
-                                {
-                                    id: `paint-rect-${paintLayer.id}`,
-                                    type: "rect",
-                                    x: 0,
-                                    y: 0,
-                                    width: bounds.width,
-                                    height: bounds.height,
-                                    fill:
-                                        paintToolState.color ??
-                                        "#ffffff",
-                                },
-                            ],
-                        }
-                    );
-                }
-                return;
-            }
-
-            // Text tool
-            if (isTextToolActive) {
-                if (activeTextEdit) {
-                    finishTextEdit();
-                }
-
-                const targetTextId = event?.target?.attrs
-                    ?.textItemId as string | undefined;
-                if (targetTextId) {
-                    const textLayer = layerControls.layers.find(
-                        (l) =>
-                            (l.texts ?? []).some(
-                                (t) => t.id === targetTextId
-                            )
-                    );
-                    const textItem = textLayer?.texts?.find(
-                        (t) => t.id === targetTextId
-                    );
-                    if (textLayer && textItem) {
-                        layerControls.selectLayer(textLayer.id, {
-                            mode: "replace",
-                        });
-                        startTextEdit(textLayer.id, textItem.id);
-                        return;
-                    }
-                }
-
-                const result = layerControls.addTextLayer?.({
-                    text: textToolState.text ?? "Text",
-                    fontSize: textToolState.fontSize ?? 32,
-                    fill: textToolState.color ?? "#000000",
-                    fontFamily:
-                        textToolState.fontFamily ?? "Arial, sans-serif",
-                    fontStyle: textToolState.fontStyle ?? "normal",
-                    fontWeight: textToolState.fontWeight ?? "normal",
-                    x: stageX,
-                    y: stageY,
-                });
-                if (result) {
-                    layerControls.selectLayer(result.layerId, {
-                        mode: "replace",
-                    });
-                    startTextEdit(result.layerId, result.textId);
-                }
-                return;
-            }
-
-            // Drawing / erasing logic (layer-local coords)
-            const eff = resolveEffectiveLayerTransform(layer);
-            const sizeScale =
-                (Math.abs(eff.scaleX ?? 1) +
-                    Math.abs(eff.scaleY ?? 1)) /
-                    2 || 1;
-
-            let localX = stageX - (eff.boundsX ?? 0);
-            let localY = stageY - (eff.boundsY ?? 0);
-            localX /= eff.scaleX || 1;
-            localY /= eff.scaleY || 1;
-            if ((eff.rotation ?? 0) !== 0) {
-                const rotationRad = (eff.rotation ?? 0) * (Math.PI / 180);
-                const cos = Math.cos(-rotationRad);
-                const sin = Math.sin(-rotationRad);
-                const x0 = localX;
-                const y0 = localY;
-                localX = x0 * cos - y0 * sin;
-                localY = x0 * sin + y0 * cos;
-            }
-
-            if (
-                !isDrawToolActive &&
-                !isRubberToolActive &&
-                !isPaintToolActive
-            )
-                return;
-            if ((isDrawToolActive || isPaintToolActive) && !insideStage)
-                return;
-
-            if (isRubberToolActive) {
-                const strokeId = `erase-${Date.now()}-${Math.random()
-                    .toString(36)
-                    .slice(2, 6)}`;
-                const stroke: LayerStroke = {
-                    id: strokeId,
-                    points: [localX, localY],
-                    color: "#000000",
-                    size: rubberToolState.eraserSize / sizeScale,
-                    hardness: 1,
-                    opacity: 1,
-                    mode: "erase",
-                };
-                setPendingStroke({ layerId: targetLayerId, stroke });
-                dispatch(rubberActions.startErasing());
-                return;
-            }
-
-            const strokeId = `stroke-${Date.now()}-${Math.random()
-                .toString(36)
-                .slice(2, 6)}`;
-            const hardness = drawToolState.brushHardness ?? 1;
-            const stroke: LayerStroke = {
-                id: strokeId,
-                points: [localX, localY],
-                color: drawToolState.brushColor,
-                size: drawToolState.brushSize / sizeScale,
-                hardness,
-                opacity: drawToolState.brushOpacity,
-                mode: "draw",
-            };
-            setPendingStroke({ layerId: targetLayerId, stroke });
-            dispatch(drawActions.startDrawing(strokeId));
-        },
-        [
-            activeTextEdit,
-            dispatch,
-            drawToolState.brushColor,
-            drawToolState.brushHardness,
-            drawToolState.brushOpacity,
-            drawToolState.brushSize,
-            finishTextEdit,
-            getRelativePointerPosition,
-            isDrawToolActive,
-            isRubberToolActive,
-            isTextToolActive,
-            isPaintToolActive,
-            paintToolState.color,
-            layerControls,
-            rubberToolState.eraserSize,
-            selectedLayerIds,
-            startTextEdit,
-            textToolState.color,
-            textToolState.fontFamily,
-            textToolState.fontSize,
-            textToolState.fontStyle,
-            textToolState.fontWeight,
-            stageHeight,
-            stageWidth,
-            resolveEffectiveLayerTransform,
-        ]
-    );
-
-    const handleStagePointerMove = useCallback(
-        (event: any) => {
-            if (
-                (!isDrawToolActive && !isRubberToolActive) ||
-                !pendingStroke ||
-                !layerControls
-            )
-                return;
-            if (event?.evt?.preventDefault) {
-                event.evt.preventDefault();
-            }
-            const point = getRelativePointerPosition();
-            if (!point) return;
-
-            const layer = layerControls.layers.find(
-                (l) => l.id === pendingStroke.layerId
-            );
-            if (!layer) return;
-
-            const eff2 = resolveEffectiveLayerTransform(layer);
-            let localX = point.x - (eff2.boundsX ?? 0);
-            let localY = point.y - (eff2.boundsY ?? 0);
-            localX /= eff2.scaleX || 1;
-            localY /= eff2.scaleY || 1;
-            if ((eff2.rotation ?? 0) !== 0) {
-                const r2 = (eff2.rotation ?? 0) * (Math.PI / 180);
-                const cos2 = Math.cos(-r2);
-                const sin2 = Math.sin(-r2);
-                const x0 = localX;
-                const y0 = localY;
-                localX = x0 * cos2 - y0 * sin2;
-                localY = x0 * sin2 + y0 * cos2;
-            }
-
-            setPendingStroke((prev) =>
-                prev && prev.layerId === layer.id
-                    ? {
-                          layerId: prev.layerId,
-                          stroke: {
-                              ...prev.stroke,
-                              points: [
-                                  ...prev.stroke.points,
-                                  localX,
-                                  localY,
-                              ],
-                          },
-                      }
-                    : prev
-            );
-
-            if (isDrawToolActive) {
-                dispatch(drawActions.updatePath(pendingStroke.stroke.id));
-            }
-        },
-        [
-            dispatch,
-            getRelativePointerPosition,
-            isDrawToolActive,
-            isRubberToolActive,
-            layerControls,
-            pendingStroke,
-            resolveEffectiveLayerTransform,
-        ]
-    );
-
-    const handleStagePointerUp = useCallback(
-        (event: any) => {
-            if (
-                (!isDrawToolActive && !isRubberToolActive) ||
-                !layerControls
-            )
-                return;
-            if (event?.evt?.preventDefault) {
-                event.evt.preventDefault();
-            }
-
-            const finalizedStroke = pendingStroke;
-            if (pendingStroke) {
-                const layer = layerControls.layers.find(
-                    (l) => l.id === pendingStroke.layerId
-                );
-                if (layer) {
-                    const existing = layer.strokes ?? [];
-                    layerControls.updateLayerStrokes?.(layer.id, [
-                        ...existing,
-                        pendingStroke.stroke,
-                    ]);
-                }
-            }
-            setPendingStroke(null);
-
-            if (isDrawToolActive) {
-                dispatch(drawActions.finishDrawing());
-            }
-
-            if (isRubberToolActive) {
-                dispatch(rubberActions.stopErasing());
-
-                if (
-                    finalizedStroke &&
-                    layerControls.rasterizeLayer &&
-                    typeof window !== "undefined"
-                ) {
-                    const targetLayerId = finalizedStroke.layerId;
-                    window.requestAnimationFrame(() => {
-                        window.requestAnimationFrame(() => {
-                            const node =
-                                layerNodeRefs.current.get(targetLayerId);
-                            if (!node) return;
-                            try {
-                                node.getLayer()?.batchDraw();
-
-                                let bounds: Bounds | null = null;
-                                const stage = node.getStage();
-                                if (stage) {
-                                    const rect = node.getClientRect({
-                                        skipTransform: false,
-                                        relativeTo: stage,
-                                    });
-                                    const finite = [
-                                        rect.x,
-                                        rect.y,
-                                        rect.width,
-                                        rect.height,
-                                    ].every((value) =>
-                                        Number.isFinite(value)
-                                    );
-                                    if (finite) {
-                                        bounds = {
-                                            x:
-                                                rect.x -
-                                                stageViewportOffsetX,
-                                            y:
-                                                rect.y -
-                                                stageViewportOffsetY,
-                                            width: rect.width,
-                                            height: rect.height,
-                                        };
-                                    }
-                                }
-
-                                const dataUrl = (node as any).toDataURL({
-                                    mimeType: "image/png",
-                                    quality: 1,
-                                    pixelRatio: 1,
-                                    backgroundColor: "rgba(0,0,0,0)",
-                                });
-                                layerControls.rasterizeLayer(
-                                    targetLayerId,
-                                    dataUrl,
-                                    { bounds }
-                                );
-                            } catch (error) {
-                                console.warn(
-                                    "Unable to rasterize after erasing",
-                                    error
-                                );
-                            }
-                        });
-                    });
-                }
-            }
-        },
-        [
-            dispatch,
-            isDrawToolActive,
-            isRubberToolActive,
-            layerControls,
-            pendingStroke,
-            stageViewportOffsetX,
-            stageViewportOffsetY,
-        ]
-    );
-
-    const handleSavePNG = useCallback(
-        (fileName?: string) => {
-            const stage = stageRef.current;
-            if (!stage) return;
-            const backgroundLayer = backgroundLayerRef.current;
-            const selectionLayer = selectionLayerRef.current;
-            const previousBackgroundVisibility = backgroundLayer
-                ? backgroundLayer.visible()
-                : undefined;
-            const previousSelectionVisibility = selectionLayer
-                ? selectionLayer.visible()
-                : undefined;
-            const previousScale = {
-                x: stage.scaleX(),
-                y: stage.scaleY(),
-            };
-            const previousPos = stage.position();
-
-            try {
-                if (backgroundLayer) {
-                    backgroundLayer.visible(false);
-                    backgroundLayer.getLayer()?.batchDraw();
-                }
-                if (selectionLayer) {
-                    selectionLayer.visible(false);
-                    selectionLayer.getLayer()?.batchDraw();
-                }
-
-                stage.scale({ x: 1, y: 1 });
-                stage.position({
-                    x: -stageViewportOffsetX,
-                    y: -stageViewportOffsetY,
-                });
-                stage.batchDraw();
-
-                const dataUrl = stage.toDataURL({
-                    x: 0,
-                    y: 0,
-                    width: stageWidth,
-                    height: stageHeight,
-                    pixelRatio: 1,
-                    mimeType: "image/png",
-                    quality: 1,
-                    backgroundColor: "rgba(0,0,0,0)",
-                });
-
-                const anchor = document.createElement("a");
-                anchor.href = dataUrl;
-                anchor.download = fileName ?? "canvas-stage.png";
-                anchor.click();
-            } catch (error) {
-                console.warn("Unable to save PNG", error);
-            } finally {
-                stage.scale(previousScale);
-                stage.position(previousPos);
-                stage.batchDraw();
-                if (
-                    backgroundLayer &&
-                    previousBackgroundVisibility !== undefined
-                ) {
-                    backgroundLayer.visible(previousBackgroundVisibility);
-                    backgroundLayer.getLayer()?.batchDraw();
-                }
-                if (
-                    selectionLayer &&
-                    previousSelectionVisibility !== undefined
-                ) {
-                    selectionLayer.visible(previousSelectionVisibility);
-                    selectionLayer.getLayer()?.batchDraw();
-                }
-            }
-        },
-        [
-            stageViewportOffsetX,
-            stageViewportOffsetY,
-            stageWidth,
-            stageHeight,
-        ]
-    );
-
-    // Export PNG event
-    useEffect(() => {
-        const handler = (event: Event) => {
-            const detail = (event as CustomEvent<{ fileName?: string }>)
-                .detail;
-            handleSavePNG(detail?.fileName);
-        };
-        window.addEventListener(
-            "export-stage-png",
-            handler as EventListener
-        );
-        return () =>
-            window.removeEventListener(
-                "export-stage-png",
-                handler as EventListener
-            );
-    }, [handleSavePNG]);
 
     // Container pointer panning (mouse/pen)
     const handlePointerDown = useCallback(
@@ -1603,13 +1044,103 @@ export const SimpleCanvas = ({
         };
     }, [selectModeActive, clearSelection]);
 
-    // Transformer visual config
-    const outlineDash: [number, number] = [8, 4];
-    const transformerAnchorSize = 8;
-    const transformerAnchorStrokeWidth = 1;
-    const transformerAnchorCornerRadius = 2;
-    const transformerPadding = 0;
-    const transformerHitStrokeWidth = 12;
+    // Export PNG
+    const handleSavePNG = useCallback(
+        (fileName?: string) => {
+            const stage = stageRef.current;
+            if (!stage) return;
+            const backgroundLayer = backgroundLayerRef.current;
+            const selectionLayer = selectionLayerRef.current;
+            const previousBackgroundVisibility = backgroundLayer
+                ? backgroundLayer.visible()
+                : undefined;
+            const previousSelectionVisibility = selectionLayer
+                ? selectionLayer.visible()
+                : undefined;
+            const previousScale = {
+                x: stage.scaleX(),
+                y: stage.scaleY(),
+            };
+            const previousPos = stage.position();
+
+            try {
+                if (backgroundLayer) {
+                    backgroundLayer.visible(false);
+                    backgroundLayer.getLayer()?.batchDraw();
+                }
+                if (selectionLayer) {
+                    selectionLayer.visible(false);
+                    selectionLayer.getLayer()?.batchDraw();
+                }
+
+                stage.scale({ x: 1, y: 1 });
+                stage.position({
+                    x: -stageViewportOffsetX,
+                    y: -stageViewportOffsetY,
+                });
+                stage.batchDraw();
+
+                const dataUrl = stage.toDataURL({
+                    x: 0,
+                    y: 0,
+                    width: stageWidth,
+                    height: stageHeight,
+                    pixelRatio: 1,
+                    mimeType: "image/png",
+                    quality: 1,
+                    backgroundColor: "rgba(0,0,0,0)",
+                });
+
+                const anchor = document.createElement("a");
+                anchor.href = dataUrl;
+                anchor.download = fileName ?? "canvas-stage.png";
+                anchor.click();
+            } catch (error) {
+                console.warn("Unable to save PNG", error);
+            } finally {
+                stage.scale(previousScale);
+                stage.position(previousPos);
+                stage.batchDraw();
+                if (
+                    backgroundLayer &&
+                    previousBackgroundVisibility !== undefined
+                ) {
+                    backgroundLayer.visible(previousBackgroundVisibility);
+                    backgroundLayer.getLayer()?.batchDraw();
+                }
+                if (
+                    selectionLayer &&
+                    previousSelectionVisibility !== undefined
+                ) {
+                    selectionLayer.visible(previousSelectionVisibility);
+                    selectionLayer.getLayer()?.batchDraw();
+                }
+            }
+        },
+        [
+            stageViewportOffsetX,
+            stageViewportOffsetY,
+            stageWidth,
+            stageHeight,
+        ]
+    );
+
+    useEffect(() => {
+        const handler = (event: Event) => {
+            const detail = (event as CustomEvent<{ fileName?: string }>)
+                .detail;
+            handleSavePNG(detail?.fileName);
+        };
+        window.addEventListener(
+            "export-stage-png",
+            handler as EventListener
+        );
+        return () =>
+            window.removeEventListener(
+                "export-stage-png",
+                handler as EventListener
+            );
+    }, [handleSavePNG]);
 
     const GroupAny = StageGroup as any;
 
@@ -1854,18 +1385,14 @@ export const SimpleCanvas = ({
                 {layerControls && layersToRender.length > 0 ? (
                     <SelectionLayer
                         selectModeActive={selectModeActive}
-                        padding={transformerPadding}
-                        borderDash={outlineDash}
+                        padding={8}
+                        borderDash={[8, 4]}
                         layerRef={selectionLayerRef}
                         transformerRef={selectionTransformerRef}
-                        anchorSize={transformerAnchorSize}
-                        anchorCornerRadius={
-                            transformerAnchorCornerRadius
-                        }
-                        anchorStrokeWidth={
-                            transformerAnchorStrokeWidth
-                        }
-                        hitStrokeWidth={transformerHitStrokeWidth}
+                        anchorSize={8}
+                        anchorCornerRadius={2}
+                        anchorStrokeWidth={1}
+                        hitStrokeWidth={12}
                         stageRef={stageRef}
                         selectedLayerBounds={selectedLayerBounds}
                         captureSelectionTransformState={
