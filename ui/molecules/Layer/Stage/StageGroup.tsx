@@ -130,6 +130,94 @@ export const StageGroup = ({
             return;
         }
 
+        // Perform synchronous per-pixel hit test where possible. Avoid async image loads here
+        // because Konva pointer handlers expect synchronous execution — async handlers
+        // can break downstream pointermove/pointerup events used by pen/eraser/rotation.
+        try {
+            const stage = event.target.getStage();
+            if (!stage) throw new Error('no-stage');
+            const pointer = stage.getPointerPosition();
+            if (!pointer) throw new Error('no-pointer');
+
+            let localX = pointer.x - x;
+            let localY = pointer.y - y;
+
+            // Apply inverse scale
+            const invScaleX = scaleX === 0 ? 1 : 1 / scaleX;
+            const invScaleY = scaleY === 0 ? 1 : 1 / scaleY;
+            localX *= invScaleX;
+            localY *= invScaleY;
+
+            // Apply inverse rotation
+            if (rotation && rotation % 360 !== 0) {
+                const rotationRad = (rotation * Math.PI) / 180;
+                const cos = Math.cos(-rotationRad);
+                const sin = Math.sin(-rotationRad);
+                const x0 = localX;
+                const y0 = localY;
+                localX = x0 * cos - y0 * sin;
+                localY = x0 * sin + y0 * cos;
+            }
+
+            const layer = layerControls.layers.find((l) => l.id === layerId);
+
+            // If the layer contains an image, assume it's a hit (fast, synchronous fallback).
+            // This avoids async image loading inside pointer handlers which breaks event flow.
+            if (layer && layer.imageSrc) {
+                // select
+            } else {
+                // Rasterize strokes only (synchronous, based on stroke points available in memory)
+                const w = Math.max(1, Math.round(layer?.bounds?.width ?? 1));
+                const h = Math.max(1, Math.round(layer?.bounds?.height ?? 1));
+                const tmpCanvas = document.createElement('canvas');
+                tmpCanvas.width = w;
+                tmpCanvas.height = h;
+                const tmpCtx = tmpCanvas.getContext('2d');
+                if (tmpCtx) {
+                    tmpCtx.clearRect(0, 0, w, h);
+                    const strokes = (layer?.strokes ?? []) as any[];
+                    for (const s of strokes) {
+                        if (!s || !s.points || s.points.length < 2) continue;
+                        tmpCtx.save();
+                        tmpCtx.globalCompositeOperation = s.mode === 'erase' ? 'destination-out' : 'source-over';
+                        tmpCtx.lineCap = 'round';
+                        tmpCtx.lineJoin = 'round';
+                        tmpCtx.strokeStyle = 'rgba(0,0,0,1)';
+                        tmpCtx.lineWidth = Math.max(1, s.size || 1);
+                        tmpCtx.beginPath();
+                        const pts = s.points;
+                        tmpCtx.moveTo(pts[0] ?? 0, pts[1] ?? 0);
+                        for (let i = 2; i < pts.length; i += 2) {
+                            tmpCtx.lineTo(pts[i], pts[i + 1]);
+                        }
+                        tmpCtx.stroke();
+                        tmpCtx.restore();
+                    }
+
+                    const sampleX = Math.floor(localX - (layer?.bounds?.x ?? 0));
+                    const sampleY = Math.floor(localY - (layer?.bounds?.y ?? 0));
+                    let hit = false;
+                    if (sampleX >= 0 && sampleY >= 0 && sampleX < tmpCanvas.width && sampleY < tmpCanvas.height) {
+                        try {
+                            const data = tmpCtx.getImageData(sampleX, sampleY, 1, 1).data;
+                            hit = (data[3] ?? 0) > 0;
+                        } catch {
+                            // getImageData can fail if canvas is tainted; fall back to selecting
+                            hit = true;
+                        }
+                    }
+
+                    if (!hit) {
+                        // Clicked transparent pixel -> do not select
+                        event.cancelBubble = true;
+                        return;
+                    }
+                }
+            }
+        } catch (e) {
+            // On error, fall back to select - keep behavior permissive to avoid breaking UX
+        }
+
         pendingSelectionRef.current = layerControls.selectLayer(layerId, { mode: 'replace' });
         updateBoundsFromLayerIds(pendingSelectionRef.current);
 
@@ -157,7 +245,7 @@ export const StageGroup = ({
         activeSelection.forEach((id) => {
             const node = id === layerId ? event.target : layerNodeRefs.current.get(id);
             if (node) {
-                const pos = node.position();
+                const pos = (node as any).position();
                 initialPositions.set(id, { x: pos.x, y: pos.y });
             }
         });
@@ -191,7 +279,7 @@ export const StageGroup = ({
             return;
         }
 
-        const currentPosition = event.target.position();
+    const currentPosition = (event.target as any).position();
         const deltaX = currentPosition.x - anchorInitial.x;
         const deltaY = currentPosition.y - anchorInitial.y;
 
@@ -204,7 +292,7 @@ export const StageGroup = ({
             if (!original || !node) {
                 return;
             }
-            node.position({
+            (node as any).position({
                 x: original.x + deltaX,
                 y: original.y + deltaY,
             });
@@ -229,7 +317,7 @@ export const StageGroup = ({
             if (!node) {
                 return;
             }
-            const position = node.position();
+            const position = (node as any).position();
             layerControls.updateLayerPosition(id, {
                 x: position.x - stageViewportOffsetX,
                 y: position.y - stageViewportOffsetY,

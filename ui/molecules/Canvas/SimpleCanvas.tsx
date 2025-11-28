@@ -208,6 +208,33 @@ export const SimpleCanvas = ({
         [JSON.stringify(selectedLayerIds)]
     );
     const selectedLayerSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds]);
+    // Helper: resolve effective transform for a layer when mapping pointer->layer-local coords.
+    // If the layer is selected and the selection is currently being transformed, prefer
+    // the sharedSelectionRect (selection proxy) which represents the live on-screen transform.
+    const resolveEffectiveLayerTransform = (layer: any) => {
+        const isSelected = selectedLayerSet.has(layer.id);
+        if (isSelected && isSelectionTransformingRef.current && sharedSelectionRect) {
+            return {
+                x: sharedSelectionRect.x ?? 0,
+                y: sharedSelectionRect.y ?? 0,
+                rotation: sharedSelectionRect.rotation ?? 0,
+                scaleX: sharedSelectionRect.scaleX ?? 1,
+                scaleY: sharedSelectionRect.scaleY ?? 1,
+                boundsX: sharedSelectionRect.x ?? 0,
+                boundsY: sharedSelectionRect.y ?? 0,
+            };
+        }
+
+        return {
+            x: layer.bounds ? layer.bounds.x : (layer.position?.x ?? 0),
+            y: layer.bounds ? layer.bounds.y : (layer.position?.y ?? 0),
+            rotation: layer.rotation ?? 0,
+            scaleX: layer.scale?.x ?? 1,
+            scaleY: layer.scale?.y ?? 1,
+            boundsX: layer.bounds ? layer.bounds.x : (layer.position?.x ?? 0),
+            boundsY: layer.bounds ? layer.bounds.y : (layer.position?.y ?? 0),
+        };
+    };
     const selectedTextLayer = useMemo(() => {
         if (!layerControls) return null;
         for (const id of selectedLayerIds) {
@@ -337,7 +364,7 @@ export const SimpleCanvas = ({
                     }
                 }
 
-                const dataUrl = node.toDataURL({
+                const dataUrl = (node as any).toDataURL({
                     mimeType: 'image/png',
                     quality: 1,
                     pixelRatio: 1,
@@ -594,10 +621,10 @@ export const SimpleCanvas = ({
         if (!layerControls) return;
         selectedLayerNodeRefs.current.forEach((node, id) => {
             if (!node) return;
-            const pos = node.position();
-            const rot = node.rotation();
-            let scaleX = node.scaleX();
-            let scaleY = node.scaleY();
+            const pos = (node as any).position();
+            const rot = (node as any).rotation();
+            let scaleX = (node as any).scaleX();
+            let scaleY = (node as any).scaleY();
             // Nodes are positioned with viewport offsets applied; store back in layer space.
             let adjustedX = pos.x - stageViewportOffsetX;
             let adjustedY = pos.y - stageViewportOffsetY;
@@ -867,15 +894,18 @@ export const SimpleCanvas = ({
                     const rotationRad = (rotationDeg * Math.PI) / 180;
 
                     // Transform stage coordinates to layer-local coordinates (account for scale and rotation)
-                    let localX = stageX - (targetLayer.position?.x ?? 0);
-                    let localY = stageY - (targetLayer.position?.y ?? 0);
+                    // Use the effective transform (selection proxy when transforming) so the seed maps correctly into mask/out canvases.
+                    const eff = resolveEffectiveLayerTransform(targetLayer);
+                    let localX = stageX - (eff.boundsX ?? 0);
+                    let localY = stageY - (eff.boundsY ?? 0);
                     // Apply inverse scale
-                    localX /= scaleX;
-                    localY /= scaleY;
+                    localX /= (eff.scaleX || 1);
+                    localY /= (eff.scaleY || 1);
                     // Apply inverse rotation
-                    if (rotationDeg !== 0) {
-                        const cos = Math.cos(-rotationRad);
-                        const sin = Math.sin(-rotationRad);
+                    if ((eff.rotation ?? 0) !== 0) {
+                        const r = (eff.rotation ?? 0) * Math.PI / 180;
+                        const cos = Math.cos(-r);
+                        const sin = Math.sin(-r);
                         const x0 = localX;
                         const y0 = localY;
                         localX = x0 * cos - y0 * sin;
@@ -1316,11 +1346,25 @@ export const SimpleCanvas = ({
             return;
         }
 
-        const scaleX = layer.scale?.x ?? 1;
-        const scaleY = layer.scale?.y ?? 1;
-        const sizeScale = (Math.abs(scaleX) + Math.abs(scaleY)) / 2 || 1;
-        const localX = (stageX - (layer.position?.x ?? 0)) / (scaleX || 1);
-        const localY = (stageY - (layer.position?.y ?? 0)) / (scaleY || 1);
+        // Compute local coordinates relative to the layer, accounting for bounds/position, scale and rotation.
+        const eff = resolveEffectiveLayerTransform(layer);
+        const sizeScale = (Math.abs(eff.scaleX ?? 1) + Math.abs(eff.scaleY ?? 1)) / 2 || 1;
+
+        let localX = stageX - (eff.boundsX ?? 0);
+        let localY = stageY - (eff.boundsY ?? 0);
+        // Apply inverse scale
+        localX /= (eff.scaleX || 1);
+        localY /= (eff.scaleY || 1);
+        // Apply inverse rotation
+        if ((eff.rotation ?? 0) !== 0) {
+            const rotationRad = (eff.rotation ?? 0) * Math.PI / 180;
+            const cos = Math.cos(-rotationRad);
+            const sin = Math.sin(-rotationRad);
+            const x0 = localX;
+            const y0 = localY;
+            localX = x0 * cos - y0 * sin;
+            localY = x0 * sin + y0 * cos;
+        }
 
         if (!isDrawToolActive && !isRubberToolActive && !isPaintToolActive) return;
         if ((isDrawToolActive || isPaintToolActive) && !insideStage) return;
@@ -1390,10 +1434,21 @@ export const SimpleCanvas = ({
         if (!point) return;
         const layer = layerControls.layers.find((l) => l.id === pendingStroke.layerId);
         if (!layer) return;
-        const scaleX = layer.scale?.x ?? 1;
-        const scaleY = layer.scale?.y ?? 1;
-        const localX = (point.x - (layer.position?.x ?? 0)) / (scaleX || 1);
-        const localY = (point.y - (layer.position?.y ?? 0)) / (scaleY || 1);
+        // Compute point in layer-local coordinates (account for bounds/position, scale and rotation)
+        const eff2 = resolveEffectiveLayerTransform(layer);
+        let localX = point.x - (eff2.boundsX ?? 0);
+        let localY = point.y - (eff2.boundsY ?? 0);
+        localX /= (eff2.scaleX || 1);
+        localY /= (eff2.scaleY || 1);
+        if ((eff2.rotation ?? 0) !== 0) {
+            const r2 = (eff2.rotation ?? 0) * Math.PI / 180;
+            const cos2 = Math.cos(-r2);
+            const sin2 = Math.sin(-r2);
+            const x0 = localX;
+            const y0 = localY;
+            localX = x0 * cos2 - y0 * sin2;
+            localY = x0 * sin2 + y0 * cos2;
+        }
         setPendingStroke((prev) =>
             prev && prev.layerId === layer.id
                 ? {
@@ -1460,7 +1515,7 @@ export const SimpleCanvas = ({
                                 }
                             }
 
-                            const dataUrl = node.toDataURL({
+                            const dataUrl = (node as any).toDataURL({
                                 mimeType: 'image/png',
                                 quality: 1,
                                 pixelRatio: 1,
@@ -2066,7 +2121,6 @@ export const SimpleCanvas = ({
                 </KonvaLayer>
 
                 <BackgroundLayer
-                    key="background-layer"
                     containerWidth={containerDimensions.width / safeScale}
                     containerHeight={containerDimensions.height / safeScale}
                     containerBackground={containerBackground}
@@ -2078,7 +2132,6 @@ export const SimpleCanvas = ({
                 />
                 {layerControls && layersToRender.length > 0 ? (
                     <SelectionLayer
-                        key="selection-layer"
                         selectModeActive={selectModeActive}
                         padding={transformerPadding}
                         borderDash={outlineDash}
@@ -2103,7 +2156,6 @@ export const SimpleCanvas = ({
             </Stage>
             {layerControls && !panModeActive && (
                 <LayerPanelUI 
-                    key="layer-panel"
                     isOpen={isLayerPanelOpen}
                     onToggle={() => setIsLayerPanelOpen((previous) => !previous)}
                     onClose={() => setIsLayerPanelOpen(false)}
@@ -2113,7 +2165,6 @@ export const SimpleCanvas = ({
 
             {layerControls && !panModeActive && (
                 <SettingsPanelUI
-                    key="setting-panel"
                     isOpen={isSettingsPanelOpen}
                     onToggle={() => setIsSettingsPanelOpen((prev) => !prev)}
                     onClose={() => setIsSettingsPanelOpen(false)}
