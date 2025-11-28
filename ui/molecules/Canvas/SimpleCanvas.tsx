@@ -15,7 +15,7 @@ import type { RootState } from '@store/CanvasApp';
 import type { PointerPanState, TouchPanState, SelectionDragState, SelectionNodeSnapshot, SelectionTransformSnapshot, Bounds } from './types/canvas.types';
 import type { PanOffset, LayerStroke, LayerTextItem } from '@molecules/Layer/Layer.types';
 
-import { Rect, Group, Line, Text as KonvaText } from "react-konva";
+import { Rect, Group, Line, Text as KonvaText, Image as KonvaImage } from "react-konva";
 import { drawActions } from '@store/CanvasApp/view/draw';
 import { rubberActions } from '@store/CanvasApp/view/rubber';
 import { textActions } from '@store/CanvasApp/view/text';
@@ -853,10 +853,13 @@ export const SimpleCanvas = ({
                     const targetLayer = layerControls.layers.find((l) => l.id === targetLayerId);
                     if (!targetLayer) return;
 
-                    const w = Math.max(1, stageWidth);
-                    const h = Math.max(1, stageHeight);
+                    // Compute target bounds (crop area) so we preserve layer position and avoid moving strokes
+                    const boundsX = targetLayer.bounds?.x ?? (targetLayer.position?.x ?? 0);
+                    const boundsY = targetLayer.bounds?.y ?? (targetLayer.position?.y ?? 0);
+                    const w = Math.max(1, targetLayer.bounds?.width ?? stageWidth);
+                    const h = Math.max(1, targetLayer.bounds?.height ?? stageHeight);
 
-                    // Offscreen canvases
+                    // Offscreen canvases sized to layer bounds
                     const maskCanvas = document.createElement('canvas');
                     maskCanvas.width = w;
                     maskCanvas.height = h;
@@ -881,6 +884,8 @@ export const SimpleCanvas = ({
                         maskCtx.lineWidth = Math.max(1, s.size || 1);
                         maskCtx.beginPath();
                         const pts = s.points;
+                        // Stroke points are stored in layer-local coordinates; when cropping to layer bounds
+                        // we can draw them directly into the mask (origin at boundsX,boundsY)
                         maskCtx.moveTo(pts[0] ?? 0, pts[1] ?? 0);
                         for (let i = 2; i < pts.length; i += 2) {
                             maskCtx.lineTo(pts[i], pts[i + 1]);
@@ -896,8 +901,9 @@ export const SimpleCanvas = ({
                     const outCtx = outCanvas.getContext('2d');
                     if (!outCtx) return;
 
-                    const seedX = Math.floor(stageX);
-                    const seedY = Math.floor(stageY);
+                    // Seed point relative to cropped bounds
+                    const seedX = Math.floor(stageX - boundsX);
+                    const seedY = Math.floor(stageY - boundsY);
 
                     const maskData = maskCtx.getImageData(0, 0, w, h);
                     const maskBuf = maskData.data;
@@ -994,23 +1000,29 @@ export const SimpleCanvas = ({
 
                     // Create dataUrl and rasterize into layer (replace strokes/texts)
                     const dataUrl = outCanvas.toDataURL('image/png');
-                    // bounds: full stage
-                    const bounds = { x: 0, y: 0, width: w, height: h };
-                    if (layerControls.rasterizeLayer) {
-                        layerControls.rasterizeLayer(targetLayerId, dataUrl, { bounds });
-                    } else if (layerControls.updateLayerRender) {
-                        // Fallback: set render to an image node
-                        layerControls.updateLayerRender(targetLayerId, () => (
-                            <Rect x={0} y={0} width={w} height={h} fill={paintToolState.color ?? '#ffffff'} listening />
-                        ), {
-                            position: { x: 0, y: 0 },
-                            bounds,
-                            strokes: [],
-                            texts: [],
-                            imageSrc: dataUrl,
-                            rotation: 0,
-                            scale: { x: 1, y: 1 },
-                        });
+                    const finalBounds = { x: boundsX, y: boundsY, width: w, height: h };
+
+                    // Prefer rasterizeLayer when available to keep trimming behavior, but rasterizeLayer replaces strokes/texts.
+                    // To preserve strokes/texts we use updateLayerRender when possible and set imageSrc + bounds/position
+                    if (layerControls.updateLayerRender) {
+                        // Create an Image object and update layer render to a KonvaImage so the image is shown in the layer.
+                        if (typeof window !== 'undefined') {
+                            const img = new window.Image();
+                            img.onload = () => {
+                                const imageNode = <KonvaImage image={img as any} listening width={w} height={h} x={0} y={0} />;
+                                layerControls.updateLayerRender(targetLayerId, () => imageNode as any, {
+                                    position: { x: finalBounds.x, y: finalBounds.y },
+                                    bounds: finalBounds,
+                                    imageSrc: dataUrl,
+                                    rotation: 0,
+                                    scale: { x: 1, y: 1 },
+                                });
+                            };
+                            img.src = dataUrl;
+                        }
+                    } else if (layerControls.rasterizeLayer) {
+                        // last resort: call rasterizeLayer which will replace strokes/texts (not ideal)
+                        layerControls.rasterizeLayer(targetLayerId, dataUrl, { bounds: finalBounds });
                     }
                 } catch (err) {
                     console.warn('Flood fill failed', err);
