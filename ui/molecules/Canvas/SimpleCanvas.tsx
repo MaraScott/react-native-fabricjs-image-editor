@@ -1119,7 +1119,7 @@ export const SimpleCanvas = ({
                         trimmedCanvas.width = paintedBounds.width;
                         trimmedCanvas.height = paintedBounds.height;
                         const trimmedCtx = trimmedCanvas.getContext('2d');
-                        
+
                         if (trimmedCtx) {
                             trimmedCtx.drawImage(
                                 outCanvas,
@@ -1129,40 +1129,69 @@ export const SimpleCanvas = ({
                             trimmedDataUrl = trimmedCanvas.toDataURL('image/png');
                         }
 
-                        // Bounds remain at the layer's original position, but with trimmed dimensions
-                        // The image will be positioned at the offset within the layer space
+                        // The image should be positioned at the painted content offset within the layer
+                        // So, imageX and imageY are offset from the layer's bounds
+                        imageX = paintedBounds.x;
+                        imageY = paintedBounds.y;
+                        imageWidth = paintedBounds.width;
+                        imageHeight = paintedBounds.height;
+                        // Bounds remain at the layer's original position, but with full layer dimensions
                         finalBounds = {
                             x: boundsX,
                             y: boundsY,
-                            width: paintedBounds.width,
-                            height: paintedBounds.height,
+                            width: w,
+                            height: h,
                         };
-                        
-                        imageWidth = paintedBounds.width;
-                        imageHeight = paintedBounds.height;
-                        // Position the image at the painted content offset within the layer
-                        imageX = paintedBounds.x;
-                        imageY = paintedBounds.y;
                     }
 
                     // Create dataUrl and rasterize into layer (replace strokes/texts)
                     const dataUrl = trimmedDataUrl;
 
-                    // Prefer rasterizeLayer when available to keep trimming behavior, but rasterizeLayer replaces strokes/texts.
-                    // To preserve strokes/texts we use updateLayerRender when possible and set imageSrc + bounds/position
+                    // To preserve previous fills, composite the new fill over the existing image
                     if (layerControls.updateLayerRender) {
-                        // Create an Image object and update layer render to a KonvaImage so the image is shown in the layer.
                         if (typeof window !== 'undefined') {
                             const img = new window.Image();
                             img.onload = () => {
-                                const imageNode = <KonvaImage key={`paint-image-${targetLayerId}`} image={img as any} listening width={imageWidth} height={imageHeight} x={imageX} y={imageY} />;
-                                layerControls.updateLayerRender(targetLayerId, () => imageNode as any, {
-                                    position: { x: finalBounds.x, y: finalBounds.y },
-                                    bounds: finalBounds,
-                                    imageSrc: dataUrl,
-                                    rotation: 0,
-                                    scale: { x: 1, y: 1 },
-                                });
+                                // Always composite into a full layer-sized canvas
+                                const compositeCanvas = document.createElement('canvas');
+                                compositeCanvas.width = w;
+                                compositeCanvas.height = h;
+                                const compositeCtx = compositeCanvas.getContext('2d');
+                                if (!compositeCtx) return;
+
+                                if (layer.imageSrc) {
+                                    // Draw previous image
+                                    const prevImg = new window.Image();
+                                    prevImg.onload = () => {
+                                        compositeCtx.clearRect(0, 0, w, h);
+                                        compositeCtx.drawImage(prevImg, 0, 0, w, h);
+                                        // Draw new fill at correct offset
+                                        compositeCtx.drawImage(img, imageX, imageY, imageWidth, imageHeight);
+                                        const compositeDataUrl = compositeCanvas.toDataURL('image/png');
+                                        const imageNode = <KonvaImage key={`paint-image-${targetLayerId}`} image={compositeCanvas} listening width={w} height={h} x={0} y={0} />;
+                                        layerControls.updateLayerRender(targetLayerId, () => imageNode as any, {
+                                            position: { x: boundsX, y: boundsY },
+                                            bounds: { x: boundsX, y: boundsY, width: w, height: h },
+                                            imageSrc: compositeDataUrl,
+                                            rotation: 0,
+                                            scale: { x: 1, y: 1 },
+                                        });
+                                    };
+                                    prevImg.src = layer.imageSrc;
+                                } else {
+                                    // No previous image, just use the new fill at correct offset in full layer size
+                                    compositeCtx.clearRect(0, 0, w, h);
+                                    compositeCtx.drawImage(img, imageX, imageY, imageWidth, imageHeight);
+                                    const compositeDataUrl = compositeCanvas.toDataURL('image/png');
+                                    const imageNode = <KonvaImage key={`paint-image-${targetLayerId}`} image={compositeCanvas} listening width={w} height={h} x={0} y={0} />;
+                                    layerControls.updateLayerRender(targetLayerId, () => imageNode as any, {
+                                        position: { x: boundsX, y: boundsY },
+                                        bounds: { x: boundsX, y: boundsY, width: w, height: h },
+                                        imageSrc: compositeDataUrl,
+                                        rotation: 0,
+                                        scale: { x: 1, y: 1 },
+                                    });
+                                }
                             };
                             img.src = dataUrl;
                         }
