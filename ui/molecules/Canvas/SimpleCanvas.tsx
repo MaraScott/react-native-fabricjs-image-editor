@@ -866,14 +866,37 @@ export const SimpleCanvas = ({
                     const maskCtx = maskCanvas.getContext('2d');
                     if (!maskCtx) return;
 
-                    // Draw strokes into mask. Opaque pixels will be treated as boundaries.
+                    // Draw existing raster content into mask first so previous fills act as boundaries
                     maskCtx.clearRect(0, 0, w, h);
+                    if (targetLayer.imageSrc && typeof window !== 'undefined') {
+                        try {
+                            await new Promise<void>((resolve) => {
+                                const bg = new window.Image();
+                                bg.crossOrigin = 'anonymous';
+                                bg.onload = () => {
+                                    try {
+                                        maskCtx.drawImage(bg, 0, 0, w, h);
+                                    } catch (e) {
+                                        // ignore
+                                    }
+                                    resolve();
+                                };
+                                bg.onerror = () => resolve();
+                                bg.src = targetLayer.imageSrc as string;
+                            });
+                        } catch {
+                            // ignore
+                        }
+                    }
+
+                    // Draw strokes into mask. Opaque pixels will be treated as boundaries.
                     const strokes = targetLayer.strokes ?? [];
                     for (const s of strokes) {
                         if (!s || !s.points || s.points.length < 2) continue;
                         maskCtx.save();
                         // Draw strokes as solid alpha (black) so alpha marks boundaries.
                         if ((s as any).mode === 'erase') {
+                            // Eraser strokes should remove mask alpha so they open gaps in boundaries
                             maskCtx.globalCompositeOperation = 'destination-out';
                         } else {
                             maskCtx.globalCompositeOperation = 'source-over';
@@ -900,6 +923,31 @@ export const SimpleCanvas = ({
                     outCanvas.height = h;
                     const outCtx = outCanvas.getContext('2d');
                     if (!outCtx) return;
+
+                    // If the layer already has an image (previous fills), draw it first so we composite the new fill on top
+                    if (targetLayer.imageSrc && typeof window !== 'undefined') {
+                        try {
+                            await new Promise<void>((resolve) => {
+                                const bg = new window.Image();
+                                bg.crossOrigin = 'anonymous';
+                                bg.onload = () => {
+                                    try {
+                                        outCtx.clearRect(0, 0, w, h);
+                                        outCtx.drawImage(bg, 0, 0, w, h);
+                                    } catch (e) {
+                                        // ignore draw errors
+                                    }
+                                    resolve();
+                                };
+                                bg.onerror = () => resolve();
+                                bg.src = targetLayer.imageSrc as string;
+                            });
+                        } catch {
+                            // ignore
+                        }
+                    } else {
+                        outCtx.clearRect(0, 0, w, h);
+                    }
 
                     // Seed point relative to cropped bounds
                     const seedX = Math.floor(stageX - boundsX);
@@ -957,7 +1005,7 @@ export const SimpleCanvas = ({
 
                         // Paint selected region with chosen color
                         const rgba = paintToolState.color ?? '#ffffff';
-                        // fill outCtx by writing ImageData for performance
+                        // fill a temporary ImageData with the color only on region pixels
                         const outImg = outCtx.createImageData(w, h);
                         const outBuf = outImg.data;
                         // convert hex to rgba
@@ -995,7 +1043,25 @@ export const SimpleCanvas = ({
                                 }
                             }
                         }
-                        outCtx.putImageData(outImg, 0, 0);
+                        // Merge the colored region into the existing outCtx content without removing prior fills.
+                        try {
+                            const existing = outCtx.getImageData(0, 0, w, h);
+                            const existingBuf = existing.data;
+                            for (let i = 0; i < outBuf.length; i += 4) {
+                                // If this pixel is part of the new region (alpha > 0 in outImg) and
+                                // there is no existing pixel (alpha === 0), then copy it.
+                                if (outBuf[i + 3] > 0 && existingBuf[i + 3] === 0) {
+                                    existingBuf[i] = outBuf[i];
+                                    existingBuf[i + 1] = outBuf[i + 1];
+                                    existingBuf[i + 2] = outBuf[i + 2];
+                                    existingBuf[i + 3] = outBuf[i + 3];
+                                }
+                            }
+                            outCtx.putImageData(existing, 0, 0);
+                        } catch (e) {
+                            // Fallback: if getImageData fails for any reason, just put the image data.
+                            outCtx.putImageData(outImg, 0, 0);
+                        }
                     }
 
                     // Create dataUrl and rasterize into layer (replace strokes/texts)
