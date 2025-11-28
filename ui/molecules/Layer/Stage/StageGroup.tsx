@@ -2,6 +2,8 @@ import { Group as KonvaGroup } from '@atoms/Canvas';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { ReactNode, DragEvent } from 'react';
 import { useCallback, useEffect, useRef } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '@store/CanvasApp';
 import { Group } from 'react-konva';
 import type Konva from 'konva';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
@@ -64,6 +66,11 @@ export const StageGroup = ({
         syncTransformerToSelection,
 }: StageGroupProps) => {
     const layerControls = useSimpleCanvasStore((state) => state.layerControls);
+    // Tool activity flags — prevent group from intercepting pointer events when a tool is active
+    const isDrawToolActive = useSelector((state: RootState) => state.view.draw.active);
+    const isRubberToolActive = useSelector((state: RootState) => state.view.rubber.active);
+    const isPaintToolActive = useSelector((state: RootState) => state.view.paint.active);
+    const isTextToolActive = useSelector((state: RootState) => state.view.text.active);
     const layerRef = useRef<Konva.Node | null>(null);
     const lastRecordedBoundsRef = useRef<Bounds | null>(null);
 
@@ -126,6 +133,13 @@ export const StageGroup = ({
         return null;
     }
     const onPointerDown = (event: KonvaEventObject<PointerEvent>) => {
+        // If a drawing/erasing/painting/text tool is active, do not intercept pointerdown
+        // on the group so the stage-level handlers can receive the event and perform
+        // drawing/erasing. This prevents the group from being dragged/moved while using tools.
+        if (isDrawToolActive || isRubberToolActive || isPaintToolActive || isTextToolActive) {
+            return;
+        }
+
         if (!selectModeActive || !layerControls) {
             return;
         }
