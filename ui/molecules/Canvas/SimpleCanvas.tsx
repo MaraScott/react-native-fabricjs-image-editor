@@ -846,45 +846,227 @@ export const SimpleCanvas = ({
 
         if (isPaintToolActive) {
             if (!insideStage) return;
-            const bounds = {
-                x: 0,
-                y: 0,
-                width: stageWidth,
-                height: stageHeight,
-            };
-            layerControls.updateLayerRender?.(
-                layer.id,
-                () => (
-                    <Rect
-                        x={0}
-                        y={0}
-                        width={bounds?.width ?? stageWidth}
-                        height={bounds?.height ?? stageHeight}
-                        fill={paintToolState.color ?? '#ffffff'}
-                        listening
-                    />
-                ),
-                {
-                    position: { x: bounds.x, y: bounds.y },
-                    bounds,
-                    strokes: [],
-                    texts: [],
-                    imageSrc: undefined,
-                    rotation: 0,
-                    scale: { x: 1, y: 1 },
-                    shapes: [
-                        {
-                            id: `paint-rect-${Date.now()}`,
-                            type: 'rect',
-                            x: 0,
-                            y: 0,
-                            width: bounds.width,
-                            height: bounds.height,
-                            fill: paintToolState.color ?? '#ffffff',
-                        },
-                    ],
+
+            // Flood-fill: use selected layer strokes as boundaries when present.
+            const doFloodFill = async (targetLayerId: string) => {
+                try {
+                    const targetLayer = layerControls.layers.find((l) => l.id === targetLayerId);
+                    if (!targetLayer) return;
+
+                    const w = Math.max(1, stageWidth);
+                    const h = Math.max(1, stageHeight);
+
+                    // Offscreen canvases
+                    const maskCanvas = document.createElement('canvas');
+                    maskCanvas.width = w;
+                    maskCanvas.height = h;
+                    const maskCtx = maskCanvas.getContext('2d');
+                    if (!maskCtx) return;
+
+                    // Draw strokes into mask. Opaque pixels will be treated as boundaries.
+                    maskCtx.clearRect(0, 0, w, h);
+                    const strokes = targetLayer.strokes ?? [];
+                    for (const s of strokes) {
+                        if (!s || !s.points || s.points.length < 2) continue;
+                        maskCtx.save();
+                        // Draw strokes as solid alpha (black) so alpha marks boundaries.
+                        if ((s as any).mode === 'erase') {
+                            maskCtx.globalCompositeOperation = 'destination-out';
+                        } else {
+                            maskCtx.globalCompositeOperation = 'source-over';
+                        }
+                        maskCtx.lineCap = 'round';
+                        maskCtx.lineJoin = 'round';
+                        maskCtx.strokeStyle = 'rgba(0,0,0,1)';
+                        maskCtx.lineWidth = Math.max(1, s.size || 1);
+                        maskCtx.beginPath();
+                        const pts = s.points;
+                        maskCtx.moveTo(pts[0] ?? 0, pts[1] ?? 0);
+                        for (let i = 2; i < pts.length; i += 2) {
+                            maskCtx.lineTo(pts[i], pts[i + 1]);
+                        }
+                        maskCtx.stroke();
+                        maskCtx.restore();
+                    }
+
+                    // Prepare output canvas where we'll paint fill color only on filled pixels
+                    const outCanvas = document.createElement('canvas');
+                    outCanvas.width = w;
+                    outCanvas.height = h;
+                    const outCtx = outCanvas.getContext('2d');
+                    if (!outCtx) return;
+
+                    const seedX = Math.floor(stageX);
+                    const seedY = Math.floor(stageY);
+
+                    const maskData = maskCtx.getImageData(0, 0, w, h);
+                    const maskBuf = maskData.data;
+
+                    // Helper to test whether a pixel is boundary
+                    const isBoundary = (x: number, y: number) => {
+                        if (x < 0 || y < 0 || x >= w || y >= h) return false;
+                        const idx = (y * w + x) * 4 + 3;
+                        return maskBuf[idx] > 0;
+                    };
+
+                    // If seed is on boundary, we'll fill the connected boundary pixels; otherwise fill interior area.
+                    const seedOnBoundary = isBoundary(seedX, seedY);
+
+                    const visited = new Uint8Array(w * h);
+                    const stack: Array<[number, number]> = [];
+
+                    const push = (x: number, y: number) => {
+                        if (x < 0 || y < 0 || x >= w || y >= h) return;
+                        const pos = y * w + x;
+                        if (visited[pos]) return;
+                        visited[pos] = 1;
+                        stack.push([x, y]);
+                    };
+
+                    // seed validity check
+                    if (seedX < 0 || seedY < 0 || seedX >= w || seedY >= h) {
+                        // fallback to full-fill
+                        outCtx.fillStyle = paintToolState.color ?? '#ffffff';
+                        outCtx.fillRect(0, 0, w, h);
+                    } else {
+                        push(seedX, seedY);
+                        // We'll color selected pixels into outCtx later; for now mark visited region
+                        const region = new Uint8ClampedArray(w * h);
+                        while (stack.length > 0) {
+                            const [x, y] = stack.pop() as [number, number];
+                            const pos = y * w + x;
+                            // For boundary mode, we accept pixels where mask alpha > 0
+                            if (seedOnBoundary) {
+                                if (!isBoundary(x, y)) continue;
+                            } else {
+                                if (isBoundary(x, y)) continue;
+                            }
+                            region[pos] = 1;
+                            // neighbors
+                            push(x + 1, y);
+                            push(x - 1, y);
+                            push(x, y + 1);
+                            push(x, y - 1);
+                        }
+
+                        // Paint selected region with chosen color
+                        const rgba = paintToolState.color ?? '#ffffff';
+                        // fill outCtx by writing ImageData for performance
+                        const outImg = outCtx.createImageData(w, h);
+                        const outBuf = outImg.data;
+                        // convert hex to rgba
+                        const hexToRgba = (hex: string) => {
+                            const h = hex.replace('#', '');
+                            let r = 0, g = 0, b = 0, a = 255;
+                            if (h.length === 3) {
+                                r = parseInt(h[0] + h[0], 16);
+                                g = parseInt(h[1] + h[1], 16);
+                                b = parseInt(h[2] + h[2], 16);
+                            } else if (h.length === 6) {
+                                r = parseInt(h.slice(0, 2), 16);
+                                g = parseInt(h.slice(2, 4), 16);
+                                b = parseInt(h.slice(4, 6), 16);
+                            } else if (h.length === 8) {
+                                r = parseInt(h.slice(0, 2), 16);
+                                g = parseInt(h.slice(2, 4), 16);
+                                b = parseInt(h.slice(4, 6), 16);
+                                a = parseInt(h.slice(6, 8), 16);
+                            }
+                            return [r, g, b, a];
+                        };
+
+                        const [rr, rg, rb, ra] = hexToRgba(rgba);
+
+                        for (let y = 0; y < h; y++) {
+                            for (let x = 0; x < w; x++) {
+                                const pos = y * w + x;
+                                if (region[pos]) {
+                                    const di = pos * 4;
+                                    outBuf[di] = rr;
+                                    outBuf[di + 1] = rg;
+                                    outBuf[di + 2] = rb;
+                                    outBuf[di + 3] = ra;
+                                }
+                            }
+                        }
+                        outCtx.putImageData(outImg, 0, 0);
+                    }
+
+                    // Create dataUrl and rasterize into layer (replace strokes/texts)
+                    const dataUrl = outCanvas.toDataURL('image/png');
+                    // bounds: full stage
+                    const bounds = { x: 0, y: 0, width: w, height: h };
+                    if (layerControls.rasterizeLayer) {
+                        layerControls.rasterizeLayer(targetLayerId, dataUrl, { bounds });
+                    } else if (layerControls.updateLayerRender) {
+                        // Fallback: set render to an image node
+                        layerControls.updateLayerRender(targetLayerId, () => (
+                            <Rect x={0} y={0} width={w} height={h} fill={paintToolState.color ?? '#ffffff'} listening />
+                        ), {
+                            position: { x: 0, y: 0 },
+                            bounds,
+                            strokes: [],
+                            texts: [],
+                            imageSrc: dataUrl,
+                            rotation: 0,
+                            scale: { x: 1, y: 1 },
+                        });
+                    }
+                } catch (err) {
+                    console.warn('Flood fill failed', err);
                 }
-            );
+            };
+
+            // prefer the first selected layer, otherwise the topmost
+            const targetLayerId = selectedLayerIds[0] ?? (layerControls.layers[layerControls.layers.length - 1]?.id ?? null);
+            if (!targetLayerId) return;
+
+            const layer = layerControls.layers.find((l) => l.id === targetLayerId);
+            // If layer has vector strokes, perform bounded flood fill, otherwise just fill whole layer.
+            if (layer && (layer.strokes?.length ?? 0) > 0) {
+                doFloodFill(targetLayerId);
+            } else {
+                // fallback to whole-layer fill (existing behavior)
+                const bounds = {
+                    x: 0,
+                    y: 0,
+                    width: stageWidth,
+                    height: stageHeight,
+                };
+                layerControls.updateLayerRender?.(
+                    layer.id,
+                    () => (
+                        <Rect
+                            x={0}
+                            y={0}
+                            width={bounds?.width ?? stageWidth}
+                            height={bounds?.height ?? stageHeight}
+                            fill={paintToolState.color ?? '#ffffff'}
+                            listening
+                        />
+                    ),
+                    {
+                        position: { x: bounds.x, y: bounds.y },
+                        bounds,
+                        strokes: [],
+                        texts: [],
+                        imageSrc: undefined,
+                        rotation: 0,
+                        scale: { x: 1, y: 1 },
+                        shapes: [
+                            {
+                                id: `paint-rect-${Date.now()}`,
+                                type: 'rect',
+                                x: 0,
+                                y: 0,
+                                width: bounds.width,
+                                height: bounds.height,
+                                fill: paintToolState.color ?? '#ffffff',
+                            },
+                        ],
+                    }
+                );
+            }
             return;
         }
 
