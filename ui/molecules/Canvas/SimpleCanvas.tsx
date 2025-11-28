@@ -6,7 +6,16 @@ import {
     useMemo,
     type ReactNode,
 } from "react";
-import { useRotation } from "./hooks/useRotation";
+import Konva from "konva";
+import {
+    WHEEL_ZOOM_STEP,
+    KEYBOARD_ZOOM_STEP,
+    PINCH_ZOOM_SENSITIVITY,
+    TOUCH_DELTA_THRESHOLD,
+    useUpdateZoom,
+    useApplyZoomDelta,
+} from "./hooks/zoomUtils";
+import { useResize } from "./hooks/useResize";
 import { useSelector, useDispatch } from "react-redux";
 import { selectActions } from "@store/CanvasApp/view/select";
 import { selectSelectionTransform } from "@store/CanvasApp/view/selectors";
@@ -18,17 +27,12 @@ import {
     BackgroundLayer,
 } from "@molecules/Layer";
 import { useSimpleCanvasStore } from "@store/SimpleCanvas";
-import { useSelectionBounds } from "./hooks/useSelectionBounds";
 import { Layer as KonvaLayer } from "@atoms/Canvas";
-import Konva from "konva";
-
 import type { RootState } from "@store/CanvasApp";
 import type {
     PointerPanState,
     TouchPanState,
     SelectionDragState,
-    SelectionNodeSnapshot,
-    SelectionTransformSnapshot,
     Bounds,
 } from "./types/canvas.types";
 import type {
@@ -36,7 +40,6 @@ import type {
     LayerStroke,
     LayerTextItem,
 } from "@molecules/Layer/Layer.types";
-
 import { Rect, Group, Line, Text as KonvaText } from "react-konva";
 import { drawActions } from "@store/CanvasApp/view/draw";
 import { rubberActions } from "@store/CanvasApp/view/rubber";
@@ -44,7 +47,8 @@ import { textActions } from "@store/CanvasApp/view/text";
 import { SettingsPanelUI } from "@molecules/Settings/SettingsPanelUI";
 import type { Layer as KonvaLayerType } from "konva/lib/Layer";
 import { floodFillLayer } from "@molecules/Canvas/utils/floodFill";
-import { useCanvasViewport } from "./hooks/useCanvasViewport";
+import { useTextEditing } from "./hooks/useTextEditing";
+import { useSelectionTransform } from "./hooks/useSelectionTransform";
 
 export interface SimpleCanvasProps {
     stageWidth?: number;
@@ -88,76 +92,56 @@ export const SimpleCanvas = ({
         (state) => state
     );
     const dispatch = useDispatch();
+
     const isSelectToolActive = useSelector(
         (state: RootState) => state.view.select.active
     );
-    const drawToolState = useSelector((state: RootState) => state.view.draw);
+    const drawToolState = useSelector(
+        (state: RootState) => state.view.draw
+    );
     const rubberToolState = useSelector(
         (state: RootState) => state.view.rubber
     );
-    const textToolState = useSelector((state: RootState) => state.view.text);
-    const paintToolState = useSelector((state: RootState) => state.view.paint);
+    const textToolState = useSelector(
+        (state: RootState) => state.view.text
+    );
+    const paintToolState = useSelector(
+        (state: RootState) => state.view.paint
+    );
+
     const isDrawToolActive = drawToolState.active;
     const isRubberToolActive = rubberToolState.active;
     const isTextToolActive = textToolState.active;
     const isPaintToolActive = paintToolState.active;
 
-    // Read selectionTransform from Redux
+    // Redux selection transform (still exposed separately)
     const reduxSelectionTransform = useSelector(selectSelectionTransform);
 
-    // --- Viewport & input handling (extracted hook) ---
-    const {
-        stageRef,
-        containerRef,
-        containerDimensions,
-        scale: safeScale,
-        panOffset,
-        setPanOffset,
-        stageViewportOffsetX,
-        stageViewportOffsetY,
-        isPointerPanning,
-        isTouchPanning,
-        spacePressed,
-        getRelativePointerPosition,
-    } = useCanvasViewport({
-        stageWidth,
-        stageHeight,
-        initialZoom: zoom,
-        onZoomChange,
-        panModeActive,
-    });
-
-    const lastTouchDistance = useRef(0); // kept only if needed elsewhere (not used now)
-    const pointerPanState = useRef<PointerPanState | null>(null); // no longer used directly
-    const touchPanState = useRef<TouchPanState | null>(null); // no longer used directly
-
+    const stageRef = useRef<Konva.Stage>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const lastTouchDistance = useRef(0);
+    const pointerPanState = useRef<PointerPanState | null>(null);
+    const touchPanState = useRef<TouchPanState | null>(null);
     const selectionDragStateRef = useRef<SelectionDragState | null>(null);
-
-    const layerNodeRefs = useRef<Map<string, Konva.Node>>(new Map());
-    const onRefChange = ({ node, layer }) => {
-        if (node) {
-            layerNodeRefs.current.set(layer.id, node);
-        } else {
-            layerNodeRefs.current.delete(layer.id);
-        }
-        syncTransformerToSelection();
-    };
+    const interactionLayerRef = useRef<KonvaLayerType | null>(null);
+    const backgroundLayerRef = useRef<KonvaLayerType | null>(null);
 
     const pendingSelectionRef = useRef<string[] | null>(null);
-    const interactionLayerRef = useRef<Konva.Layer | null>(null);
-    const selectionTransformerRef = useRef<Konva.Transformer | null>(null);
-    const selectionLayerRef = useRef<KonvaLayerType | null>(null);
-    const selectionTransformStateRef =
-        useRef<SelectionTransformSnapshot | null>(null);
     const transformAnimationFrameRef = useRef<number | null>(null);
-    const isSelectionTransformingRef = useRef(false);
+    const layerNodeRefs = useRef<Map<string, Konva.Node>>(new Map());
 
+    const [internalZoom, setInternalZoom] = useState<number>(zoom);
+    const [panOffset, setPanOffset] = useState<PanOffset>({ x: 0, y: 0 });
+    const panOffsetRef = useRef(panOffset);
+    const [spacePressed, setSpacePressed] = useState(false);
+    const [isPointerPanning, setIsPointerPanning] = useState(false);
+    const [isTouchPanning, setIsTouchPanning] = useState(false);
     const [isLayerPanelOpen, setIsLayerPanelOpen] = useState(false);
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
     const [layerRefreshKey, setLayerRefreshKey] = useState(0);
-    const [eraserSize, setEraserSize] = useState(rubberToolState.eraserSize);
-    const [selectedLayerBounds, setSelectedLayerBounds] =
-        useState<Bounds | null>(null);
+    const [eraserSize, setEraserSize] = useState(
+        rubberToolState.eraserSize
+    );
     const [overlaySelectionBox, setOverlaySelectionBox] = useState<
         | {
               x: number;
@@ -169,36 +153,29 @@ export const SimpleCanvas = ({
         | null
     >(null);
 
-    // Map of selected layer IDs to their Konva nodes
-    const selectedLayerNodeRefs = useRef<Map<string, Konva.Node>>(new Map());
+    // Use useResize for container dimensions & scale
+    const {
+        dimensions: containerDimensions,
+        scale,
+        setDimensions: setContainerDimensions,
+        setScale,
+    } = useResize(containerRef, stageWidth, stageHeight, internalZoom);
+
+    // Keep pan offset ref in sync
+    useEffect(() => {
+        panOffsetRef.current = panOffset;
+    }, [panOffset]);
+
     const [pendingStroke, setPendingStroke] = useState<{
         layerId: string;
         stroke: LayerStroke;
     } | null>(null);
 
-    type TextEditState = {
-        layerId: string;
-        textId: string;
-        value: string;
-        left: number;
-        top: number;
-        fontSize: number;
-        fontFamily: string;
-        fontStyle?: "normal" | "italic";
-        fontWeight?: string;
-        color?: string;
-    };
-
-    const [activeTextEdit, setActiveTextEdit] =
-        useState<TextEditState | null>(null);
-
-    const backgroundLayerRef = useRef<KonvaLayerType | null>(null);
-
     useEffect(() => {
         setEraserSize(rubberToolState.eraserSize);
     }, [rubberToolState.eraserSize]);
 
-    // Open settings panel by default for kid theme; watch for theme class changes.
+    // Open settings panel by default for kid theme; watch for theme class changes
     useEffect(() => {
         if (typeof document === "undefined") return;
         const layout = document.querySelector(".canvas-layout");
@@ -210,19 +187,19 @@ export const SimpleCanvas = ({
         updateFromTheme();
         if (!layout) return;
         const observer = new MutationObserver(updateFromTheme);
-        observer.observe(layout, { attributes: true, attributeFilter: ["class"] });
+        observer.observe(layout, {
+            attributes: true,
+            attributeFilter: ["class"],
+        });
         return () => observer.disconnect();
     }, []);
 
     const layersToRender = useMemo(() => {
         if (!layerControls) return [];
-
         const source =
             renderableLayers.length === layerControls.layers.length
                 ? renderableLayers
                 : layerControls.layers;
-
-        // always return a fresh array to reflect changed order
         return [...source];
     }, [layerControls?.layers, renderableLayers]);
 
@@ -255,11 +232,9 @@ export const SimpleCanvas = ({
         ]
     );
 
-    // Keep Konva node order in sync when moveLayer fires.
+    // Keep Konva node order in sync when moveLayer fires
     useEffect(() => {
-        if (typeof window === "undefined") {
-            return;
-        }
+        if (typeof window === "undefined") return;
 
         const applyOrder = (orderedIds: string[]) => {
             setLayerRefreshKey((previous) => previous + 1);
@@ -267,13 +242,13 @@ export const SimpleCanvas = ({
         };
 
         const handleRefresh = (event: Event) => {
-            const detail = (event as CustomEvent<{ layerIds?: string[] }>).detail;
+            const detail = (event as CustomEvent<{ layerIds?: string[] }>)
+                .detail;
             const orderedIds =
                 detail?.layerIds ?? layersToRender.map((layer) => layer.id);
             applyOrder(orderedIds);
         };
 
-        // Initial sync for current render order
         applyOrder(layersToRender.map((layer) => layer.id));
 
         window.addEventListener(
@@ -298,34 +273,7 @@ export const SimpleCanvas = ({
         [selectedLayerIds]
     );
 
-    // Helper: resolve effective transform for a layer when mapping pointer->layer-local coords.
-    const sharedSelectionRect = reduxSelectionTransform ?? null;
-
-    const resolveEffectiveLayerTransform = (layer: any) => {
-        const isSelected = selectedLayerSet.has(layer.id);
-        if (isSelected && isSelectionTransformingRef.current && sharedSelectionRect) {
-            return {
-                x: sharedSelectionRect.x ?? 0,
-                y: sharedSelectionRect.y ?? 0,
-                rotation: sharedSelectionRect.rotation ?? 0,
-                scaleX: sharedSelectionRect.scaleX ?? 1,
-                scaleY: sharedSelectionRect.scaleY ?? 1,
-                boundsX: sharedSelectionRect.x ?? 0,
-                boundsY: sharedSelectionRect.y ?? 0,
-            };
-        }
-
-        return {
-            x: layer.bounds ? layer.bounds.x : layer.position?.x ?? 0,
-            y: layer.bounds ? layer.bounds.y : layer.position?.y ?? 0,
-            rotation: layer.rotation ?? 0,
-            scaleX: layer.scale?.x ?? 1,
-            scaleY: layer.scale?.y ?? 1,
-            boundsX: layer.bounds ? layer.bounds.x : layer.position?.x ?? 0,
-            boundsY: layer.bounds ? layer.bounds.y : layer.position?.y ?? 0,
-        };
-    };
-
+    // Derived text selection (used for text settings panel)
     const selectedTextLayer = useMemo(() => {
         if (!layerControls) return null;
         for (const id of selectedLayerIds) {
@@ -344,13 +292,72 @@ export const SimpleCanvas = ({
 
     const showSettingsPanel = true;
 
+    // Viewport metrics
+    const renderWidth = Math.max(1, stageWidth * scale);
+    const renderHeight = Math.max(1, stageHeight * scale);
+    const safeScale = Math.max(scale, 0.0001);
+    const stageViewportOffsetX =
+        (containerDimensions.width - renderWidth) / 2 / Math.max(safeScale, 0.000001) +
+        panOffset.x / Math.max(safeScale, 0.000001);
+    const stageViewportOffsetY =
+        (containerDimensions.height - renderHeight) / 2 /
+            Math.max(safeScale, 0.000001) +
+        panOffset.y / Math.max(safeScale, 0.000001);
+
+    // --- Text editing hook ---
+    const {
+        activeTextEdit,
+        setActiveTextEdit,
+        startTextEdit,
+        finishTextEdit,
+        updateTextValue,
+    } = useTextEditing({
+        layerControls,
+        containerRef,
+        stageRef,
+        stageViewportOffsetX,
+        stageViewportOffsetY,
+        safeScale,
+    });
+
+    // --- Selection transform hook ---
+    const {
+        selectedLayerBounds,
+        setSelectedLayerBounds,
+        selectionLayerRef,
+        selectionTransformerRef,
+        selectionTransform,
+        sharedSelectionRect,
+        isSelectionTransformingRef,
+        captureSelectionTransformState,
+        applySelectionTransformDelta,
+        commitSelectedLayerNodeTransforms,
+        scheduleBoundsRefresh,
+        initializeSelectionTransform,
+        markSelectionTransforming,
+        updateBoundsFromLayerIds,
+        refreshBoundsFromSelection,
+        resolveEffectiveLayerTransform,
+    } = useSelectionTransform({
+        selectModeActive,
+        layerControls,
+        stageRef,
+        layerNodeRefs,
+        pendingSelectionRef,
+        transformAnimationFrameRef,
+        stageViewportOffsetX,
+        stageViewportOffsetY,
+        safeScale,
+        selectedLayerIds,
+        layersRevision,
+        activeTextEdit,
+        finishTextEdit,
+    });
+
+    // Text settings panel adapter (reuses textToolState or selected text)
     const applyTextStyleToSelection = useCallback(
         (updates: Partial<LayerTextItem>) => {
-            if (
-                !selectedTextLayer ||
-                !selectedTextItem ||
-                !layerControls?.updateLayerTexts
-            )
+            if (!selectedTextLayer || !selectedTextItem || !layerControls?.updateLayerTexts)
                 return;
             const nextTexts = (selectedTextLayer.texts ?? []).map((text) =>
                 text.id === selectedTextItem.id ? { ...text, ...updates } : text
@@ -368,10 +375,10 @@ export const SimpleCanvas = ({
             : textToolState.color;
         const fontFamily =
             selectedTextItem?.fontFamily ?? textToolState.fontFamily;
-        const fontStyle = selectedTextItem?.fontStyle ?? textToolState.fontStyle;
+        const fontStyle =
+            selectedTextItem?.fontStyle ?? textToolState.fontStyle;
         const fontWeight =
             selectedTextItem?.fontWeight ?? textToolState.fontWeight;
-
         return {
             text: source.text,
             fontSize,
@@ -404,14 +411,9 @@ export const SimpleCanvas = ({
                 applyTextStyleToSelection({ fontWeight: value });
             },
         };
-    }, [
-        applyTextStyleToSelection,
-        dispatch,
-        selectedTextItem,
-        textToolState,
-    ]);
+    }, [applyTextStyleToSelection, dispatch, selectedTextItem, textToolState]);
 
-    // Auto-select top layer by default
+    // Ensure at least one layer is selected
     useEffect(() => {
         if (!layerControls || selectedLayerIds.length > 0) return;
         if (layerControls.layers.length > 0) {
@@ -421,15 +423,55 @@ export const SimpleCanvas = ({
         }
     }, [layerControls, selectedLayerIds]);
 
-    // Keep selection handles a constant screen size
-    const outlineDash: [number, number] = [8, 4];
-    const transformerAnchorSize = 8;
-    const transformerAnchorStrokeWidth = 1;
-    const transformerAnchorCornerRadius = 2;
-    const transformerPadding = 0;
-    const transformerHitStrokeWidth = 12;
+    // Keep pan offset ref
+    useEffect(() => {
+        panOffsetRef.current = panOffset;
+    }, [panOffset]);
 
-    // Utility: Sync selectedLayerNodeRefs from layerNodeRefs and selectedLayerIds
+    // Sync selection bounds to overlay box (screen-space)
+    useEffect(() => {
+        if (!selectedLayerBounds) {
+            setOverlaySelectionBox(null);
+            return;
+        }
+
+        const rotationDeg = selectionTransform?.rotation ?? 0;
+        const newBox = {
+            x: selectedLayerBounds.x,
+            y: selectedLayerBounds.y,
+            width: selectedLayerBounds.width,
+            height: selectedLayerBounds.height,
+            rotation: rotationDeg,
+        };
+        setOverlaySelectionBox(newBox);
+    }, [selectedLayerBounds, selectionTransform]);
+
+    // Recenter on fitRequest
+    useEffect(() => {
+        setPanOffset({ x: 0, y: 0 });
+        panOffsetRef.current = { x: 0, y: 0 };
+    }, [fitRequest]);
+
+    // Zoom hooks
+    const updateZoom = useUpdateZoom(onZoomChange, setInternalZoom);
+    const applyZoomDelta = useApplyZoomDelta(updateZoom);
+
+    const getRelativePointerPosition = useCallback(() => {
+        const stage = stageRef.current;
+        if (!stage) return null;
+        const pos = stage.getPointerPosition();
+        if (!pos) return null;
+        return {
+            x: pos.x / safeScale - stageViewportOffsetX,
+            y: pos.y / safeScale - stageViewportOffsetY,
+        };
+    }, [safeScale, stageViewportOffsetX, stageViewportOffsetY]);
+
+    // Sync selectedLayerNodeRefs from layerNodeRefs and selectedLayerIds
+    const selectedLayerNodeRefs = useRef<Map<string, Konva.Node>>(
+        new Map()
+    );
+
     const syncSelectedLayerNodeRefs = useCallback(() => {
         selectedLayerNodeRefs.current.clear();
         selectedLayerIds.forEach((id) => {
@@ -440,10 +482,20 @@ export const SimpleCanvas = ({
         });
     }, [selectedLayerIds]);
 
+    const onRefChange = ({ node, layer }) => {
+        if (node) {
+            layerNodeRefs.current.set(layer.id, node);
+        } else {
+            layerNodeRefs.current.delete(layer.id);
+        }
+        // Transformer sync handled by hook/SelectionLayer, but this keeps refs fresh
+    };
+
     // Handle rasterize requests (convert layer group into bitmap image)
     useEffect(() => {
         const handleRasterizeRequest = (event: Event) => {
-            const detail = (event as CustomEvent<{ layerId: string }>).detail;
+            const detail = (event as CustomEvent<{ layerId: string }>)
+                .detail;
             const layerId = detail?.layerId;
             if (!layerId || !layerControls?.rasterizeLayer) return;
             const layerDescriptor = layerControls.layers.find(
@@ -451,9 +503,9 @@ export const SimpleCanvas = ({
             );
             const node = layerNodeRefs.current.get(layerId);
             if (!node) return;
-
             try {
-                let bounds: Bounds | null = layerDescriptor?.bounds ?? null;
+                let bounds: Bounds | null =
+                    layerDescriptor?.bounds ?? null;
                 if (!bounds) {
                     const stage = node.getStage();
                     if (stage) {
@@ -489,6 +541,7 @@ export const SimpleCanvas = ({
                 console.warn("Unable to rasterize layer", error);
             }
         };
+
         window.addEventListener(
             "rasterize-layer-request",
             handleRasterizeRequest as EventListener
@@ -501,54 +554,20 @@ export const SimpleCanvas = ({
         };
     }, [layerControls, stageViewportOffsetX, stageViewportOffsetY]);
 
-    // Use selection bounds hook
-    const {
-        updateBoundsFromLayerIds: _updateBoundsFromLayerIds,
-        refreshBoundsFromSelection: _refreshBoundsFromSelection,
-        scheduleBoundsRefresh,
-        resolveSelectionRotation,
-    } = useSelectionBounds({
-        selectModeActive,
-        layerControls,
-        stageRef,
-        layerNodeRefs,
-        pendingSelectionRef,
-        transformAnimationFrameRef,
-        setSelectedLayerBounds,
-    });
-
-    // Rotation logic is handled by useRotation
-    const { selectionProxyRotationRef } = useRotation(
-        resolveSelectionRotation
-    );
-
-    const updateBoundsFromLayerIds = (ids: string[]) => {
-        return _updateBoundsFromLayerIds(ids);
-    };
-    const refreshBoundsFromSelection = () => {
-        return _refreshBoundsFromSelection();
-    };
-
-    // --- Unified selection transform state for Layer and SelectionLayer ---
-    const selectionTransform = reduxSelectionTransform;
-
-    // Ensure selectionTransform is initialized when selection changes
+    // Initialize/clear selectionTransform in Redux when selection changes
     useEffect(() => {
         if (selectedLayerIds.length > 0 && !reduxSelectionTransform) {
             if (selectedLayerBounds) {
                 const { x, y, width, height } = selectedLayerBounds;
-                const rotation = 0;
-                const scaleX = 1;
-                const scaleY = 1;
                 dispatch(
                     selectActions.setSelectionTransform({
                         x,
                         y,
                         width,
                         height,
-                        rotation,
-                        scaleX,
-                        scaleY,
+                        rotation: 0,
+                        scaleX: 1,
+                        scaleY: 1,
                     })
                 );
             }
@@ -562,99 +581,6 @@ export const SimpleCanvas = ({
         reduxSelectionTransform,
         dispatch,
     ]);
-
-    // Recenter pan on fitRequest
-    useEffect(() => {
-        setPanOffset({ x: 0, y: 0 });
-    }, [fitRequest, setPanOffset]);
-
-    const captureSelectionTransformState = useCallback(() => {
-        const nodeSnapshots = selectedLayerIds
-            .map((layerId) => {
-                const node = layerNodeRefs.current.get(layerId);
-                const layer = layerControls?.layers.find(
-                    (l) => l.id === layerId
-                );
-                if (!node || !layer) {
-                    return null;
-                }
-                return {
-                    id: layerId,
-                    node,
-                    initialScaleX: node.scaleX() || 1,
-                    initialScaleY: node.scaleY() || 1,
-                    texts: layer.texts
-                        ? layer.texts.map((t) => ({ ...t }))
-                        : [],
-                };
-            })
-            .filter(
-                (
-                    snapshot
-                ): snapshot is SelectionNodeSnapshot & {
-                    initialScaleX: number;
-                    initialScaleY: number;
-                    texts: LayerTextItem[];
-                } => Boolean(snapshot)
-            );
-
-        if (nodeSnapshots.length === 0) {
-            selectionTransformStateRef.current = null;
-            return;
-        }
-
-        selectionTransformStateRef.current = {
-            nodes: nodeSnapshots,
-        } as any;
-    }, [layerControls?.layers, selectedLayerIds]);
-
-    const applySelectionTransformDelta = useCallback(() => {
-        const snapshot = selectionTransformStateRef.current as {
-            nodes?: Array<{
-                id: string;
-                node: Konva.Node;
-                initialScaleX: number;
-                initialScaleY: number;
-                texts: LayerTextItem[];
-            }>;
-        } | null;
-        if (!snapshot?.nodes || !layerControls) {
-            return;
-        }
-
-        let lastFontSize: number | null = null;
-
-        snapshot.nodes.forEach((snap) => {
-            const currentScaleX = snap.node.scaleX() || 1;
-            const currentScaleY = snap.node.scaleY() || 1;
-            const relScaleX = currentScaleX / (snap.initialScaleX || 1);
-            const relScaleY = currentScaleY / (snap.initialScaleY || 1);
-            const avgScale =
-                (Math.abs(relScaleX) + Math.abs(relScaleY)) / 2 || 1;
-
-            if (snap.texts.length > 0) {
-                const nextTexts = snap.texts.map((text) => ({
-                    ...text,
-                    x: text.x ?? 0,
-                    y: text.y ?? 0,
-                    fontSize: (text.fontSize ?? 32) * avgScale,
-                }));
-                layerControls.updateLayerTexts?.(snap.id, nextTexts);
-                lastFontSize = nextTexts[0]?.fontSize ?? lastFontSize;
-
-                // Reset scale so subsequent deltas are relative to the updated size.
-                snap.node.scale({ x: 1, y: 1 });
-                snap.initialScaleX = 1;
-                snap.initialScaleY = 1;
-                snap.texts = nextTexts;
-            }
-        });
-
-        if (lastFontSize !== null) {
-            dispatch(textActions.setFontSize(lastFontSize));
-            setIsSettingsPanelOpen((prev) => prev);
-        }
-    }, [dispatch, layerControls]);
 
     // Warn when eraser is selected but layer must be rasterized first
     const rasterizeAlertShownRef = useRef(false);
@@ -681,218 +607,102 @@ export const SimpleCanvas = ({
         }
     }, [isRubberToolActive, layerControls, selectedLayerIds]);
 
-    // Unified effect for selection bounds refresh
-    useEffect(() => {
-        if (!selectModeActive) {
-            setSelectedLayerBounds(null);
-            return;
-        }
-        refreshBoundsFromSelection();
-    }, [
-        selectModeActive,
-        layersRevision,
-        safeScale,
-        JSON.stringify(selectedLayerIds),
-    ]);
-
-    // Unified effect: handle stage ready, scale, and zoom sync
+    // Unified effect: handle stage ready & scale
     useEffect(() => {
         if (stageRef.current) {
             if (onStageReady) onStageReady(stageRef.current);
-            stageRef.current.scale({ x: safeScale, y: safeScale });
+            stageRef.current.scale({ x: scale, y: scale });
         }
-    }, [onStageReady, safeScale, stageRef]);
+        setInternalZoom(zoom);
+    }, [onStageReady, scale, zoom]);
 
-    const markSelectionTransforming = useCallback((flag: boolean) => {
-        isSelectionTransformingRef.current = flag;
-    }, []);
+    // Wheel zoom
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
 
-    const getTextItem = useCallback(
-        (layerId: string, textId: string) => {
-            const layer = layerControls?.layers.find(
-                (l) => l.id === layerId
-            );
-            const textItem = layer?.texts?.find((t) => t.id === textId);
-            return { layer, textItem };
-        },
-        [layerControls?.layers]
-    );
-
-    const updateTextValue = useCallback(
-        (layerId: string, textId: string, value: string) => {
-            if (!layerControls?.updateLayerTexts) return;
-            const { layer } = getTextItem(layerId, textId);
-            if (!layer) return;
-            const nextTexts = (layer.texts ?? []).map((text) =>
-                text.id === textId ? { ...text, text: value } : text
-            );
-            layerControls.updateLayerTexts(layerId, nextTexts);
-        },
-        [getTextItem, layerControls]
-    );
-
-    const removeTextItem = useCallback(
-        (layerId: string, textId: string) => {
-            if (!layerControls?.updateLayerTexts) return;
-            const { layer } = getTextItem(layerId, textId);
-            if (!layer) return;
-            const nextTexts = (layer.texts ?? []).filter(
-                (text) => text.id !== textId
-            );
-            layerControls.updateLayerTexts(layerId, nextTexts);
-        },
-        [getTextItem, layerControls]
-    );
-
-    const finishTextEdit = useCallback(() => {
-        if (!activeTextEdit) return;
-        const trimmed = (activeTextEdit.value ?? "").trim();
-        if (!trimmed) {
-            removeTextItem(activeTextEdit.layerId, activeTextEdit.textId);
-        } else {
-            updateTextValue(
-                activeTextEdit.layerId,
-                activeTextEdit.textId,
-                trimmed
-            );
-        }
-        setActiveTextEdit(null);
-    }, [activeTextEdit, removeTextItem, updateTextValue]);
-
-    // Commit selected layer node values back to app state (e.g., after transform)
-    const commitSelectedLayerNodeTransforms = useCallback(() => {
-        if (activeTextEdit) {
-            finishTextEdit();
-            return;
-        }
-        if (!layerControls) return;
-        selectedLayerNodeRefs.current.forEach((node, id) => {
-            if (!node) return;
-            const pos = (node as any).position();
-            const rot = (node as any).rotation();
-            let scaleX = (node as any).scaleX();
-            let scaleY = (node as any).scaleY();
-
-            let adjustedX = pos.x - stageViewportOffsetX;
-            let adjustedY = pos.y - stageViewportOffsetY;
-
-            const layerData = layerControls.layers.find((l) => l.id === id);
-            const texts = layerData?.texts ?? [];
-            const scaleChanged =
-                Math.abs(scaleX - 1) > 0.001 || Math.abs(scaleY - 1) > 0.001;
-            if (texts.length > 0 && scaleChanged) {
-                scaleX = 1;
-                scaleY = 1;
-                const layerPosX = layerData?.position?.x ?? 0;
-                const layerPosY = layerData?.position?.y ?? 0;
-                node.position({
-                    x: layerPosX + stageViewportOffsetX,
-                    y: layerPosY + stageViewportOffsetY,
-                });
-                node.scale({ x: 1, y: 1 });
-                adjustedX = layerPosX;
-                adjustedY = layerPosY;
+        const handleWheel = (event: WheelEvent) => {
+            const target = event.target as HTMLElement | null;
+            if (
+                target &&
+                (target.closest(".layer-panel-ui") ||
+                    target.closest(".settings-panel-ui"))
+            ) {
+                return;
             }
+            event.preventDefault();
+            if (event.deltaY === 0) return;
+            const direction = -Math.sign(event.deltaY);
+            applyZoomDelta(direction * WHEEL_ZOOM_STEP);
+        };
 
-            if (typeof layerControls.updateLayerTransform === "function") {
-                layerControls.updateLayerTransform(id, {
-                    position: { x: adjustedX, y: adjustedY },
-                    rotation: rot,
-                    scale: { x: scaleX, y: scaleY },
-                });
-            } else {
-                if (typeof layerControls.updateLayerPosition === "function") {
-                    layerControls.updateLayerPosition(id, {
-                        x: adjustedX,
-                        y: adjustedY,
-                    });
-                }
-                if (typeof layerControls.updateLayerRotation === "function") {
-                    layerControls.updateLayerRotation(id, rot);
-                }
-                if (typeof layerControls.updateLayerScale === "function") {
-                    layerControls.updateLayerScale(id, {
-                        x: scaleX,
-                        y: scaleY,
-                    });
-                }
-            }
+        container.addEventListener("wheel", handleWheel, {
+            passive: false,
         });
-    }, [
-        activeTextEdit,
-        finishTextEdit,
-        layerControls,
-        stageViewportOffsetX,
-        stageViewportOffsetY,
-    ]);
+        return () =>
+            container.removeEventListener("wheel", handleWheel);
+    }, [applyZoomDelta]);
 
-    const startTextEdit = useCallback(
-        (layerId: string, textId: string) => {
-            const { textItem, layer } = getTextItem(layerId, textId);
-            const containerRect =
-                containerRef.current?.getBoundingClientRect();
-            if (!textItem || !layer || !containerRect) return;
-
-            const layerBaseX =
-                layer.bounds?.x ?? layer.position?.x ?? 0;
-            const layerBaseY =
-                layer.bounds?.y ?? layer.position?.y ?? 0;
-            const left =
-                (stageViewportOffsetX +
-                    layerBaseX +
-                    (textItem.x ?? 0)) *
-                safeScale;
-            const top =
-                (stageViewportOffsetY +
-                    layerBaseY +
-                    (textItem.y ?? 0)) *
-                safeScale;
-
-            setActiveTextEdit({
-                layerId,
-                textId,
-                value: textItem.text ?? "",
-                left,
-                top,
-                fontSize: textItem.fontSize ?? 32,
-                fontFamily: textItem.fontFamily ?? "Arial, sans-serif",
-                fontStyle: textItem.fontStyle ?? "normal",
-                fontWeight: textItem.fontWeight ?? "normal",
-                color: textItem.fill ?? "#000000",
-            });
-
-            const container = stageRef.current?.container();
-            if (container && typeof container.focus === "function") {
-                if (!container.getAttribute("tabindex")) {
-                    container.setAttribute("tabindex", "0");
+    // Keyboard zoom & space-panning
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement | null;
+            if (target) {
+                const tagName = target.tagName;
+                if (
+                    tagName === "INPUT" ||
+                    tagName === "TEXTAREA" ||
+                    target.isContentEditable
+                ) {
+                    return;
                 }
-                container.focus();
             }
-        },
-        [getTextItem, safeScale, stageViewportOffsetX, stageViewportOffsetY]
-    );
 
-    const initializeSelectionTransform = useCallback(
-        (bounds: Bounds | null) => {
-            if (!bounds) return;
-            const { x, y, width, height } = bounds;
-            const rotation = 0;
-            const scaleX = 1;
-            const scaleY = 1;
-            dispatch(
-                selectActions.setSelectionTransform({
-                    x,
-                    y,
-                    width,
-                    height,
-                    rotation,
-                    scaleX,
-                    scaleY,
-                })
-            );
-        },
-        [dispatch]
-    );
+            if (event.code === "Space") {
+                if (!event.repeat) {
+                    setSpacePressed(true);
+                }
+                event.preventDefault();
+                return;
+            }
+
+            if (event.key === "+" || event.key === "=") {
+                event.preventDefault();
+                applyZoomDelta(KEYBOARD_ZOOM_STEP);
+            } else if (event.key === "-" || event.key === "_") {
+                event.preventDefault();
+                applyZoomDelta(-KEYBOARD_ZOOM_STEP);
+            } else if (
+                event.key === "0" &&
+                (event.ctrlKey || event.metaKey)
+            ) {
+                event.preventDefault();
+                updateZoom(() => 0);
+            }
+        };
+
+        const handleKeyUp = (event: KeyboardEvent) => {
+            if (event.code === "Space") {
+                setSpacePressed(false);
+            }
+        };
+
+        const handleWindowBlur = () => {
+            setSpacePressed(false);
+            pointerPanState.current = null;
+            setIsPointerPanning(false);
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        window.addEventListener("keyup", handleKeyUp);
+        window.addEventListener("blur", handleWindowBlur);
+
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+            window.removeEventListener("keyup", handleKeyUp);
+            window.removeEventListener("blur", handleWindowBlur);
+        };
+    }, [applyZoomDelta, updateZoom]);
 
     const clearSelection = useCallback(() => {
         if (layerControls && typeof layerControls.clearSelection === "function") {
@@ -901,9 +711,9 @@ export const SimpleCanvas = ({
             pendingSelectionRef.current = null;
             setSelectedLayerBounds(null);
         }
-    }, [layerControls]);
+    }, [layerControls, setSelectedLayerBounds]);
 
-    // Deselect when clicking anywhere outside the canvas container
+    // Deselect when clicking outside the canvas container (but not sidebars)
     useEffect(() => {
         if (!selectModeActive || !layerControls) return;
         if (typeof document === "undefined") return;
@@ -918,11 +728,9 @@ export const SimpleCanvas = ({
             ) {
                 return;
             }
-
             if (targetElement?.closest(".sidebar")) {
                 return;
             }
-
             clearSelection();
         };
 
@@ -937,7 +745,29 @@ export const SimpleCanvas = ({
             );
     }, [selectModeActive, layerControls, clearSelection]);
 
-    // Stage pointer handlers (drawing / text / paint)
+    const finishPointerPan = useCallback(
+        (event?: React.PointerEvent<HTMLDivElement>) => {
+            if (!pointerPanState.current) return;
+            const { pointerId } = pointerPanState.current;
+            if (event) {
+                try {
+                    if (
+                        event.currentTarget.hasPointerCapture(pointerId)
+                    ) {
+                        event.currentTarget.releasePointerCapture(
+                            pointerId
+                        );
+                    }
+                } catch {
+                    // ignore
+                }
+            }
+            pointerPanState.current = null;
+            setIsPointerPanning(false);
+        },
+        []
+    );
+
     const handleStagePointerDown = useCallback(
         (event: any) => {
             if (!layerControls) return;
@@ -947,6 +777,7 @@ export const SimpleCanvas = ({
             const point = getRelativePointerPosition();
             if (!point) return;
 
+            // If editing existing text, finish edit first on background click
             if (isTextToolActive && activeTextEdit) {
                 finishTextEdit();
                 return;
@@ -954,7 +785,8 @@ export const SimpleCanvas = ({
 
             const targetLayerId =
                 selectedLayerIds[0] ??
-                layerControls.layers[layerControls.layers.length - 1]?.id ??
+                layerControls.layers[layerControls.layers.length - 1]
+                    ?.id ??
                 null;
             if (!targetLayerId) return;
 
@@ -963,6 +795,7 @@ export const SimpleCanvas = ({
                     mode: "replace",
                 });
             }
+
             const layer = layerControls.layers.find(
                 (l) => l.id === targetLayerId
             );
@@ -976,24 +809,25 @@ export const SimpleCanvas = ({
                 stageX <= stageWidth &&
                 stageY <= stageHeight;
 
+            // Paint tool
             if (isPaintToolActive) {
                 if (!insideStage) return;
-
-                const paintLayerId =
+                const effectiveLayerId =
                     selectedLayerIds[0] ??
                     layerControls.layers[
                         layerControls.layers.length - 1
                     ]?.id ??
                     null;
-                if (!paintLayerId) return;
-
+                if (!effectiveLayerId) return;
                 const paintLayer = layerControls.layers.find(
-                    (l) => l.id === paintLayerId
+                    (l) => l.id === effectiveLayerId
                 );
-
-                if (paintLayer && (paintLayer.strokes?.length ?? 0) > 0) {
+                if (
+                    paintLayer &&
+                    (paintLayer.strokes?.length ?? 0) > 0
+                ) {
                     floodFillLayer(
-                        paintLayerId,
+                        effectiveLayerId,
                         paintLayer,
                         layerControls,
                         paintToolState.color ?? "#ffffff",
@@ -1017,9 +851,11 @@ export const SimpleCanvas = ({
                                 key={`paint-fill-${paintLayer.id}`}
                                 x={0}
                                 y={0}
-                                width={bounds?.width ?? stageWidth}
-                                height={bounds?.height ?? stageHeight}
-                                fill={paintToolState.color ?? "#ffffff"}
+                                width={bounds.width}
+                                height={bounds.height}
+                                fill={
+                                    paintToolState.color ?? "#ffffff"
+                                }
                                 listening
                             />
                         ),
@@ -1050,20 +886,20 @@ export const SimpleCanvas = ({
                 return;
             }
 
+            // Text tool
             if (isTextToolActive) {
                 if (activeTextEdit) {
                     finishTextEdit();
                 }
 
-                const targetTextId =
-                    event?.target?.attrs?.textItemId as
-                        | string
-                        | undefined;
+                const targetTextId = event?.target?.attrs
+                    ?.textItemId as string | undefined;
                 if (targetTextId) {
-                    const textLayer = layerControls.layers.find((l) =>
-                        (l.texts ?? []).some(
-                            (t) => t.id === targetTextId
-                        )
+                    const textLayer = layerControls.layers.find(
+                        (l) =>
+                            (l.texts ?? []).some(
+                                (t) => t.id === targetTextId
+                            )
                     );
                     const textItem = textLayer?.texts?.find(
                         (t) => t.id === targetTextId
@@ -1082,12 +918,9 @@ export const SimpleCanvas = ({
                     fontSize: textToolState.fontSize ?? 32,
                     fill: textToolState.color ?? "#000000",
                     fontFamily:
-                        textToolState.fontFamily ??
-                        "Arial, sans-serif",
-                    fontStyle:
-                        textToolState.fontStyle ?? "normal",
-                    fontWeight:
-                        textToolState.fontWeight ?? "normal",
+                        textToolState.fontFamily ?? "Arial, sans-serif",
+                    fontStyle: textToolState.fontStyle ?? "normal",
+                    fontWeight: textToolState.fontWeight ?? "normal",
                     x: stageX,
                     y: stageY,
                 });
@@ -1100,20 +933,19 @@ export const SimpleCanvas = ({
                 return;
             }
 
+            // Drawing / erasing logic (layer-local coords)
             const eff = resolveEffectiveLayerTransform(layer);
             const sizeScale =
-                (Math.abs(eff.scaleX ?? 1) + Math.abs(eff.scaleY ?? 1)) /
+                (Math.abs(eff.scaleX ?? 1) +
+                    Math.abs(eff.scaleY ?? 1)) /
                     2 || 1;
 
             let localX = stageX - (eff.boundsX ?? 0);
             let localY = stageY - (eff.boundsY ?? 0);
-
             localX /= eff.scaleX || 1;
             localY /= eff.scaleY || 1;
-
             if ((eff.rotation ?? 0) !== 0) {
-                const rotationRad =
-                    (eff.rotation ?? 0) * (Math.PI / 180);
+                const rotationRad = (eff.rotation ?? 0) * (Math.PI / 180);
                 const cos = Math.cos(-rotationRad);
                 const sin = Math.sin(-rotationRad);
                 const x0 = localX;
@@ -1122,8 +954,14 @@ export const SimpleCanvas = ({
                 localY = x0 * sin + y0 * cos;
             }
 
-            if (!isDrawToolActive && !isRubberToolActive) return;
-            if (isDrawToolActive && !insideStage) return;
+            if (
+                !isDrawToolActive &&
+                !isRubberToolActive &&
+                !isPaintToolActive
+            )
+                return;
+            if ((isDrawToolActive || isPaintToolActive) && !insideStage)
+                return;
 
             if (isRubberToolActive) {
                 const strokeId = `erase-${Date.now()}-${Math.random()
@@ -1212,7 +1050,6 @@ export const SimpleCanvas = ({
             let localY = point.y - (eff2.boundsY ?? 0);
             localX /= eff2.scaleX || 1;
             localY /= eff2.scaleY || 1;
-
             if ((eff2.rotation ?? 0) !== 0) {
                 const r2 = (eff2.rotation ?? 0) * (Math.PI / 180);
                 const cos2 = Math.cos(-r2);
@@ -1238,6 +1075,7 @@ export const SimpleCanvas = ({
                       }
                     : prev
             );
+
             if (isDrawToolActive) {
                 dispatch(drawActions.updatePath(pendingStroke.stroke.id));
             }
@@ -1255,7 +1093,10 @@ export const SimpleCanvas = ({
 
     const handleStagePointerUp = useCallback(
         (event: any) => {
-            if ((!isDrawToolActive && !isRubberToolActive) || !layerControls)
+            if (
+                (!isDrawToolActive && !isRubberToolActive) ||
+                !layerControls
+            )
                 return;
             if (event?.evt?.preventDefault) {
                 event.evt.preventDefault();
@@ -1376,6 +1217,7 @@ export const SimpleCanvas = ({
                 y: stage.scaleY(),
             };
             const previousPos = stage.position();
+
             try {
                 if (backgroundLayer) {
                     backgroundLayer.visible(false);
@@ -1403,6 +1245,7 @@ export const SimpleCanvas = ({
                     quality: 1,
                     backgroundColor: "rgba(0,0,0,0)",
                 });
+
                 const anchor = document.createElement("a");
                 anchor.href = dataUrl;
                 anchor.download = fileName ?? "canvas-stage.png";
@@ -1430,7 +1273,6 @@ export const SimpleCanvas = ({
             }
         },
         [
-            stageRef,
             stageViewportOffsetX,
             stageViewportOffsetY,
             stageWidth,
@@ -1438,12 +1280,17 @@ export const SimpleCanvas = ({
         ]
     );
 
+    // Export PNG event
     useEffect(() => {
         const handler = (event: Event) => {
-            const detail = (event as CustomEvent<{ fileName?: string }>).detail;
+            const detail = (event as CustomEvent<{ fileName?: string }>)
+                .detail;
             handleSavePNG(detail?.fileName);
         };
-        window.addEventListener("export-stage-png", handler as EventListener);
+        window.addEventListener(
+            "export-stage-png",
+            handler as EventListener
+        );
         return () =>
             window.removeEventListener(
                 "export-stage-png",
@@ -1451,7 +1298,273 @@ export const SimpleCanvas = ({
             );
     }, [handleSavePNG]);
 
-    // Cursor logic (now uses pan state from hook)
+    // Container pointer panning (mouse/pen)
+    const handlePointerDown = useCallback(
+        (event: React.PointerEvent<HTMLDivElement>) => {
+            if (
+                event.pointerType !== "mouse" &&
+                event.pointerType !== "pen"
+            ) {
+                return;
+            }
+            if (event.button !== 0) return;
+            if (selectModeActive) return;
+            if (!(panModeActive || spacePressed)) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            pointerPanState.current = {
+                pointerId: event.pointerId,
+                start: { x: event.clientX, y: event.clientY },
+                origin: { ...panOffsetRef.current },
+            };
+            setIsPointerPanning(true);
+
+            try {
+                event.currentTarget.setPointerCapture(event.pointerId);
+            } catch {
+                // ignore
+            }
+        },
+        [panModeActive, spacePressed, selectModeActive]
+    );
+
+    const handlePointerMove = useCallback(
+        (event: React.PointerEvent<HTMLDivElement>) => {
+            const state = pointerPanState.current;
+            if (!state || event.pointerId !== state.pointerId) {
+                return;
+            }
+
+            event.preventDefault();
+
+            const deltaX = event.clientX - state.start.x;
+            const deltaY = event.clientY - state.start.y;
+
+            setPanOffset({
+                x: state.origin.x + deltaX,
+                y: state.origin.y + deltaY,
+            });
+        },
+        []
+    );
+
+    const handlePointerUp = useCallback(
+        (event: React.PointerEvent<HTMLDivElement>) => {
+            const state = pointerPanState.current;
+            if (!state || event.pointerId !== state.pointerId) {
+                return;
+            }
+            event.preventDefault();
+            finishPointerPan(event);
+        },
+        [finishPointerPan]
+    );
+
+    const handlePointerCancel = useCallback(
+        (event: React.PointerEvent<HTMLDivElement>) => {
+            const state = pointerPanState.current;
+            if (!state || event.pointerId !== state.pointerId) {
+                return;
+            }
+            finishPointerPan(event);
+        },
+        [finishPointerPan]
+    );
+
+    const handlePointerLeave = useCallback(
+        (event: React.PointerEvent<HTMLDivElement>) => {
+            const state = pointerPanState.current;
+            if (!state || event.pointerId !== state.pointerId) {
+                return;
+            }
+            finishPointerPan(event);
+        },
+        [finishPointerPan]
+    );
+
+    // Touch pinch zoom and one-/three-finger pan
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        const getTouchDistance = (touches: TouchList) => {
+            if (touches.length < 2) return 0;
+            const touchOne = touches[0];
+            const touchTwo = touches[1];
+            const dx = touchTwo.clientX - touchOne.clientX;
+            const dy = touchTwo.clientY - touchOne.clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        };
+
+        const getTouchCenter = (touches: TouchList) => {
+            let sumX = 0;
+            let sumY = 0;
+            const count = touches.length;
+            for (let index = 0; index < count; index += 1) {
+                const touch = touches[index];
+                sumX += touch.clientX;
+                sumY += touch.clientY;
+            }
+            return {
+                x: sumX / count,
+                y: sumY / count,
+            };
+        };
+
+        const clearTouchPan = () => {
+            if (touchPanState.current) {
+                touchPanState.current = null;
+                setIsTouchPanning(false);
+            }
+        };
+
+        const handleTouchStart = (event: TouchEvent) => {
+            const touches = event.touches;
+
+            if (panModeActive && touches.length === 1) {
+                event.preventDefault();
+                touchPanState.current = {
+                    center: getTouchCenter(touches),
+                    origin: { ...panOffsetRef.current },
+                    touchCount: 1,
+                };
+                setIsTouchPanning(true);
+                lastTouchDistance.current = 0;
+                return;
+            }
+
+            if (touches.length === 3) {
+                event.preventDefault();
+                touchPanState.current = {
+                    center: getTouchCenter(touches),
+                    origin: { ...panOffsetRef.current },
+                    touchCount: 3,
+                };
+                setIsTouchPanning(true);
+                lastTouchDistance.current = 0;
+            } else if (touches.length === 2) {
+                event.preventDefault();
+                clearTouchPan();
+                lastTouchDistance.current = getTouchDistance(touches);
+            }
+        };
+
+        const handleTouchMove = (event: TouchEvent) => {
+            const touches = event.touches;
+            const panState = touchPanState.current;
+
+            if (panState && panState.touchCount === 1) {
+                if (!panModeActive) {
+                    clearTouchPan();
+                    return;
+                }
+                if (touches.length === 1) {
+                    event.preventDefault();
+                    const center = getTouchCenter(touches);
+                    setPanOffset({
+                        x:
+                            panState.origin.x +
+                            (center.x - panState.center.x),
+                        y:
+                            panState.origin.y +
+                            (center.y - panState.center.y),
+                    });
+                    return;
+                }
+            }
+
+            if (
+                panState &&
+                panState.touchCount === 3 &&
+                touches.length === 3
+            ) {
+                event.preventDefault();
+                const center = getTouchCenter(touches);
+                setPanOffset({
+                    x:
+                        panState.origin.x +
+                        (center.x - panState.center.x),
+                    y:
+                        panState.origin.y +
+                        (center.y - panState.center.y),
+                });
+                return;
+            }
+
+            if (touches.length === 2) {
+                event.preventDefault();
+                const currentDistance = getTouchDistance(touches);
+                const previousDistance = lastTouchDistance.current;
+                if (previousDistance > 0) {
+                    const scaleFactor =
+                        currentDistance / previousDistance;
+                    const deltaZoom =
+                        (scaleFactor - 1) * PINCH_ZOOM_SENSITIVITY;
+                    applyZoomDelta(deltaZoom, TOUCH_DELTA_THRESHOLD);
+                }
+                lastTouchDistance.current = currentDistance;
+            }
+        };
+
+        const handleTouchEnd = (event: TouchEvent) => {
+            if (touchPanState.current) {
+                const activeCount = touchPanState.current.touchCount;
+                if (
+                    (activeCount === 3 &&
+                        event.touches.length < 3) ||
+                    (activeCount === 1 && event.touches.length === 0)
+                ) {
+                    clearTouchPan();
+                }
+            }
+
+            if (event.touches.length < 2) {
+                lastTouchDistance.current = 0;
+            }
+
+            if (
+                panModeActive &&
+                event.touches.length === 1 &&
+                (!touchPanState.current ||
+                    touchPanState.current.touchCount !== 1)
+            ) {
+                touchPanState.current = {
+                    center: getTouchCenter(event.touches),
+                    origin: { ...panOffsetRef.current },
+                    touchCount: 1,
+                };
+                setIsTouchPanning(true);
+                lastTouchDistance.current = 0;
+            }
+        };
+
+        const handleTouchCancel = () => {
+            clearTouchPan();
+            lastTouchDistance.current = 0;
+        };
+
+        container.addEventListener("touchstart", handleTouchStart, {
+            passive: false,
+        });
+        container.addEventListener("touchmove", handleTouchMove, {
+            passive: false,
+        });
+        container.addEventListener("touchend", handleTouchEnd);
+        container.addEventListener("touchcancel", handleTouchCancel);
+
+        return () => {
+            container.removeEventListener("touchstart", handleTouchStart);
+            container.removeEventListener("touchmove", handleTouchMove);
+            container.removeEventListener("touchend", handleTouchEnd);
+            container.removeEventListener(
+                "touchcancel",
+                handleTouchCancel
+            );
+        };
+    }, [applyZoomDelta, panModeActive]);
+
     const baseCursor =
         isPointerPanning || isTouchPanning
             ? "grabbing"
@@ -1466,126 +1579,11 @@ export const SimpleCanvas = ({
             : "default";
 
     useEffect(() => {
-        if (!stageRef.current) {
-            return;
-        }
-
+        if (!stageRef.current) return;
         stageRef.current.container().style.cursor = baseCursor;
-    }, [baseCursor, selectModeActive, stageRef]);
+    }, [baseCursor, selectModeActive]);
 
-    // Handle escape to finish inline text editing
-    useEffect(() => {
-        if (!activeTextEdit) return;
-
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === "Escape") {
-                event.preventDefault();
-                finishTextEdit();
-            }
-        };
-
-        window.addEventListener("keydown", handleKeyDown);
-        return () => {
-            window.removeEventListener("keydown", handleKeyDown);
-        };
-    }, [activeTextEdit, finishTextEdit]);
-
-    // Compute HTML overlay selection box
-    useEffect(() => {
-        if (!selectedLayerBounds) {
-            setOverlaySelectionBox(null);
-            return;
-        }
-
-        const rotationDeg = resolveSelectionRotation();
-        const newBox = {
-            x: selectedLayerBounds.x,
-            y: selectedLayerBounds.y,
-            width: selectedLayerBounds.width,
-            height: selectedLayerBounds.height,
-            rotation: rotationDeg,
-        };
-        setOverlaySelectionBox(newBox);
-    }, [selectedLayerBounds, resolveSelectionRotation]);
-
-    const syncTransformerToSelection = useCallback(() => {
-        const transformer = selectionTransformerRef.current;
-
-        if (!transformer) {
-            return;
-        }
-
-        if (!selectModeActive || !selectedLayerBounds) {
-            transformer.nodes([]);
-            transformer.visible(false);
-            return;
-        }
-
-        const nodes = selectedLayerIds
-            .map((id) => layerNodeRefs.current.get(id))
-            .filter((node): node is Konva.Node => Boolean(node));
-
-        if (nodes.length === 0) {
-            transformer.nodes([]);
-            transformer.visible(false);
-            return;
-        }
-
-        transformer.nodes(nodes);
-        transformer.rotation(resolveSelectionRotation());
-        transformer.centeredScaling(false);
-        transformer.visible(true);
-        transformer.forceUpdate();
-    }, [
-        selectModeActive,
-        selectedLayerBounds,
-        selectedLayerIds,
-        resolveSelectionRotation,
-    ]);
-
-    // Sync transformer & rotation
-    useEffect(() => {
-        syncTransformerToSelection();
-        if (!selectModeActive || isSelectionTransformingRef.current) return;
-        const nextRotation = resolveSelectionRotation();
-        const normalizedRotation = Number.isFinite(nextRotation)
-            ? nextRotation
-            : 0;
-        if (selectionProxyRotationRef.current !== normalizedRotation) {
-            selectionProxyRotationRef.current = normalizedRotation;
-            syncTransformerToSelection();
-        }
-    }, [
-        layersRevision,
-        syncTransformerToSelection,
-        resolveSelectionRotation,
-        selectModeActive,
-        selectionProxyRotationRef,
-    ]);
-
-    // Handle pending selection and reset transform state
-    useEffect(() => {
-        if (pendingSelectionRef.current) {
-            const pending = pendingSelectionRef.current;
-            if (pending.length === selectedLayerIds.length) {
-                const matches = pending.every(
-                    (id, index) => id === selectedLayerIds[index]
-                );
-                if (matches) {
-                    pendingSelectionRef.current = null;
-                }
-            }
-        }
-        selectionTransformStateRef.current = null;
-    }, [selectedLayerIds]);
-
-    useEffect(() => {
-        if (!showSettingsPanel && isSettingsPanelOpen) {
-            setIsSettingsPanelOpen(false);
-        }
-    }, [isSettingsPanelOpen, showSettingsPanel]);
-
-    // Attach Konva stage listeners for background clicks
+    // Attach Konva stage listeners for background clicks to clear selection (in select mode)
     useEffect(() => {
         const stage = stageRef.current;
         if (!stage || !selectModeActive) return;
@@ -1603,19 +1601,26 @@ export const SimpleCanvas = ({
             stage.off("mousedown", handler);
             stage.off("touchstart", handler);
         };
-    }, [selectModeActive, clearSelection, stageRef]);
+    }, [selectModeActive, clearSelection]);
+
+    // Transformer visual config
+    const outlineDash: [number, number] = [8, 4];
+    const transformerAnchorSize = 8;
+    const transformerAnchorStrokeWidth = 1;
+    const transformerAnchorCornerRadius = 2;
+    const transformerPadding = 0;
+    const transformerHitStrokeWidth = 12;
 
     const GroupAny = StageGroup as any;
 
     return (
         <div
             ref={containerRef}
-            // Pan/zoom pointer handlers provided by useCanvasViewport
-            onPointerDown={undefined /* handled inside hook via capture on container */}
-            onPointerMove={undefined}
-            onPointerUp={undefined}
-            onPointerCancel={undefined}
-            onPointerLeave={undefined}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerCancel}
+            onPointerLeave={handlePointerLeave}
             style={{
                 width: "100%",
                 height: "100%",
@@ -1641,9 +1646,7 @@ export const SimpleCanvas = ({
                 onTouchEnd={handleStagePointerUp}
                 onMouseLeave={handleStagePointerUp}
                 onTouchCancel={handleStagePointerUp}
-                style={{
-                    cursor: baseCursor,
-                }}
+                style={{ cursor: baseCursor }}
             >
                 <KonvaLayer key={`interaction-layer`}>
                     <Group key={`interaction-layer-group-${layersRevision}`}>
@@ -1651,7 +1654,8 @@ export const SimpleCanvas = ({
                             layersToRender.map((layer, index) => {
                                 const layerIsSelected =
                                     selectedLayerSet.has(layer.id);
-                                const layerBounds = layer.bounds ?? null;
+                                const layerBounds =
+                                    layer.bounds ?? null;
                                 const computedX =
                                     stageViewportOffsetX +
                                     (layerBounds
@@ -1676,6 +1680,7 @@ export const SimpleCanvas = ({
                                         : []),
                                 ];
                                 const textItems = layer.texts ?? [];
+
                                 return (
                                     <GroupAny
                                         key={`${layersRevision}-${layer.id}`}
@@ -1710,7 +1715,9 @@ export const SimpleCanvas = ({
                                                 : layer.scale?.y ?? 1
                                         }
                                         opacity={layer.opacity ?? 1}
-                                        draggable={Boolean(selectModeActive)}
+                                        draggable={Boolean(
+                                            selectModeActive
+                                        )}
                                         selectModeActive={selectModeActive}
                                         stageViewportOffsetX={
                                             stageViewportOffsetX
@@ -1733,7 +1740,7 @@ export const SimpleCanvas = ({
                                             updateBoundsFromLayerIds
                                         }
                                         syncTransformerToSelection={
-                                            syncTransformerToSelection
+                                            syncSelectedLayerNodeRefs
                                         }
                                     >
                                         {layer.render()}
@@ -1745,7 +1752,9 @@ export const SimpleCanvas = ({
                                                 x={textItem.x}
                                                 y={textItem.y}
                                                 text={textItem.text}
-                                                fontSize={textItem.fontSize}
+                                                fontSize={
+                                                    textItem.fontSize
+                                                }
                                                 fontFamily={
                                                     textItem.fontFamily
                                                 }
@@ -1768,9 +1777,10 @@ export const SimpleCanvas = ({
                                                     );
                                                 }}
                                                 onTap={(ev) => {
-                                                    if (isTextToolActive) {
-                                                        ev.cancelBubble =
-                                                            true;
+                                                    if (
+                                                        isTextToolActive
+                                                    ) {
+                                                        ev.cancelBubble = true;
                                                         startTextEdit(
                                                             layer.id,
                                                             textItem.id
@@ -1778,9 +1788,10 @@ export const SimpleCanvas = ({
                                                     }
                                                 }}
                                                 onMouseDown={(ev) => {
-                                                    if (isTextToolActive) {
-                                                        ev.cancelBubble =
-                                                            true;
+                                                    if (
+                                                        isTextToolActive
+                                                    ) {
+                                                        ev.cancelBubble = true;
                                                         startTextEdit(
                                                             layer.id,
                                                             textItem.id
@@ -1826,8 +1837,12 @@ export const SimpleCanvas = ({
                 </KonvaLayer>
 
                 <BackgroundLayer
-                    containerWidth={containerDimensions.width / safeScale}
-                    containerHeight={containerDimensions.height / safeScale}
+                    containerWidth={
+                        containerDimensions.width / safeScale
+                    }
+                    containerHeight={
+                        containerDimensions.height / safeScale
+                    }
                     containerBackground={containerBackground}
                     stageWidth={stageWidth}
                     stageHeight={stageHeight}
@@ -1835,6 +1850,7 @@ export const SimpleCanvas = ({
                     stageViewportOffsetY={stageViewportOffsetY}
                     layerRef={backgroundLayerRef}
                 />
+
                 {layerControls && layersToRender.length > 0 ? (
                     <SelectionLayer
                         selectModeActive={selectModeActive}
@@ -1843,8 +1859,12 @@ export const SimpleCanvas = ({
                         layerRef={selectionLayerRef}
                         transformerRef={selectionTransformerRef}
                         anchorSize={transformerAnchorSize}
-                        anchorCornerRadius={transformerAnchorCornerRadius}
-                        anchorStrokeWidth={transformerAnchorStrokeWidth}
+                        anchorCornerRadius={
+                            transformerAnchorCornerRadius
+                        }
+                        anchorStrokeWidth={
+                            transformerAnchorStrokeWidth
+                        }
                         hitStrokeWidth={transformerHitStrokeWidth}
                         stageRef={stageRef}
                         selectedLayerBounds={selectedLayerBounds}
@@ -1864,7 +1884,9 @@ export const SimpleCanvas = ({
                         initializeSelectionTransform={
                             initializeSelectionTransform
                         }
-                        markSelectionTransforming={markSelectionTransforming}
+                        markSelectionTransforming={
+                            markSelectionTransforming
+                        }
                     />
                 ) : null}
             </Stage>
@@ -1873,7 +1895,9 @@ export const SimpleCanvas = ({
                 <LayerPanelUI
                     isOpen={isLayerPanelOpen}
                     onToggle={() =>
-                        setIsLayerPanelOpen((previous) => !previous)
+                        setIsLayerPanelOpen(
+                            (previous) => !previous
+                        )
                     }
                     onClose={() => setIsLayerPanelOpen(false)}
                     pendingSelectionRef={pendingSelectionRef}
@@ -1913,7 +1937,8 @@ export const SimpleCanvas = ({
                         background: "rgba(255,255,255,0.95)",
                         border: "1px solid #0088ff",
                         borderRadius: "4px",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+                        boxShadow:
+                            "0 2px 8px rgba(0,0,0,0.25)",
                         zIndex: 20,
                     }}
                 >
@@ -1924,7 +1949,9 @@ export const SimpleCanvas = ({
                         onChange={(event) => {
                             const next = event.target.value;
                             setActiveTextEdit((prev) =>
-                                prev ? { ...prev, value: next } : prev
+                                prev
+                                    ? { ...prev, value: next }
+                                    : prev
                             );
                             updateTextValue(
                                 activeTextEdit.layerId,
@@ -1948,7 +1975,8 @@ export const SimpleCanvas = ({
                             borderRadius: "2px",
                             background: "transparent",
                             color:
-                                activeTextEdit.color ?? "#000000",
+                                activeTextEdit.color ??
+                                "#000000",
                             fontSize: "14px",
                             fontFamily: "Arial, sans-serif",
                             fontStyle: "normal",
