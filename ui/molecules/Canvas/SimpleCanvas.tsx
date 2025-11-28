@@ -853,11 +853,34 @@ export const SimpleCanvas = ({
                     const targetLayer = layerControls.layers.find((l) => l.id === targetLayerId);
                     if (!targetLayer) return;
 
+
                     // Compute target bounds (crop area) so we preserve layer position and avoid moving strokes
                     const boundsX = targetLayer.bounds?.x ?? (targetLayer.position?.x ?? 0);
                     const boundsY = targetLayer.bounds?.y ?? (targetLayer.position?.y ?? 0);
                     const w = Math.max(1, targetLayer.bounds?.width ?? stageWidth);
                     const h = Math.max(1, targetLayer.bounds?.height ?? stageHeight);
+
+                    // Get layer scale and rotation
+                    const scaleX = targetLayer.scale?.x ?? 1;
+                    const scaleY = targetLayer.scale?.y ?? 1;
+                    const rotationDeg = targetLayer.rotation ?? 0;
+                    const rotationRad = (rotationDeg * Math.PI) / 180;
+
+                    // Transform stage coordinates to layer-local coordinates (account for scale and rotation)
+                    let localX = stageX - (targetLayer.position?.x ?? 0);
+                    let localY = stageY - (targetLayer.position?.y ?? 0);
+                    // Apply inverse scale
+                    localX /= scaleX;
+                    localY /= scaleY;
+                    // Apply inverse rotation
+                    if (rotationDeg !== 0) {
+                        const cos = Math.cos(-rotationRad);
+                        const sin = Math.sin(-rotationRad);
+                        const x0 = localX;
+                        const y0 = localY;
+                        localX = x0 * cos - y0 * sin;
+                        localY = x0 * sin + y0 * cos;
+                    }
 
                     // Offscreen canvases sized to layer bounds
                     const maskCanvas = document.createElement('canvas');
@@ -907,8 +930,6 @@ export const SimpleCanvas = ({
                         maskCtx.lineWidth = Math.max(1, s.size || 1);
                         maskCtx.beginPath();
                         const pts = s.points;
-                        // Stroke points are stored in layer-local coordinates; when cropping to layer bounds
-                        // we can draw them directly into the mask (origin at boundsX,boundsY)
                         maskCtx.moveTo(pts[0] ?? 0, pts[1] ?? 0);
                         for (let i = 2; i < pts.length; i += 2) {
                             maskCtx.lineTo(pts[i], pts[i + 1]);
@@ -949,9 +970,9 @@ export const SimpleCanvas = ({
                         outCtx.clearRect(0, 0, w, h);
                     }
 
-                    // Seed point relative to cropped bounds
-                    const seedX = Math.floor(stageX - boundsX);
-                    const seedY = Math.floor(stageY - boundsY);
+                    // Seed point relative to cropped bounds (layer-local coordinates)
+                    const seedX = Math.floor(localX);
+                    const seedY = Math.floor(localY);
 
                     const maskData = maskCtx.getImageData(0, 0, w, h);
                     const maskBuf = maskData.data;
@@ -1159,6 +1180,10 @@ export const SimpleCanvas = ({
                                 const compositeCtx = compositeCanvas.getContext('2d');
                                 if (!compositeCtx) return;
 
+                                const currentRotation = targetLayer.rotation ?? 0;
+                                const currentScale = targetLayer.scale ?? { x: 1, y: 1 };
+                                const currentPosition = targetLayer.position ?? { x: boundsX, y: boundsY };
+
                                 if (layer.imageSrc) {
                                     // Draw previous image
                                     const prevImg = new window.Image();
@@ -1170,11 +1195,11 @@ export const SimpleCanvas = ({
                                         const compositeDataUrl = compositeCanvas.toDataURL('image/png');
                                         const imageNode = <KonvaImage key={`paint-image-${targetLayerId}`} image={compositeCanvas} listening width={w} height={h} x={0} y={0} />;
                                         layerControls.updateLayerRender(targetLayerId, () => imageNode as any, {
-                                            position: { x: boundsX, y: boundsY },
+                                            position: currentPosition,
                                             bounds: { x: boundsX, y: boundsY, width: w, height: h },
                                             imageSrc: compositeDataUrl,
-                                            rotation: 0,
-                                            scale: { x: 1, y: 1 },
+                                            rotation: currentRotation,
+                                            scale: currentScale,
                                         });
                                     };
                                     prevImg.src = layer.imageSrc;
@@ -1185,11 +1210,11 @@ export const SimpleCanvas = ({
                                     const compositeDataUrl = compositeCanvas.toDataURL('image/png');
                                     const imageNode = <KonvaImage key={`paint-image-${targetLayerId}`} image={compositeCanvas} listening width={w} height={h} x={0} y={0} />;
                                     layerControls.updateLayerRender(targetLayerId, () => imageNode as any, {
-                                        position: { x: boundsX, y: boundsY },
+                                        position: currentPosition,
                                         bounds: { x: boundsX, y: boundsY, width: w, height: h },
                                         imageSrc: compositeDataUrl,
-                                        rotation: 0,
-                                        scale: { x: 1, y: 1 },
+                                        rotation: currentRotation,
+                                        scale: currentScale,
                                     });
                                 }
                             };
