@@ -140,6 +140,18 @@ export const CanvasApp = ({
         }
     }, [stageName]);
 
+    const handleRequestJPEG = useCallback(() => {
+        try {
+            window.dispatchEvent(
+                new CustomEvent('export-stage-jpg', {
+                    detail: { fileName: `${slugify(stageName)}.jpg` },
+                }),
+            );
+        } catch {
+            // ignore
+        }
+    }, [stageName]);
+
     const handleUploadJSONClick = useCallback(() => {
         jsonFileInputRef.current?.click();
     }, []);
@@ -336,6 +348,17 @@ const isPaintToolActive = useSelector((state: RootState) => state.view.paint.act
                                 style={{ textAlign: 'left' }}
                             >
                                 Load JSON
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    handleRequestJPEG();
+                                    setIsStageMenuOpen(false);
+                                }}
+                                disabled={!layerControls}
+                                style={{ textAlign: 'left' }}
+                            >
+                                Save JPG
                             </button>
                             <button
                                 type="button"

@@ -1126,6 +1126,102 @@ export const SimpleCanvas = ({
         ]
     );
 
+    const handleSaveJPEG = useCallback(
+        (fileName?: string) => {
+            const stage = stageRef.current;
+            if (!stage) return;
+            const backgroundLayer = backgroundLayerRef.current;
+            const selectionLayer = selectionLayerRef.current;
+            const previousBackgroundVisibility = backgroundLayer
+                ? backgroundLayer.visible()
+                : undefined;
+            const previousSelectionVisibility = selectionLayer
+                ? selectionLayer.visible()
+                : undefined;
+            const previousScale = {
+                x: stage.scaleX(),
+                y: stage.scaleY(),
+            };
+            const previousPos = stage.position();
+
+            const tempLayer = new Konva.Layer({
+                listening: false,
+            });
+            const tempRect = new Konva.Rect({
+                x: stageViewportOffsetX,
+                y: stageViewportOffsetY,
+                width: stageWidth,
+                height: stageHeight,
+                fill: "#ffffff",
+                listening: false,
+            });
+            tempLayer.add(tempRect);
+            stage.add(tempLayer);
+            tempLayer.moveToBottom();
+
+            try {
+                if (backgroundLayer) {
+                    backgroundLayer.visible(false);
+                    backgroundLayer.getLayer()?.batchDraw();
+                }
+                if (selectionLayer) {
+                    selectionLayer.visible(false);
+                    selectionLayer.getLayer()?.batchDraw();
+                }
+
+                stage.scale({ x: 1, y: 1 });
+                stage.position({
+                    x: -stageViewportOffsetX,
+                    y: -stageViewportOffsetY,
+                });
+                stage.batchDraw();
+
+                const dataUrl = stage.toDataURL({
+                    x: 0,
+                    y: 0,
+                    width: stageWidth,
+                    height: stageHeight,
+                    pixelRatio: 1,
+                    mimeType: "image/jpeg",
+                    quality: 0.92,
+                    backgroundColor: "#ffffff",
+                });
+
+                const anchor = document.createElement("a");
+                anchor.href = dataUrl;
+                anchor.download = fileName ?? "canvas-stage.jpg";
+                anchor.click();
+            } catch (error) {
+                console.warn("Unable to save JPG", error);
+            } finally {
+                tempLayer.destroy();
+                stage.scale(previousScale);
+                stage.position(previousPos);
+                stage.batchDraw();
+                if (
+                    backgroundLayer &&
+                    previousBackgroundVisibility !== undefined
+                ) {
+                    backgroundLayer.visible(previousBackgroundVisibility);
+                    backgroundLayer.getLayer()?.batchDraw();
+                }
+                if (
+                    selectionLayer &&
+                    previousSelectionVisibility !== undefined
+                ) {
+                    selectionLayer.visible(previousSelectionVisibility);
+                    selectionLayer.getLayer()?.batchDraw();
+                }
+            }
+        },
+        [
+            stageViewportOffsetX,
+            stageViewportOffsetY,
+            stageWidth,
+            stageHeight,
+        ]
+    );
+
     useEffect(() => {
         const handler = (event: Event) => {
             const detail = (event as CustomEvent<{ fileName?: string }>)
@@ -1142,6 +1238,22 @@ export const SimpleCanvas = ({
                 handler as EventListener
             );
     }, [handleSavePNG]);
+
+    useEffect(() => {
+        const handler = (event: Event) => {
+            const detail = (event as CustomEvent<{ fileName?: string }>).detail;
+            handleSaveJPEG(detail?.fileName);
+        };
+        window.addEventListener(
+            "export-stage-jpg",
+            handler as EventListener
+        );
+        return () =>
+            window.removeEventListener(
+                "export-stage-jpg",
+                handler as EventListener
+            );
+    }, [handleSaveJPEG]);
 
     const GroupAny = StageGroup as any;
 
