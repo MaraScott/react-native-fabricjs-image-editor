@@ -390,7 +390,7 @@ export const StageGroup = ({
     }, [layerControls, layerId, layerNodeRefs, measureAndStoreBounds, pendingSelectionRef, selectModeActive, selectionDragStateRef, stageViewportOffsetX, stageViewportOffsetY]);
     return (
         <Group
-            key={`${layersRevision}-${layerId}`}
+            key={`stage-group-${layersRevision}-${layerId}`}
             ref={handleLayerRef}
             id={id}
             visible={visible}

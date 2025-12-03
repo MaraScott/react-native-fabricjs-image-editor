@@ -27,7 +27,8 @@ import {
     BackgroundLayer,
 } from "@molecules/Layer";
 import { useSimpleCanvasStore } from "@store/SimpleCanvas";
-import { Layer as KonvaLayer } from "@atoms/Canvas";
+// import { Layer as KonvaLayer } from "@atoms/Canvas";
+import { Layer as KonvaLayer } from 'react-konva';
 import type { RootState } from "@store/CanvasApp";
 import type {
     PointerPanState,
@@ -1373,6 +1374,7 @@ export const SimpleCanvas = ({
                 </KonvaLayer>
 
                 <BackgroundLayer
+                    key={`background-layer-containe`}
                     containerWidth={
                         containerDimensions.width / safeScale
                     }
@@ -1389,6 +1391,7 @@ export const SimpleCanvas = ({
 
                 {layerControls && layersToRender.length > 0 ? (
                     <SelectionLayer
+                        key={`selection-layer-container`}
                         selectModeActive={selectModeActive}
                         padding={8}
                         borderDash={[8, 4]}

@@ -5,7 +5,8 @@
  */
 
 import { FullContainerBackground, StageMimic } from '@molecules/Layer/Stage/_BackgroundLayer';
-import { Layer as KonvaLayer } from '@atoms/Canvas';
+// import { Layer as KonvaLayer } from '@atoms/Canvas';
+import { Layer as KonvaLayer } from 'react-konva';
 
 /**
  * BackgroundLayer component props
@@ -41,7 +42,7 @@ export const BackgroundLayer = ({
     layerRef,
 }: BackgroundLayerProps) => {
     return (
-        <KonvaLayer listening={false} ref={layerRef}>
+        <KonvaLayer key={`background-layer`} listening={false} ref={layerRef}>
             <FullContainerBackground
                 key="canvas-background"
                 width={containerWidth}
