@@ -7,7 +7,7 @@
 import React from 'react';
 import { Image as KonvaImage, Rect } from 'react-konva';
 import type { LayerDescriptor } from '@molecules/Canvas';
-import type { InitialLayerDefinition, LayerShape, LayerPaintShape, LayerStroke } from '@molecules/Layer/Layer.types';
+import type { InitialLayerDefinition, LayerElementTransform, LayerShape, LayerPaintShape, LayerStroke } from '@molecules/Layer/Layer.types';
 import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 
 /**
@@ -100,10 +100,20 @@ export const trimTransparentImage = (
 export const normaliseLayerDefinitions = (
   definitions: InitialLayerDefinition[]
 ): LayerDescriptor[] => {
+  const cloneTransform = (transform?: LayerElementTransform): LayerElementTransform | undefined =>
+    transform
+      ? {
+          position: { ...transform.position },
+          rotation: transform.rotation,
+          scale: { ...transform.scale },
+        }
+      : undefined;
+
   const clonePaintShape = (shape: LayerPaintShape): LayerPaintShape => ({
     ...shape,
     bounds: { ...shape.bounds },
     transform: shape.transform ? { ...shape.transform } : undefined,
+    layerTransform: cloneTransform(shape.layerTransform),
   });
 
   const convertPaintShapeToStroke = (shape: LayerPaintShape): LayerStroke => ({
@@ -115,6 +125,7 @@ export const normaliseLayerDefinitions = (
     opacity: shape.opacity ?? 1,
     mode: 'paint',
     paintShape: clonePaintShape(shape),
+    layerTransform: cloneTransform(shape.layerTransform),
   });
 
   const convertPaintShapesToStrokes = (shapes?: LayerPaintShape[]): LayerStroke[] =>
@@ -270,6 +281,15 @@ export const areSelectionsEqual = (first: string[], second: string[]): boolean =
       return false;
     }
   }
-  
+
   return true;
 };
+
+export const getLayerElementTransform = (layer: LayerDescriptor): LayerElementTransform => ({
+  position: {
+    x: layer.bounds?.x ?? layer.position.x,
+    y: layer.bounds?.y ?? layer.position.y,
+  },
+  rotation: layer.rotation ?? 0,
+  scale: layer.scale ?? { x: 1, y: 1 },
+});

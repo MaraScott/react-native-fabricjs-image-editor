@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import type Konva from "konva";
 import type { MutableRefObject } from "react";
 import type { Bounds } from "../types/canvas.types";
-import type { LayerPaintShape, LayerStroke } from "@molecules/Layer/Layer.types";
+import type { LayerElementTransform, LayerPaintShape, LayerStroke } from "@molecules/Layer/Layer.types";
 import { drawActions } from "@store/CanvasApp/view/draw";
 import { rubberActions } from "@store/CanvasApp/view/rubber";
 import { floodFillLayer } from "@molecules/Canvas/utils/floodFill";
@@ -65,6 +65,27 @@ const createPaintStroke = (color: string, shape: LayerPaintShape): LayerStroke =
     opacity: 1,
     mode: "paint",
     paintShape: shape,
+    layerTransform: shape.layerTransform,
+});
+
+const buildLayerTransformFromEffective = (eff: {
+    boundsX?: number;
+    boundsY?: number;
+    rotation?: number;
+    scaleX?: number;
+    scaleY?: number;
+    x?: number;
+    y?: number;
+}): LayerElementTransform => ({
+    position: {
+        x: eff.boundsX ?? eff.x ?? 0,
+        y: eff.boundsY ?? eff.y ?? 0,
+    },
+    rotation: eff.rotation ?? 0,
+    scale: {
+        x: eff.scaleX ?? 1,
+        y: eff.scaleY ?? 1,
+    },
 });
 
 export interface UseDrawingToolsResult {
@@ -239,6 +260,9 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
                         fillCanvas.height
                     );
 
+                    const paintEff = resolveEffectiveLayerTransform(paintLayer);
+                    const paintLayerTransform = buildLayerTransformFromEffective(paintEff);
+
                     const paintShape: LayerPaintShape = {
                         id: `paint-shape-${Date.now()}-${Math.random()
                             .toString(36)
@@ -258,6 +282,7 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
                             scaleX: paintLayer.scale?.x ?? 1,
                             scaleY: paintLayer.scale?.y ?? 1,
                         },
+                        layerTransform: paintLayerTransform,
                     };
 
                     const paintStroke = createPaintStroke(
@@ -280,6 +305,7 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
             const eff = resolveEffectiveLayerTransform(layer);
             const sizeScale =
                 (Math.abs(eff.scaleX ?? 1) + Math.abs(eff.scaleY ?? 1)) / 2 || 1;
+            const layerTransform = buildLayerTransformFromEffective(eff);
 
             let localX = stageX - (eff.boundsX ?? 0);
             let localY = stageY - (eff.boundsY ?? 0);
@@ -309,6 +335,7 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
                     hardness: 1,
                     opacity: 1,
                     mode: "erase",
+                    layerTransform,
                 };
                 setPendingStroke({ layerId: targetLayerId, stroke });
                 dispatch(rubberActions.startErasing());
@@ -330,6 +357,7 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
                     hardness,
                     opacity: drawToolState.brushOpacity,
                     mode: "draw",
+                    layerTransform,
                 };
 
                 setPendingStroke({ layerId: targetLayerId, stroke });

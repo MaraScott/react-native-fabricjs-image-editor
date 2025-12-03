@@ -9,7 +9,7 @@ import { Image as KonvaImage } from 'react-konva';
 import type { LayerDescriptor, LayerControlHandlers, LayerMoveDirection, ScaleVector, PanOffset, InitialLayerDefinition, LayerTextInput, LayerTextItem, RasterizeLayerOptions } from '@molecules/Layer/Layer.types';
 import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 import { areBoundsEqual } from '@molecules/Canvas/utils/bounds';
-import { generateLayerId, normaliseLayerDefinitions, areSelectionsEqual, trimTransparentImage } from '@molecules/Layer/utils';
+import { generateLayerId, normaliseLayerDefinitions, areSelectionsEqual, trimTransparentImage, getLayerElementTransform } from '@molecules/Layer/utils';
 import {
     initLayersHistory,
     applyLayersSnapshot,
@@ -475,6 +475,19 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
     const addTextLayer = useCallback<NonNullable<LayerControlHandlers['addTextLayer']>>((textInput) => {
         const textId = textInput.id ?? generateLayerId();
         const newLayerId = generateLayerId();
+        const baseLayer: LayerDescriptor = {
+            id: newLayerId,
+            name: `Text ${present.layers.length + 1}`,
+            visible: true,
+            position: { x: 0, y: 0 },
+            rotation: 0,
+            scale: { x: 1, y: 1 },
+            opacity: 1,
+            strokes: [],
+            texts: [],
+            render: () => null,
+        };
+        const layerTransform = getLayerElementTransform(baseLayer);
         const textItem: LayerTextItem = {
             id: textId,
             text: textInput.text ?? '',
@@ -485,18 +498,11 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
             fontStyle: textInput.fontStyle ?? 'normal',
             fontWeight: textInput.fontWeight ?? 'normal',
             fill: textInput.fill ?? '#000000',
+            layerTransform,
         };
         const newLayer: LayerDescriptor = {
-            id: newLayerId,
-            name: `Text ${present.layers.length + 1}`,
-            visible: true,
-            position: { x: 0, y: 0 },
-            rotation: 0,
-            scale: { x: 1, y: 1 },
-            opacity: 1,
-            strokes: [],
+            ...baseLayer,
             texts: [textItem],
-            render: () => null,
         };
         const insertIndex = getInsertIndexAboveSelection();
         const nextLayers = [...present.layers];
@@ -520,6 +526,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         if (targetIndex === -1) return;
 
         const layer = present.layers[targetIndex];
+        const layerTransform = getLayerElementTransform(layer);
         const textId = textInput.id ?? generateLayerId();
         const nextText: LayerTextItem = {
             id: textId,
@@ -531,6 +538,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
             fontStyle: textInput.fontStyle ?? 'normal',
             fontWeight: textInput.fontWeight ?? 'normal',
             fill: textInput.fill ?? '#000000',
+            layerTransform,
         };
 
         const nextTexts = [...(layer.texts ?? []), nextText];

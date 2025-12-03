@@ -1,4 +1,4 @@
-import type { LayerPaintShape, LayerStroke } from '@molecules/Layer/Layer.types';
+import type { LayerElementTransform, LayerPaintShape, LayerStroke } from '@molecules/Layer/Layer.types';
 
 // convert hex to rgba
 const hexToRgba = (hex: string) => {
@@ -112,6 +112,27 @@ const createPaintStroke = (color: string, shape: LayerPaintShape): LayerStroke =
     opacity: 1,
     mode: "paint",
     paintShape: shape,
+    layerTransform: shape.layerTransform,
+});
+
+const buildLayerTransformFromEffective = (eff: {
+    boundsX?: number;
+    boundsY?: number;
+    rotation?: number;
+    scaleX?: number;
+    scaleY?: number;
+    x?: number;
+    y?: number;
+}): LayerElementTransform => ({
+    position: {
+        x: eff.boundsX ?? eff.x ?? 0,
+        y: eff.boundsY ?? eff.y ?? 0,
+    },
+    rotation: eff.rotation ?? 0,
+    scale: {
+        x: eff.scaleX ?? 1,
+        y: eff.scaleY ?? 1,
+    },
 });
 
 const drawShapesOntoContext = async (
@@ -201,6 +222,7 @@ export async function floodFillLayer(
             localX = x0 * cos - y0 * sin;
             localY = x0 * sin + y0 * cos;
         }
+        const layerTransform = buildLayerTransformFromEffective(eff);
 
         // Offscreen canvases sized to layer bounds
         const maskCanvas = document.createElement('canvas');
@@ -426,6 +448,7 @@ export async function floodFillLayer(
                 scaleX: targetLayer.scale?.x ?? 1,
                 scaleY: targetLayer.scale?.y ?? 1,
             },
+            layerTransform,
         };
 
         const paintStroke = createPaintStroke(fillColor, paintShape);

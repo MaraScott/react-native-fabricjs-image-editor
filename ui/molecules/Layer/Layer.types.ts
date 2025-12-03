@@ -10,6 +10,7 @@ export interface LayerStroke {
   opacity: number;
   mode?: 'draw' | 'erase' | 'paint';
   paintShape?: LayerPaintShape;
+  layerTransform?: LayerElementTransform;
 }
 
 export interface LayerTextItem {
@@ -22,6 +23,7 @@ export interface LayerTextItem {
   fontStyle?: 'normal' | 'italic';
   fontWeight?: string;
   fill?: string;
+  layerTransform?: LayerElementTransform;
 }
 
 export type LayerTextInput = Omit<LayerTextItem, 'id'> & { id?: string };
@@ -36,6 +38,12 @@ export type ScaleVector = {
   y: number;
 };
 
+export interface LayerElementTransform {
+  position: { x: number; y: number };
+  rotation: number;
+  scale: ScaleVector;
+}
+
 export interface RasterizeLayerOptions {
   bounds?: Bounds | null;
 }
@@ -43,19 +51,20 @@ export interface RasterizeLayerOptions {
 /**
  * Common render and transform fields shared by input definitions and runtime descriptors.
  */
-export type LayerShape =
-  | {
-      id: string;
-      type: 'rect';
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      fill?: string;
-      stroke?: string;
-      strokeWidth?: number;
-    }
-  | LayerPaintShape;
+export type LayerShape = RectShape | LayerPaintShape;
+
+export interface RectShape {
+  id: string;
+  type: 'rect';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+  layerTransform?: LayerElementTransform;
+}
 
 export interface LayerPaintShape {
   id: string;
@@ -69,6 +78,7 @@ export interface LayerPaintShape {
     scaleX?: number;
     scaleY?: number;
   };
+  layerTransform?: LayerElementTransform;
 }
 
 export interface LayerRenderable {
