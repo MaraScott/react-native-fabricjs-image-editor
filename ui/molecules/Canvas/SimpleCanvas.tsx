@@ -1331,31 +1331,36 @@ export const SimpleCanvas = ({
                                                 }}
                                             />
                                         ))}
-                                        {combinedStrokes.map((stroke) => (
-                                            <Line
-                                                key={stroke.id}
-                                                points={stroke.points}
-                                                stroke={stroke.color}
-                                                strokeWidth={stroke.size}
-                                                lineCap="round"
-                                                lineJoin="round"
-                                                opacity={stroke.opacity}
-                                                tension={0}
-                                                shadowBlur={
-                                                    (1 - stroke.hardness) *
-                                                    stroke.size *
-                                                    1.5
-                                                }
-                                                shadowColor={stroke.color}
-                                                globalCompositeOperation={
-                                                    stroke.mode ===
-                                                    "erase"
-                                                        ? "destination-out"
-                                                        : "source-over"
-                                                }
-                                                listening={true}
-                                            />
-                                        ))}
+                                        {combinedStrokes.map((stroke) => {
+                                            if (stroke.mode === "paint") {
+                                                return null;
+                                            }
+                                            return (
+                                                <Line
+                                                    key={stroke.id}
+                                                    points={stroke.points}
+                                                    stroke={stroke.color}
+                                                    strokeWidth={stroke.size}
+                                                    lineCap="round"
+                                                    lineJoin="round"
+                                                    opacity={stroke.opacity}
+                                                    tension={0}
+                                                    shadowBlur={
+                                                        (1 - stroke.hardness) *
+                                                        stroke.size *
+                                                        1.5
+                                                    }
+                                                    shadowColor={stroke.color}
+                                                    globalCompositeOperation={
+                                                        stroke.mode ===
+                                                        "erase"
+                                                            ? "destination-out"
+                                                            : "source-over"
+                                                    }
+                                                    listening={true}
+                                                />
+                                            );
+                                        })}
                                     </GroupAny>
                                 );
                             })

@@ -8,7 +8,8 @@ export interface LayerStroke {
   size: number;
   hardness: number;
   opacity: number;
-  mode?: 'draw' | 'erase';
+  mode?: 'draw' | 'erase' | 'paint';
+  paintShape?: LayerPaintShape;
 }
 
 export interface LayerTextItem {
@@ -53,7 +54,22 @@ export type LayerShape =
       fill?: string;
       stroke?: string;
       strokeWidth?: number;
-    };
+    }
+  | LayerPaintShape;
+
+export interface LayerPaintShape {
+  id: string;
+  type: 'paint';
+  imageSrc: string;
+  bounds: Bounds;
+  fill?: string;
+  opacity?: number;
+  transform?: {
+    rotation?: number;
+    scaleX?: number;
+    scaleY?: number;
+  };
+}
 
 export interface LayerRenderable {
   name: string;
@@ -75,6 +91,7 @@ export interface LayerRenderable {
  */
 export interface InitialLayerDefinition extends LayerRenderable {
   id?: string;
+  paintShapes?: LayerPaintShape[];
 }
 
 /**

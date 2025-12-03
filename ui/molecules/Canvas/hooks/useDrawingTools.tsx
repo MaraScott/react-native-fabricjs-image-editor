@@ -2,8 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import type Konva from "konva";
 import type { MutableRefObject } from "react";
 import type { Bounds } from "../types/canvas.types";
-import type { LayerStroke } from "@molecules/Layer/Layer.types";
-import { Rect } from "react-konva";
+import type { LayerPaintShape, LayerStroke } from "@molecules/Layer/Layer.types";
 import { drawActions } from "@store/CanvasApp/view/draw";
 import { rubberActions } from "@store/CanvasApp/view/rubber";
 import { floodFillLayer } from "@molecules/Canvas/utils/floodFill";
@@ -55,7 +54,18 @@ export interface UseDrawingToolsOptions {
 
     // redux dispatch
     dispatch: Dispatch;
-}
+    }
+
+const createPaintStroke = (color: string, shape: LayerPaintShape): LayerStroke => ({
+    id: `paint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    points: [],
+    color,
+    size: 0,
+    hardness: 1,
+    opacity: 1,
+    mode: "paint",
+    paintShape: shape,
+});
 
 export interface UseDrawingToolsResult {
     pendingStroke: { layerId: string; stroke: LayerStroke } | null;
@@ -99,6 +109,33 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
     const isRubberToolActive = !!rubberToolState.active;
     const isPaintToolActive = !!paintToolState.active;
 
+    const getHoveredLayerId = useCallback(
+        (event: any): string | null => {
+            const stage: Konva.Stage | null | undefined =
+                event?.target?.getStage?.() ?? null;
+            if (!stage) {
+                return null;
+            }
+            const pointer = stage.getPointerPosition();
+            if (!pointer) {
+                return null;
+            }
+
+            let node: Konva.Node | null =
+                stage.getIntersection(pointer) ?? null;
+            while (node && node !== stage) {
+                const nodeId = node.id();
+                if (typeof nodeId === "string" && nodeId.startsWith("layer-")) {
+                    return nodeId.replace("layer-", "");
+                }
+                node = node.getParent();
+            }
+
+            return null;
+        },
+        []
+    );
+
     // Warn when eraser is selected but selected layers contain vector content
     useEffect(() => {
         if (!isRubberToolActive || !layerControls) {
@@ -136,11 +173,13 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
             const point = getRelativePointerPosition();
             if (!point) return;
 
-            // Choose target layer: first selected, otherwise topmost
-            const targetLayerId =
+            // Choose target layer: hovered if possible, otherwise first selected or topmost
+            const hoveredLayerId = getHoveredLayerId(event);
+            const fallbackLayerId =
                 selectedLayerIds[0] ??
                 layerControls.layers[layerControls.layers.length - 1]?.id ??
                 null;
+            const targetLayerId = hoveredLayerId ?? fallbackLayerId;
 
             if (!targetLayerId) return;
 
@@ -164,21 +203,15 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
             if (isPaintToolActive) {
                 if (!insideStage) return;
 
-                const effectiveLayerId =
-                    selectedLayerIds[0] ??
-                    layerControls.layers[layerControls.layers.length - 1]?.id ??
-                    null;
-                if (!effectiveLayerId) return;
-
                 const paintLayer = layerControls.layers.find(
-                    (l) => l.id === effectiveLayerId
+                    (l) => l.id === targetLayerId
                 );
                 const fillColor = paintToolState.color ?? "#ffffff";
 
                 // If the layer has strokes, do bounded flood fill; otherwise fill whole layer
                 if (paintLayer && (paintLayer.strokes?.length ?? 0) > 0) {
                     floodFillLayer(
-                        effectiveLayerId,
+                        targetLayerId,
                         paintLayer,
                         layerControls,
                         fillColor,
@@ -189,47 +222,51 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
                         stageY
                     );
                 } else if (paintLayer) {
-                    const bounds = {
-                        x: 0,
-                        y: 0,
-                        width: stageWidth,
-                        height: stageHeight,
+                    if (typeof document === "undefined") {
+                        return;
+                    }
+
+                    const fillCanvas = document.createElement("canvas");
+                    fillCanvas.width = Math.max(1, stageWidth);
+                    fillCanvas.height = Math.max(1, stageHeight);
+                    const fillCtx = fillCanvas.getContext("2d");
+                    if (!fillCtx) return;
+                    fillCtx.fillStyle = fillColor;
+                    fillCtx.fillRect(
+                        0,
+                        0,
+                        fillCanvas.width,
+                        fillCanvas.height
+                    );
+
+                    const paintShape: LayerPaintShape = {
+                        id: `paint-shape-${Date.now()}-${Math.random()
+                            .toString(36)
+                            .slice(2, 8)}`,
+                        type: "paint",
+                        imageSrc: fillCanvas.toDataURL("image/png"),
+                        bounds: {
+                            x: 0,
+                            y: 0,
+                            width: fillCanvas.width,
+                            height: fillCanvas.height,
+                        },
+                        fill: fillColor,
+                        opacity: 1,
+                        transform: {
+                            rotation: paintLayer.rotation ?? 0,
+                            scaleX: paintLayer.scale?.x ?? 1,
+                            scaleY: paintLayer.scale?.y ?? 1,
+                        },
                     };
 
-                    layerControls.updateLayerRender?.(
-                        paintLayer.id,
-                        () => (
-                            <Rect
-                                key={`paint-fill-${paintLayer.id}`}
-                                x={0}
-                                y={0}
-                                width={bounds.width}
-                                height={bounds.height}
-                                fill={fillColor}
-                                listening
-                            />
-                        ),
-                        {
-                            position: { x: bounds.x, y: bounds.y },
-                            bounds,
-                            strokes: [],
-                            texts: [],
-                            imageSrc: undefined,
-                            rotation: 0,
-                            scale: { x: 1, y: 1 },
-                            shapes: [
-                                {
-                                    id: `paint-rect-${paintLayer.id}`,
-                                    type: "rect",
-                                    x: 0,
-                                    y: 0,
-                                    width: bounds.width,
-                                    height: bounds.height,
-                                    fill: fillColor,
-                                },
-                            ],
-                        }
+                    const paintStroke = createPaintStroke(
+                        fillColor,
+                        paintShape
                     );
+
+                    const nextStrokes = [...(paintLayer.strokes ?? []), paintStroke];
+                    layerControls.updateLayerStrokes?.(paintLayer.id, nextStrokes);
                 }
 
                 return;

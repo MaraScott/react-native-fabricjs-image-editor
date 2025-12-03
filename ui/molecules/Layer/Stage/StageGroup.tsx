@@ -1,7 +1,8 @@
 import { Group as KonvaGroup } from '@atoms/Canvas';
+import { Image as KonvaImage } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { ReactNode, DragEvent } from 'react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@store/CanvasApp';
 import { Group } from 'react-konva';
@@ -9,6 +10,7 @@ import type Konva from 'konva';
 import { useSimpleCanvasStore } from '@store/SimpleCanvas';
 import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 import { areBoundsEqual } from '@molecules/Canvas/utils/bounds';
+import type { LayerDescriptor, LayerPaintShape } from '../Layer.types';
 
 interface StageGroupProps {
     layersRevision: number;
@@ -28,7 +30,6 @@ interface StageGroupProps {
     stageViewportOffsetY: number;
     baseCursor: string;
     children: ReactNode;
-
     // Refs and state setters
     layerNodeRefs: React.RefObject<Map<string, Konva.Node>>;
     pendingSelectionRef: React.RefObject<string[] | null>;
@@ -39,6 +40,40 @@ interface StageGroupProps {
     updateBoundsFromLayerIds: (ids: string[]) => void;
     syncTransformerToSelection: () => void;
 }
+
+const PaintShapeNode = ({ shape }: { shape: LayerPaintShape }) => {
+    const image = useMemo(() => {
+        if (typeof window === 'undefined') {
+            return null;
+        }
+        const img = new window.Image();
+        img.crossOrigin = 'anonymous';
+        img.src = shape.imageSrc;
+        return img;
+    }, [shape.imageSrc]);
+
+    if (!image) {
+        return null;
+    }
+
+    return (
+        <KonvaImage
+            key={shape.id}
+            image={image}
+            x={shape.bounds.x}
+            y={shape.bounds.y}
+            width={shape.bounds.width}
+            height={shape.bounds.height}
+            opacity={shape.opacity ?? 1}
+            listening={false}
+        />
+    );
+};
+
+const collectPaintShapes = (layer?: LayerDescriptor): LayerPaintShape[] =>
+    (layer?.strokes ?? [])
+        .map((stroke) => stroke.paintShape)
+        .filter((shape): shape is LayerPaintShape => Boolean(shape));
 
 export const StageGroup = ({
     layersRevision,
@@ -56,9 +91,9 @@ export const StageGroup = ({
     selectModeActive,
     stageViewportOffsetX,
     stageViewportOffsetY,
-        baseCursor,
-        children,
-        layerNodeRefs,
+    baseCursor,
+    children,
+    layerNodeRefs,
         pendingSelectionRef,
         selectionDragStateRef,
         onRefChange,
@@ -132,6 +167,8 @@ export const StageGroup = ({
     if (!layerControls) {
         return null;
     }
+    const layer = layerControls.layers.find((l) => l.id === layerId);
+    const layerPaintShapes = collectPaintShapes(layer);
     const onPointerDown = (event: KonvaEventObject<PointerEvent>) => {
         // If a drawing/erasing/painting/text tool is active, do not intercept pointerdown
         // on the group so the stage-level handlers can receive the event and perform
@@ -173,11 +210,16 @@ export const StageGroup = ({
                 localY = x0 * sin + y0 * cos;
             }
 
-            const layer = layerControls.layers.find((l) => l.id === layerId);
+            const paintHit = layerPaintShapes.some((shape) => {
+                return (
+                    localX >= shape.bounds.x &&
+                    localX <= shape.bounds.x + shape.bounds.width &&
+                    localY >= shape.bounds.y &&
+                    localY <= shape.bounds.y + shape.bounds.height
+                );
+            });
 
-            // If the layer contains an image, assume it's a hit (fast, synchronous fallback).
-            // This avoids async image loading inside pointer handlers which breaks event flow.
-            if (layer && layer.imageSrc) {
+            if (layer && paintHit) {
                 // select
             } else {
                 // Rasterize strokes only (synchronous, based on stroke points available in memory)
@@ -404,6 +446,9 @@ export const StageGroup = ({
             onDragEnd={handleDragEnd}
         >
             {children}
+            {layerPaintShapes.map((shape) => (
+                <PaintShapeNode key={shape.id} shape={shape} />
+            ))}
         </Group>
     );
 };

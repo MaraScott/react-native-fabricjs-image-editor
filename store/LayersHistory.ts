@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { LayerDescriptor } from '@molecules/Layer/Layer.types';
+import type { LayerDescriptor, LayerPaintShape } from '@molecules/Layer/Layer.types';
 
 // History stack mirrors the Konva React undo/redo guidance:
 // https://konvajs.org/docs/react/Undo-Redo.html
@@ -17,17 +17,51 @@ interface LayersHistoryState {
     pointer: number;
 }
 
+const clonePaintShape = (shape?: LayerPaintShape): LayerPaintShape | undefined => {
+    if (!shape) return undefined;
+    return {
+        ...shape,
+        bounds: { ...shape.bounds },
+        transform: shape.transform ? { ...shape.transform } : undefined,
+    };
+};
+
+const arePaintShapesEqual = (a?: LayerPaintShape, b?: LayerPaintShape): boolean => {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    if (a.id !== b.id || a.imageSrc !== b.imageSrc) return false;
+    if ((a.fill ?? null) !== (b.fill ?? null)) return false;
+    if ((a.opacity ?? 1) !== (b.opacity ?? 1)) return false;
+    const ab = a.bounds;
+    const bb = b.bounds;
+    if (ab.x !== bb.x || ab.y !== bb.y || ab.width !== bb.width || ab.height !== bb.height) {
+        return false;
+    }
+    const aTransform = a.transform ?? {};
+    const bTransform = b.transform ?? {};
+    if ((aTransform.rotation ?? 0) !== (bTransform.rotation ?? 0)) return false;
+    if ((aTransform.scaleX ?? 1) !== (bTransform.scaleX ?? 1)) return false;
+    if ((aTransform.scaleY ?? 1) !== (bTransform.scaleY ?? 1)) return false;
+    return true;
+};
+
 type Listener = () => void;
 
 const cloneSnapshot = (snapshot: LayersSnapshot): LayersSnapshot => ({
-    layers: snapshot.layers.map((layer) => ({
-        ...layer,
-        position: { ...layer.position },
-        scale: layer.scale ? { ...layer.scale } : undefined,
-        bounds: layer.bounds ? { ...layer.bounds } : undefined,
-        strokes: layer.strokes ? layer.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })) : undefined,
-        imageSrc: layer.imageSrc, // Ensure imageSrc is preserved in clone
-    })),
+        layers: snapshot.layers.map((layer) => ({
+            ...layer,
+            position: { ...layer.position },
+            scale: layer.scale ? { ...layer.scale } : undefined,
+            bounds: layer.bounds ? { ...layer.bounds } : undefined,
+            strokes: layer.strokes
+                ? layer.strokes.map((stroke) => ({
+                      ...stroke,
+                      points: [...stroke.points],
+                      paintShape: clonePaintShape(stroke.paintShape),
+                  }))
+                : undefined,
+            imageSrc: layer.imageSrc, // Ensure imageSrc is preserved in clone
+        })),
     selectedLayerIds: [...snapshot.selectedLayerIds],
     primaryLayerId: snapshot.primaryLayerId,
     revision: snapshot.revision,
@@ -78,6 +112,7 @@ const layersEqual = (a: LayersSnapshot | null, b: LayersSnapshot | null): boolea
             for (let p = 0; p < saStroke.points.length; p += 1) {
                 if (saStroke.points[p] !== sbStroke.points[p]) return false;
             }
+            if (!arePaintShapesEqual(saStroke.paintShape, sbStroke.paintShape)) return false;
         }
     }
     return true;

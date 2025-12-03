@@ -1,5 +1,4 @@
-import React from 'react';
-import { Image as KonvaImage } from 'react-konva';
+import type { LayerPaintShape, LayerStroke } from '@molecules/Layer/Layer.types';
 
 // convert hex to rgba
 const hexToRgba = (hex: string) => {
@@ -104,6 +103,54 @@ const isolateMaskEdges = (ctx: CanvasRenderingContext2D, width: number, height: 
     }
 };
 
+const createPaintStroke = (color: string, shape: LayerPaintShape): LayerStroke => ({
+    id: `paint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    points: [],
+    color,
+    size: 0,
+    hardness: 1,
+    opacity: 1,
+    mode: "paint",
+    paintShape: shape,
+});
+
+const drawShapesOntoContext = async (
+    ctx: CanvasRenderingContext2D,
+    strokes?: LayerStroke[]
+) => {
+    if (!strokes || strokes.length === 0 || typeof window === 'undefined') {
+        return;
+    }
+
+    for (const stroke of strokes) {
+        const shape = stroke.paintShape;
+        if (!shape || !shape.imageSrc || shape.bounds.width <= 0 || shape.bounds.height <= 0) {
+            continue;
+        }
+
+        await new Promise<void>((resolve) => {
+            const img = new window.Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                try {
+                    ctx.drawImage(
+                        img,
+                        shape.bounds.x,
+                        shape.bounds.y,
+                        shape.bounds.width,
+                        shape.bounds.height
+                    );
+                } catch {
+                    // ignore draw errors
+                }
+                resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = shape.imageSrc;
+        });
+    }
+};
+
 /**
  * Perform flood-fill on a layer using its strokes and existing image as boundaries.
  * This mutates layer state via layerControls.updateLayerRender or layerControls.rasterizeLayer.
@@ -162,32 +209,45 @@ export async function floodFillLayer(
         const maskCtx = maskCanvas.getContext('2d');
         if (!maskCtx) return;
 
-        // Draw existing raster content into mask first so previous fills act as boundaries
+        // Draw existing paint shapes into mask so previous fills act as boundaries
         maskCtx.clearRect(0, 0, w, h);
-        if (targetLayer.imageSrc && typeof window !== 'undefined') {
-            try {
-                await new Promise<void>((resolve) => {
-                    const bg = new window.Image();
-                    bg.crossOrigin = 'anonymous';
-                    bg.onload = () => {
-                        try {
-                            maskCtx.drawImage(bg, 0, 0, w, h);
-                        } catch (e) {
-                            // ignore
-                        }
-                        isolateMaskEdges(maskCtx, w, h);
-                        resolve();
-                    };
-                    bg.onerror = () => resolve();
-                    bg.src = targetLayer.imageSrc as string;
-                });
-            } catch {
-                // ignore
-            }
-        }
+        await drawShapesOntoContext(maskCtx, targetLayer.strokes);
+        isolateMaskEdges(maskCtx, w, h);
 
         // Draw strokes into mask. Opaque pixels will be treated as boundaries.
         const strokes = targetLayer.strokes ?? [];
+        const transformStrokePoints = (points: number[]) => {
+            if (!points || points.length < 2) return points;
+
+            const maxCoord = Math.max(...points.map((value) => Math.abs(value)));
+            const scaleThreshold = Math.max(stageWidth, stageHeight) * 2;
+            if (maxCoord <= scaleThreshold) {
+                return points;
+            }
+
+            const rotationDeg = eff.rotation ?? 0;
+            const rotationRad = (rotationDeg * Math.PI) / 180;
+            const cos = Math.cos(-rotationRad);
+            const sin = Math.sin(-rotationRad);
+
+            const normalized: number[] = [];
+            for (let i = 0; i < points.length; i += 2) {
+                let px = points[i];
+                let py = points[i + 1];
+                let nx = px - (eff.boundsX ?? 0);
+                let ny = py - (eff.boundsY ?? 0);
+                if (rotationDeg !== 0) {
+                    const ox = nx;
+                    const oy = ny;
+                    nx = ox * cos - oy * sin;
+                    ny = ox * sin + oy * cos;
+                }
+                nx /= eff.scaleX || 1;
+                ny /= eff.scaleY || 1;
+                normalized.push(nx, ny);
+            }
+            return normalized;
+        };
         for (const s of strokes) {
             if (!s || !s.points || s.points.length < 2) continue;
             maskCtx.save();
@@ -203,7 +263,7 @@ export async function floodFillLayer(
             maskCtx.strokeStyle = 'rgba(0,0,0,1)';
             maskCtx.lineWidth = Math.max(1, s.size || 1);
             maskCtx.beginPath();
-            const pts = s.points;
+            const pts = transformStrokePoints(s.points);
             maskCtx.moveTo(pts[0] ?? 0, pts[1] ?? 0);
             for (let i = 2; i < pts.length; i += 2) {
                 maskCtx.lineTo(pts[i], pts[i + 1]);
@@ -219,30 +279,7 @@ export async function floodFillLayer(
         const outCtx = outCanvas.getContext('2d');
         if (!outCtx) return;
 
-        // If the layer already has an image (previous fills), draw it first so we composite the new fill on top
-        if (targetLayer.imageSrc && typeof window !== 'undefined') {
-            try {
-                await new Promise<void>((resolve) => {
-                    const bg = new window.Image();
-                    bg.crossOrigin = 'anonymous';
-                    bg.onload = () => {
-                        try {
-                            outCtx.clearRect(0, 0, w, h);
-                            outCtx.drawImage(bg, 0, 0, w, h);
-                        } catch (e) {
-                            // ignore draw errors
-                        }
-                        resolve();
-                    };
-                    bg.onerror = () => resolve();
-                    bg.src = targetLayer.imageSrc as string;
-                });
-            } catch {
-                // ignore
-            }
-        } else {
-            outCtx.clearRect(0, 0, w, h);
-        }
+        outCtx.clearRect(0, 0, w, h);
 
         // Seed point relative to cropped bounds (layer-local coordinates)
         const seedX = Math.floor(localX);
@@ -339,7 +376,6 @@ export async function floodFillLayer(
 
         // Calculate painted bounds and trim the canvas if needed
         const paintedBounds = calculatePaintedBounds(outCanvas);
-        let finalBounds = { x: boundsX, y: boundsY, width: w, height: h };
         let imageWidth = w;
         let imageHeight = h;
         let imageX = 0;
@@ -369,73 +405,33 @@ export async function floodFillLayer(
             imageWidth = paintedBounds.width;
             imageHeight = paintedBounds.height;
             // Bounds remain at the layer's original position, but with full layer dimensions
-            finalBounds = {
-                x: boundsX,
-                y: boundsY,
-                width: w,
-                height: h,
-            };
         }
 
-        // Create dataUrl and rasterize into layer (replace strokes/texts)
         const dataUrl = trimmedDataUrl;
+        const fillColor = paintColor ?? '#000000';
+        const paintShape: LayerPaintShape = {
+            id: `paint-shape-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            type: "paint",
+            imageSrc: dataUrl,
+            bounds: {
+                x: imageX,
+                y: imageY,
+                width: imageWidth,
+                height: imageHeight,
+            },
+            fill: fillColor,
+            opacity: 1,
+            transform: {
+                rotation: targetLayer.rotation ?? 0,
+                scaleX: targetLayer.scale?.x ?? 1,
+                scaleY: targetLayer.scale?.y ?? 1,
+            },
+        };
 
-        // To preserve previous fills, composite the new fill over the existing image
-        if (layerControls.updateLayerRender) {
-            if (typeof window !== 'undefined') {
-                const img = new window.Image();
-                img.onload = () => {
-                    // Always composite into a full layer-sized canvas
-                    const compositeCanvas = document.createElement('canvas');
-                    compositeCanvas.width = w;
-                    compositeCanvas.height = h;
-                    const compositeCtx = compositeCanvas.getContext('2d');
-                    if (!compositeCtx) return;
+        const paintStroke = createPaintStroke(fillColor, paintShape);
+        const nextStrokes = [...(targetLayer.strokes ?? []), paintStroke];
+        layerControls.updateLayerStrokes?.(targetLayerId, nextStrokes);
 
-                    const currentRotation = targetLayer.rotation ?? 0;
-                    const currentScale = targetLayer.scale ?? { x: 1, y: 1 };
-                    const currentPosition = targetLayer.position ?? { x: boundsX, y: boundsY };
-
-                    if (layer.imageSrc) {
-                        // Draw previous image
-                        const prevImg = new window.Image();
-                        prevImg.onload = () => {
-                            compositeCtx.clearRect(0, 0, w, h);
-                            compositeCtx.drawImage(prevImg, 0, 0, w, h);
-                            // Draw new fill at correct offset
-                            compositeCtx.drawImage(img, imageX, imageY, imageWidth, imageHeight);
-                            const compositeDataUrl = compositeCanvas.toDataURL('image/png');
-                            const imageNode = <KonvaImage key={`paint-image-${targetLayerId}`} image={compositeCanvas} listening width={w} height={h} x={0} y={0} />;
-                            layerControls.updateLayerRender(targetLayerId, () => imageNode as any, {
-                                position: currentPosition,
-                                bounds: { x: boundsX, y: boundsY, width: w, height: h },
-                                imageSrc: compositeDataUrl,
-                                rotation: currentRotation,
-                                scale: currentScale,
-                            });
-                        };
-                        prevImg.src = layer.imageSrc;
-                    } else {
-                        // No previous image, just use the new fill at correct offset in full layer size
-                        compositeCtx.clearRect(0, 0, w, h);
-                        compositeCtx.drawImage(img, imageX, imageY, imageWidth, imageHeight);
-                        const compositeDataUrl = compositeCanvas.toDataURL('image/png');
-                        const imageNode = <KonvaImage key={`paint-image-${targetLayerId}`} image={compositeCanvas} listening width={w} height={h} x={0} y={0} />;
-                        layerControls.updateLayerRender(targetLayerId, () => imageNode as any, {
-                            position: currentPosition,
-                            bounds: { x: boundsX, y: boundsY, width: w, height: h },
-                            imageSrc: compositeDataUrl,
-                            rotation: currentRotation,
-                            scale: currentScale,
-                        });
-                    }
-                };
-                img.src = dataUrl;
-            }
-        } else if (layerControls.rasterizeLayer) {
-            // last resort: call rasterizeLayer which will replace strokes/texts (not ideal)
-            layerControls.rasterizeLayer(targetLayerId, dataUrl, { bounds: finalBounds });
-        }
     } catch (err) {
         console.warn('Flood fill failed', err);
     }

@@ -55,6 +55,7 @@ export interface UseLayerManagementReturn {
         }
     ) => void;
     updateLayerBounds: (layerId: string, bounds: Bounds | null) => void;
+    addShapeToLayer?: LayerControlHandlers['addShapeToLayer'];
     updateLayerOpacityLive?: (layerId: string, opacity: number) => void;
     undo: () => void;
     redo: () => void;
@@ -271,7 +272,8 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
             opacity: layer.opacity ?? 1,
             strokes: layer.strokes ? layer.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })) : [],
             texts: layer.texts ? layer.texts.map((text) => ({ ...text })) : [],
-            imageSrc: layer.imageSrc,
+            shapes: layer.shapes ? layer.shapes.map((shape) => ({ ...shape })) : [],
+            render: layer.render,
         };
         const layerIndex = present.layers.findIndex((l) => l.id === layerId);
         const nextLayers = [...present.layers];
@@ -549,6 +551,21 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                         ...layer,
                         ...extras,
                         render,
+                    }
+                    : layer
+            ),
+            present.selectedLayerIds,
+            present.primaryLayerId,
+        );
+    }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
+
+    const addShapeToLayer = useCallback<NonNullable<LayerControlHandlers['addShapeToLayer']>>((layerId, shape) => {
+        applyLayers(
+            present.layers.map((layer) =>
+                layer.id === layerId
+                    ? {
+                        ...layer,
+                        shapes: [...(layer.shapes ?? []), shape],
                     }
                     : layer
             ),

@@ -7,7 +7,7 @@
 import React from 'react';
 import { Image as KonvaImage, Rect } from 'react-konva';
 import type { LayerDescriptor } from '@molecules/Canvas';
-import type { InitialLayerDefinition, LayerShape } from '@molecules/Layer/Layer.types';
+import type { InitialLayerDefinition, LayerShape, LayerPaintShape, LayerStroke } from '@molecules/Layer/Layer.types';
 import type { Bounds } from '@molecules/Canvas/types/canvas.types';
 
 /**
@@ -100,6 +100,26 @@ export const trimTransparentImage = (
 export const normaliseLayerDefinitions = (
   definitions: InitialLayerDefinition[]
 ): LayerDescriptor[] => {
+  const clonePaintShape = (shape: LayerPaintShape): LayerPaintShape => ({
+    ...shape,
+    bounds: { ...shape.bounds },
+    transform: shape.transform ? { ...shape.transform } : undefined,
+  });
+
+  const convertPaintShapeToStroke = (shape: LayerPaintShape): LayerStroke => ({
+    id: shape.id ?? generateLayerId(),
+    points: [],
+    color: shape.fill ?? '#000000',
+    size: 0,
+    hardness: 1,
+    opacity: shape.opacity ?? 1,
+    mode: 'paint',
+    paintShape: clonePaintShape(shape),
+  });
+
+  const convertPaintShapesToStrokes = (shapes?: LayerPaintShape[]): LayerStroke[] =>
+    (shapes ?? []).map(convertPaintShapeToStroke);
+
   const buildRenderFromShapes = (shapes: LayerShape[]) => {
     return () =>
       React.createElement(
@@ -125,6 +145,12 @@ export const normaliseLayerDefinitions = (
   };
 
   return definitions.map((definition, index) => {
+    const normalizedStrokes = definition.strokes
+      ? definition.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] }))
+      : [];
+    const legacyPaintStrokes = convertPaintShapesToStrokes(definition.paintShapes);
+    const combinedStrokes = [...normalizedStrokes, ...legacyPaintStrokes];
+
     const base: LayerDescriptor = {
       id: definition.id ?? generateLayerId(),
       name: definition.name ?? `Layer ${index + 1}`,
@@ -133,7 +159,7 @@ export const normaliseLayerDefinitions = (
       rotation: definition.rotation ?? 0,
       scale: definition.scale ?? { x: 1, y: 1 },
       opacity: definition.opacity ?? 1,
-      strokes: definition.strokes ? definition.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })) : [],
+      strokes: combinedStrokes,
       texts: definition.texts ? definition.texts.map((text) => ({ ...text })) : [],
       shapes: definition.shapes ? definition.shapes.map((shape) => ({ ...shape })) : [],
       render: definition.render,
