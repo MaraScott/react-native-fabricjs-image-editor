@@ -24,8 +24,8 @@ const hexToRgba = (hex: string) => {
 
 // Calculate the bounding box of the painted content by scanning the canvas
 const calculatePaintedBounds = (canvas: HTMLCanvasElement): { x: number; y: number; width: number; height: number } | null => {
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
@@ -60,6 +60,48 @@ const calculatePaintedBounds = (canvas: HTMLCanvasElement): { x: number; y: numb
         width: maxX - minX + 1,
         height: maxY - minY + 1,
     };
+};
+
+const isolateMaskEdges = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    if (!ctx || width <= 0 || height <= 0) return;
+
+    try {
+        const maskData = ctx.getImageData(0, 0, width, height);
+        const maskBuf = maskData.data;
+        const boundary = new Uint8Array(width * height);
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const pos = y * width + x;
+                const alphaIdx = pos * 4 + 3;
+                if (maskBuf[alphaIdx] === 0) {
+                    continue;
+                }
+
+                let isEdge = false;
+                if (x > 0 && maskBuf[alphaIdx - 4] === 0) isEdge = true;
+                if (x < width - 1 && maskBuf[alphaIdx + 4] === 0) isEdge = true;
+                if (y > 0 && maskBuf[alphaIdx - width * 4] === 0) isEdge = true;
+                if (y < height - 1 && maskBuf[alphaIdx + width * 4] === 0 && !isEdge) isEdge = true;
+
+                if (isEdge) {
+                    boundary[pos] = 1;
+                }
+            }
+        }
+
+        for (let pos = 0; pos < width * height; pos++) {
+            const idx = pos * 4;
+            maskBuf[idx] = 0;
+            maskBuf[idx + 1] = 0;
+            maskBuf[idx + 2] = 0;
+            maskBuf[idx + 3] = boundary[pos] ? 255 : 0;
+        }
+
+        ctx.putImageData(maskData, 0, 0);
+    } catch {
+        // ignore cross-origin or rendering errors
+    }
 };
 
 /**
@@ -133,6 +175,7 @@ export async function floodFillLayer(
                         } catch (e) {
                             // ignore
                         }
+                        isolateMaskEdges(maskCtx, w, h);
                         resolve();
                     };
                     bg.onerror = () => resolve();
@@ -280,9 +323,7 @@ export async function floodFillLayer(
                 const existing = outCtx.getImageData(0, 0, w, h);
                 const existingBuf = existing.data;
                 for (let i = 0; i < outBuf.length; i += 4) {
-                    // If this pixel is part of the new region (alpha > 0 in outImg) and
-                    // there is no existing pixel (alpha === 0), then copy it.
-                    if (outBuf[i + 3] > 0 && existingBuf[i + 3] === 0) {
+                    if (outBuf[i + 3] > 0) {
                         existingBuf[i] = outBuf[i];
                         existingBuf[i + 1] = outBuf[i + 1];
                         existingBuf[i + 2] = outBuf[i + 2];
