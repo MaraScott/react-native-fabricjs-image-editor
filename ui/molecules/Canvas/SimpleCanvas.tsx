@@ -473,6 +473,14 @@ export const SimpleCanvas = ({
         new Map()
     );
 
+    // Keep selection handles a constant screen size (do not scale with zoom)
+    const outlineDash: [number, number] = [8, 4];
+    const transformerAnchorSize = 8;
+    const transformerAnchorStrokeWidth = 1;
+    const transformerAnchorCornerRadius = 2;
+    const transformerPadding = 0;
+    const transformerHitStrokeWidth = 12;
+
     const syncSelectedLayerNodeRefs = useCallback(() => {
         selectedLayerNodeRefs.current.clear();
         selectedLayerIds.forEach((id) => {
@@ -1508,35 +1516,23 @@ export const SimpleCanvas = ({
                     <SelectionLayer
                         key={`selection-layer-container`}
                         selectModeActive={selectModeActive}
-                        padding={8}
-                        borderDash={[8, 4]}
+                        padding={transformerPadding}
+                        borderDash={outlineDash}
                         layerRef={selectionLayerRef}
                         transformerRef={selectionTransformerRef}
-                        anchorSize={8}
-                        anchorCornerRadius={2}
-                        anchorStrokeWidth={1}
-                        hitStrokeWidth={12}
+                        anchorSize={transformerAnchorSize}
+                        anchorCornerRadius={transformerAnchorCornerRadius}
+                        anchorStrokeWidth={transformerAnchorStrokeWidth}
+                        hitStrokeWidth={transformerHitStrokeWidth}
                         stageRef={stageRef}
                         selectedLayerBounds={selectedLayerBounds}
-                        captureSelectionTransformState={
-                            captureSelectionTransformState
-                        }
-                        applySelectionTransformDelta={
-                            applySelectionTransformDelta
-                        }
-                        syncSelectedLayerNodeRefs={
-                            syncSelectedLayerNodeRefs
-                        }
-                        commitSelectedLayerNodeTransforms={
-                            commitSelectedLayerNodeTransforms
-                        }
+                        captureSelectionTransformState={captureSelectionTransformState}
+                        applySelectionTransformDelta={applySelectionTransformDelta}
+                        syncSelectedLayerNodeRefs={syncSelectedLayerNodeRefs}
+                        commitSelectedLayerNodeTransforms={commitSelectedLayerNodeTransforms}
                         scheduleBoundsRefresh={scheduleBoundsRefresh}
-                        initializeSelectionTransform={
-                            initializeSelectionTransform
-                        }
-                        markSelectionTransforming={
-                            markSelectionTransforming
-                        }
+                        initializeSelectionTransform={initializeSelectionTransform}
+                        markSelectionTransforming={markSelectionTransforming}
                     />
                 ) : null}
             </Stage>
