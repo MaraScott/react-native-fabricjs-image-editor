@@ -152,8 +152,8 @@ export const SideBarLeft = ({
                 <img width="44px" key="pan-icon" aria-hidden="true" src={iconSrc.pan} alt="Pan" />
                 {/* <span key="pan-label">Pan</span> */}
             </button>
-
-            <button
+            
+            {/* <button
                 key="button-select"
                 type="button"
                 className={`select ${isSelectToolActive ? 'active' : null}`}
@@ -163,8 +163,7 @@ export const SideBarLeft = ({
                 title={t('select')}
             >
                 <img width="44px" key="select-icon" aria-hidden="true" src={iconSrc.select} alt="Select" />
-                {/* <span key="select-label">Select</span> */}
-            </button>
+            </button> */}
 
             <button
                 key="button-draw"
