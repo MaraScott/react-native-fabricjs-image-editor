@@ -73,6 +73,7 @@ export const CanvasApp = ({
     const theme = themeProp ?? bootstrapConfig.theme;
     const backgroundColor = backgroundColorProp ?? bootstrapConfig.backgroundColor;
     const assetsPath = assetsPathProp ?? bootstrapConfig.assets_path;
+    const language = bootstrapConfig.i18n as Language;
 
     const handleThemeChange = (nextTheme: 'kid' | 'adult') => {
         dispatch({ type: 'configuration/bootstrap', payload: { theme: nextTheme } });
@@ -263,6 +264,7 @@ const isPaintToolActive = useSelector((state: RootState) => state.view.paint.act
                         width={resolvedStageWidth}
                         height={resolvedStageHeight}
                         theme={theme}
+                        language={language}
                         onThemeChange={handleThemeChange}
                         onLanguageChange={handleLanguageChange}
                     />

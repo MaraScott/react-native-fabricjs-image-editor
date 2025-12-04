@@ -10,6 +10,7 @@ import ErrorBoundary from "@utils/ErrorBoundary";
 import { Provider } from 'react-redux'
 import { CanvasApp as CanvasAppStore } from '@store/CanvasApp';
 import { CanvasApp } from '@pages/Canvas';
+import { resolveLanguage } from '@i18n';
 
 /**
  * Host-provided bootstrap configuration that allows the embedding surface to
@@ -21,7 +22,7 @@ const width = bootstrap.width ?? 1024;
 const height = bootstrap.height ?? 1024;
 const backgroundColor = bootstrap.backgroundColor ?? '#cccccc33';
 const theme = bootstrap.theme ?? 'kid';
-const i18n = bootstrap.i18n ?? 'fr';
+const i18n = resolveLanguage(bootstrap.i18n);
 const assets_path = bootstrap.assets_path ?? './assets/public';
 
 const bootstrapConfig = {

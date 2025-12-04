@@ -49,6 +49,7 @@ import type { Layer as KonvaLayerType } from "konva/lib/Layer";
 import { useTextEditing } from "@molecules/Canvas/hooks/useTextEditing";
 import { useSelectionTransform } from "@molecules/Canvas/hooks/useSelectionTransform";
 import { useDrawingTools } from "@molecules/Canvas/hooks/useDrawingTools";
+import type { Language } from "@i18n";
 
 export interface SimpleCanvasProps {
     stageWidth?: number;
@@ -104,6 +105,8 @@ export const SimpleCanvas = ({
     const isRubberToolActive = rubberToolState.active;
     const isTextToolActive = textToolState.active;
     const isPaintToolActive = paintToolState.active;
+    const bootstrapConfig = useSelector((state: RootState) => state.settings.bootstrap);
+    const language = bootstrapConfig.i18n as Language;
 
     // Redux selection transform
     const reduxSelectionTransform = useSelector(selectSelectionTransform);
@@ -1561,6 +1564,7 @@ export const SimpleCanvas = ({
                     layerControls={layerControls}
                     selectedLayerIds={selectedLayerIds}
                     penSettings={penSettings}
+                    language={language}
                     eraserSize={eraserSize}
                     onEraserSizeChange={(value) => {
                         setEraserSize(value);

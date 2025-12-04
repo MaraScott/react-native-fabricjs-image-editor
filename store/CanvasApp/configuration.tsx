@@ -1,11 +1,13 @@
 import { createReducer } from '@reduxjs/toolkit';
+import type { Language } from '@i18n';
+import { resolveLanguage } from '@i18n';
 
 export interface BootstrapConfiguration {
     width: number;
     height: number;
     backgroundColor: string;
     theme: 'kid' | 'adult';
-    i18n: string;
+    i18n: Language;
     assets_path: string;
 }
 
@@ -59,9 +61,13 @@ const configurationReducer = createReducer(initialState, (builder) => {
        * addCase - Store bootstrap initialization and partial updates.
        */
       .addCase('configuration/bootstrap', (state, action) => {
+        const payload = { ...action.payload } as Partial<BootstrapConfiguration> & { i18n?: string | Language };
+        if (typeof payload.i18n !== 'undefined') {
+            payload.i18n = resolveLanguage(payload.i18n);
+        }
         state.bootstrap = {
             ...state.bootstrap,
-            ...action.payload,
+            ...payload,
         };
       });
 });
