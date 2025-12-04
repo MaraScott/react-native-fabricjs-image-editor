@@ -85,6 +85,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                     texts: [],
                     shapes: [],
                     render: () => null,
+                    needsRasterization: true,
                 },
             ];
         const first = seedLayers[0];
@@ -239,6 +240,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
             texts: [],
             shapes: [],
             render: () => null,
+            needsRasterization: true,
         };
         const insertIndex = getInsertIndexAboveSelection();
         const nextLayers = [...present.layers];
@@ -274,6 +276,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
             texts: layer.texts ? layer.texts.map((text) => ({ ...text })) : [],
             shapes: layer.shapes ? layer.shapes.map((shape) => ({ ...shape })) : [],
             render: layer.render,
+            needsRasterization: layer.needsRasterization ?? true,
         };
         const layerIndex = present.layers.findIndex((l) => l.id === layerId);
         const nextLayers = [...present.layers];
@@ -465,7 +468,13 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
     const updateLayerStrokes = useCallback<NonNullable<LayerControlHandlers['updateLayerStrokes']>>((layerId, strokes) => {
         applyLayers(
             present.layers.map((layer) =>
-                layer.id === layerId ? { ...layer, strokes: strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })) } : layer
+                layer.id === layerId
+                    ? {
+                          ...layer,
+                          strokes: strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })),
+                          needsRasterization: true,
+                      }
+                    : layer
             ),
             present.selectedLayerIds,
             present.primaryLayerId,
@@ -486,6 +495,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
             strokes: [],
             texts: [],
             render: () => null,
+            needsRasterization: true,
         };
         const layerTransform = getLayerElementTransform(baseLayer);
         const textItem: LayerTextItem = {
@@ -514,7 +524,13 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
     const updateLayerTexts = useCallback<NonNullable<LayerControlHandlers['updateLayerTexts']>>((layerId, texts) => {
         applyLayers(
             present.layers.map((layer) =>
-                layer.id === layerId ? { ...layer, texts: texts.map((text) => ({ ...text })) } : layer
+                layer.id === layerId
+                    ? {
+                          ...layer,
+                          texts: texts.map((text) => ({ ...text })),
+                          needsRasterization: true,
+                      }
+                    : layer
             ),
             present.selectedLayerIds,
             present.primaryLayerId,
@@ -546,12 +562,14 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         nextLayers[targetIndex] = {
             ...layer,
             texts: nextTexts,
+            needsRasterization: true,
         };
 
         applyLayers(nextLayers, present.selectedLayerIds, present.primaryLayerId);
     }, [applyLayers, present.layers, present.primaryLayerId, present.selectedLayerIds]);
 
     const updateLayerRender = useCallback<NonNullable<LayerControlHandlers['updateLayerRender']>>((layerId, render, extras = {}) => {
+        const nextNeedsRasterization = extras.needsRasterization ?? true;
         applyLayers(
             present.layers.map((layer) =>
                 layer.id === layerId
@@ -559,6 +577,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                         ...layer,
                         ...extras,
                         render,
+                        needsRasterization: nextNeedsRasterization,
                     }
                     : layer
             ),
@@ -574,6 +593,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                     ? {
                         ...layer,
                         shapes: [...(layer.shapes ?? []), shape],
+                        needsRasterization: true,
                     }
                     : layer
             ),
@@ -586,6 +606,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
         if (!dataUrl) return;
         const target = present.layers.find((layer) => layer.id === layerId);
         if (!target) return;
+        if (!target.needsRasterization) return;
         if (typeof window === 'undefined') return;
 
         const boundsFromOptions = options?.bounds ?? target.bounds ?? null;
@@ -651,6 +672,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                         rotation: 0,
                         scale: { x: 1, y: 1 },
                         imageSrc: finalDataUrl,
+                        needsRasterization: false,
                     }
                     : layer
             );
@@ -710,6 +732,7 @@ export const useLayerManagement = (params: UseLayerManagementParams = {}): UseLa
                 texts: [],
                 imageSrc: src,
                 render: () => imageNode,
+                needsRasterization: true,
             };
 
             // Insert above the currently selected layer; if none are selected, place it on top.

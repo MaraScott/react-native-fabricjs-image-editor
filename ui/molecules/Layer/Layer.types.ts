@@ -94,6 +94,7 @@ export interface LayerRenderable {
   imageSrc?: string;
   bounds?: Bounds | null;
   shapes?: LayerShape[];
+  needsRasterization?: boolean;
 }
 
 /**
@@ -117,6 +118,7 @@ export interface LayerDescriptor extends LayerRenderable {
   strokes?: LayerStroke[];
   texts?: LayerTextItem[];
   bounds?: Bounds | null;
+  needsRasterization: boolean;
 }
 
 

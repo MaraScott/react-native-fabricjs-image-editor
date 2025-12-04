@@ -166,11 +166,7 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
 
         const needsRasterize = selectedLayerIds.some((id) => {
             const layer = layerControls.layers.find((l) => l.id === id);
-            if (!layer) return false;
-            const hasVectorContent =
-                (layer.texts?.length ?? 0) > 0 ||
-                typeof layer.render === "function";
-            return hasVectorContent;
+            return layer?.needsRasterization ?? true;
         });
 
         if (needsRasterize && !rasterizeAlertShownRef.current) {
@@ -488,6 +484,10 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
                     typeof window !== "undefined"
                 ) {
                     const targetLayerId = finalizedStroke.layerId;
+                    const targetLayer = layerControls.layers.find((l) => l.id === targetLayerId);
+                    if (!(targetLayer?.needsRasterization ?? true)) {
+                        return;
+                    }
 
                     window.requestAnimationFrame(() => {
                         window.requestAnimationFrame(() => {

@@ -509,6 +509,7 @@ export const SimpleCanvas = ({
             const layerDescriptor = layerControls.layers.find(
                 (layer) => layer.id === layerId
             );
+            if (!(layerDescriptor?.needsRasterization ?? true)) return;
             const node = layerNodeRefs.current.get(layerId);
             if (!node) return;
             try {
@@ -1455,10 +1456,10 @@ export const SimpleCanvas = ({
                                                 }}
                                             />
                                         ))}
-                                        {combinedStrokes.map((stroke) => {
-                                            if (stroke.mode === "paint") {
-                                                return null;
-                                            }
+                                        {[...combinedStrokes].reverse().map((stroke) => {
+                                            // if (stroke.mode === "paint") {
+                                            //     return null;
+                                            // }
                                             return (
                                                 <Line
                                                     key={stroke.id}

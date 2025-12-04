@@ -175,6 +175,7 @@ export const normaliseLayerDefinitions = (
       shapes: definition.shapes ? definition.shapes.map((shape) => ({ ...shape })) : [],
       render: definition.render,
       imageSrc: definition.imageSrc,
+      needsRasterization: definition.needsRasterization ?? true,
     };
 
     let hasTrimmed = false;

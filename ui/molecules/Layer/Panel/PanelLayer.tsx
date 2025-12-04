@@ -15,6 +15,7 @@ interface PanelLayerData {
     texts?: unknown[];
     type?: string;
     imageSrc?: string;
+    needsRasterization?: boolean;
 }
 
 interface PanelLayerProps {
@@ -41,7 +42,11 @@ const getActionButtonConfigs = ({
     handleCopyLayer: (layerId: string) => void;
     layerControls: LayerControlHandlers;
 }) => {
+    const canRasterize = layer.needsRasterization ?? true;
     const requestRasterize = () => {
+        if (!canRasterize) {
+            return;
+        }
         if (!layerControls.rasterizeLayer || typeof window === 'undefined') {
             return;
         }
@@ -116,18 +121,18 @@ const getActionButtonConfigs = ({
             },
             content: '⤓',
         },
-        {
-            key: `layer-panel-layer-${layer.id}-rasterize-button`,
-            props: {
-                action: 'rasterize',
-                className: 'rasterize',
-                onClick: requestRasterize,
-                title: 'Rasterize layer',
-                'aria-label': 'Rasterize layer',
-                disabled: !layerControls.rasterizeLayer,
-            },
-            content: 'Rasterize',
-        }, {
+            {
+                key: `layer-panel-layer-${layer.id}-rasterize-button`,
+                props: {
+                    action: 'rasterize',
+                    className: 'rasterize',
+                    onClick: requestRasterize,
+                    title: 'Rasterize layer',
+                    'aria-label': 'Rasterize layer',
+                    disabled: !layerControls.rasterizeLayer || !canRasterize,
+                },
+                content: 'Rasterize',
+            }, {
             key: `layer-panel-layer-${layer.id}-remove-button`,
             props: {
                 action: 'remove',
