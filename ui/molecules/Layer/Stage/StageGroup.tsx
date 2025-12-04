@@ -41,7 +41,7 @@ interface StageGroupProps {
     syncTransformerToSelection: () => void;
 }
 
-const PaintShapeNode = ({ shape }: { shape: LayerPaintShape }) => {
+export const PaintShapeNode = ({ shape }: { shape: LayerPaintShape }) => {
     const image = useMemo(() => {
         if (typeof window === 'undefined') {
             return null;
@@ -70,7 +70,7 @@ const PaintShapeNode = ({ shape }: { shape: LayerPaintShape }) => {
     );
 };
 
-const collectPaintShapes = (layer?: LayerDescriptor): LayerPaintShape[] =>
+export const collectPaintShapes = (layer?: LayerDescriptor): LayerPaintShape[] =>
     (layer?.strokes ?? [])
         .map((stroke) => stroke.paintShape)
         .filter((shape): shape is LayerPaintShape => Boolean(shape));
@@ -168,7 +168,6 @@ export const StageGroup = ({
         return null;
     }
     const layer = layerControls.layers.find((l) => l.id === layerId);
-    const layerPaintShapes = collectPaintShapes(layer);
     const onPointerDown = (event: KonvaEventObject<PointerEvent>) => {
         // If a drawing/erasing/painting/text tool is active, do not intercept pointerdown
         // on the group so the stage-level handlers can receive the event and perform
@@ -446,9 +445,6 @@ export const StageGroup = ({
             onDragEnd={handleDragEnd}
         >
             {children}
-            {layerPaintShapes.map((shape) => (
-                <PaintShapeNode key={shape.id} shape={shape} />
-            ))}
         </Group>
     );
 };

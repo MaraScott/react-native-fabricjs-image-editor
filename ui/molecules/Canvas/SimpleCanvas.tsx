@@ -25,6 +25,8 @@ import {
     StageGroup,
     LayerPanelUI,
     BackgroundLayer,
+    PaintShapeNode,
+    collectPaintShapes,
 } from "@molecules/Layer";
 import { useSimpleCanvasStore } from "@store/SimpleCanvas";
 // import { Layer as KonvaLayer } from "@atoms/Canvas";
@@ -1337,6 +1339,7 @@ export const SimpleCanvas = ({
                                 ];
                                 const textItems = layer.texts ?? [];
 
+                                const layerPaintShapes = collectPaintShapes(layer);
                                 return (
                                     <GroupAny
                                         key={`${layersRevision}-${layer.id}`}
@@ -1400,6 +1403,42 @@ export const SimpleCanvas = ({
                                         }
                                     >
                                         {layer.render()}
+                                        {layerPaintShapes.map((shape) => (
+                                            <PaintShapeNode
+                                                key={shape.id}
+                                                shape={shape}
+                                            />
+                                        ))}
+                                        {[...combinedStrokes].reverse().map((stroke) => {
+                                            // if (stroke.mode === "paint") {
+                                            //     return null;
+                                            // }
+                                            return (
+                                                <Line
+                                                    key={stroke.id}
+                                                    points={stroke.points}
+                                                    stroke={stroke.color}
+                                                    strokeWidth={stroke.size}
+                                                    lineCap="round"
+                                                    lineJoin="round"
+                                                    opacity={stroke.opacity}
+                                                    tension={0}
+                                                    shadowBlur={
+                                                        (1 - stroke.hardness) *
+                                                        stroke.size *
+                                                        1.5
+                                                    }
+                                                    shadowColor={stroke.color}
+                                                    globalCompositeOperation={
+                                                        stroke.mode ===
+                                                        "erase"
+                                                            ? "destination-out"
+                                                            : "source-over"
+                                                    }
+                                                    listening={true}
+                                                />
+                                            );
+                                        })}
                                         {textItems.map((textItem) => (
                                             <KonvaText
                                                 key={textItem.id}
@@ -1456,36 +1495,6 @@ export const SimpleCanvas = ({
                                                 }}
                                             />
                                         ))}
-                                        {[...combinedStrokes].reverse().map((stroke) => {
-                                            // if (stroke.mode === "paint") {
-                                            //     return null;
-                                            // }
-                                            return (
-                                                <Line
-                                                    key={stroke.id}
-                                                    points={stroke.points}
-                                                    stroke={stroke.color}
-                                                    strokeWidth={stroke.size}
-                                                    lineCap="round"
-                                                    lineJoin="round"
-                                                    opacity={stroke.opacity}
-                                                    tension={0}
-                                                    shadowBlur={
-                                                        (1 - stroke.hardness) *
-                                                        stroke.size *
-                                                        1.5
-                                                    }
-                                                    shadowColor={stroke.color}
-                                                    globalCompositeOperation={
-                                                        stroke.mode ===
-                                                        "erase"
-                                                            ? "destination-out"
-                                                            : "source-over"
-                                                    }
-                                                    listening={true}
-                                                />
-                                            );
-                                        })}
                                     </GroupAny>
                                 );
                             })
