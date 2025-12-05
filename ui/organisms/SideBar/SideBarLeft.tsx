@@ -153,7 +153,7 @@ export const SideBarLeft = ({
                 {/* <span key="pan-label">Pan</span> */}
             </button>
             
-            {/* <button
+            <button
                 key="button-select"
                 type="button"
                 className={`select ${isSelectToolActive ? 'active' : null}`}
@@ -163,7 +163,7 @@ export const SideBarLeft = ({
                 title={t('select')}
             >
                 <img width="44px" key="select-icon" aria-hidden="true" src={iconSrc.select} alt="Select" />
-            </button> */}
+            </button>
 
             <button
                 key="button-draw"
