@@ -168,6 +168,7 @@ export const StageGroup = ({
         return null;
     }
     const layer = layerControls.layers.find((l) => l.id === layerId);
+    const layerPaintShapes = collectPaintShapes(layer);
     const onPointerDown = (event: KonvaEventObject<PointerEvent>) => {
         // If a drawing/erasing/painting/text tool is active, do not intercept pointerdown
         // on the group so the stage-level handlers can receive the event and perform

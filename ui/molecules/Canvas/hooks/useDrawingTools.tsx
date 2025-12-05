@@ -5,7 +5,7 @@ import type { Bounds } from "../types/canvas.types";
 import type { LayerElementTransform, LayerPaintShape, LayerStroke } from "@molecules/Layer/Layer.types";
 import { drawActions } from "@store/CanvasApp/view/draw";
 import { rubberActions } from "@store/CanvasApp/view/rubber";
-import { floodFillLayer } from "@molecules/Canvas/utils/floodFill";
+import { floodFillLayer, createPaintStroke, getPaintShape } from "@molecules/Canvas/utils/floodFill";
 
 type LayerControls = any; // keep loose; you can replace with your real type
 type Dispatch = (action: any) => void;
@@ -54,21 +54,9 @@ export interface UseDrawingToolsOptions {
 
     // redux dispatch
     dispatch: Dispatch;
-    }
+}
 
-const createPaintStroke = (color: string, shape: LayerPaintShape): LayerStroke => ({
-    id: `paint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    points: [],
-    color,
-    size: 0,
-    hardness: 1,
-    opacity: 1,
-    mode: "paint",
-    paintShape: shape,
-    layerTransform: shape.layerTransform,
-});
-
-const buildLayerTransformFromEffective = (eff: {
+export function buildLayerTransformFromEffective(eff: {
     boundsX?: number;
     boundsY?: number;
     rotation?: number;
@@ -76,17 +64,19 @@ const buildLayerTransformFromEffective = (eff: {
     scaleY?: number;
     x?: number;
     y?: number;
-}): LayerElementTransform => ({
-    position: {
-        x: eff.boundsX ?? eff.x ?? 0,
-        y: eff.boundsY ?? eff.y ?? 0,
-    },
-    rotation: eff.rotation ?? 0,
-    scale: {
-        x: eff.scaleX ?? 1,
-        y: eff.scaleY ?? 1,
-    },
-});
+}): LayerElementTransform {
+    return {
+        position: {
+            x: eff.boundsX ?? eff.x ?? 0,
+            y: eff.boundsY ?? eff.y ?? 0,
+        },
+        rotation: eff.rotation ?? 0,
+        scale: {
+            x: eff.scaleX ?? 1,
+            y: eff.scaleY ?? 1,
+        },
+    }
+};
 
 export interface UseDrawingToolsResult {
     pendingStroke: { layerId: string; stroke: LayerStroke } | null;
@@ -258,28 +248,8 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
 
                     const paintEff = resolveEffectiveLayerTransform(paintLayer);
                     const paintLayerTransform = buildLayerTransformFromEffective(paintEff);
-
-                    const paintShape: LayerPaintShape = {
-                        id: `paint-shape-${Date.now()}-${Math.random()
-                            .toString(36)
-                            .slice(2, 8)}`,
-                        type: "paint",
-                        imageSrc: fillCanvas.toDataURL("image/png"),
-                        bounds: {
-                            x: 0,
-                            y: 0,
-                            width: fillCanvas.width,
-                            height: fillCanvas.height,
-                        },
-                        fill: fillColor,
-                        opacity: 1,
-                        transform: {
-                            rotation: paintLayer.rotation ?? 0,
-                            scaleX: paintLayer.scale?.x ?? 1,
-                            scaleY: paintLayer.scale?.y ?? 1,
-                        },
-                        layerTransform: paintLayerTransform,
-                    };
+                    console.log('useDrawingTools');
+                    const paintShape = getPaintShape(fillCanvas, fillCtx, {x: 0, y: 0}, fillColor, paintLayer, paintLayerTransform);
 
                     const paintStroke = createPaintStroke(
                         fillColor,
@@ -416,16 +386,16 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
             setPendingStroke((prev) =>
                 prev && prev.layerId === layer.id
                     ? {
-                          layerId: prev.layerId,
-                          stroke: {
-                              ...prev.stroke,
-                              points: [
-                                  ...prev.stroke.points,
-                                  localX,
-                                  localY,
-                              ],
-                          },
-                      }
+                        layerId: prev.layerId,
+                        stroke: {
+                            ...prev.stroke,
+                            points: [
+                                ...prev.stroke.points,
+                                localX,
+                                localY,
+                            ],
+                        },
+                    }
                     : prev
             );
 

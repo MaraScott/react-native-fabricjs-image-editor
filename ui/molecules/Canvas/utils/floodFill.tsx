@@ -1,4 +1,6 @@
 import type { LayerElementTransform, LayerPaintShape, LayerStroke } from '@molecules/Layer/Layer.types';
+import { buildLayerTransformFromEffective } from "@molecules/Canvas/hooks/useDrawingTools";
+
 
 // convert hex to rgba
 const hexToRgba = (hex: string) => {
@@ -23,8 +25,8 @@ const hexToRgba = (hex: string) => {
 
 // Calculate the bounding box of the painted content by scanning the canvas
 const calculatePaintedBounds = (canvas: HTMLCanvasElement): { x: number; y: number; width: number; height: number } | null => {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
@@ -103,37 +105,63 @@ const isolateMaskEdges = (ctx: CanvasRenderingContext2D, width: number, height: 
     }
 };
 
-const createPaintStroke = (color: string, shape: LayerPaintShape): LayerStroke => ({
-    id: `paint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    points: [],
-    color,
-    size: 0,
-    hardness: 1,
-    opacity: 1,
-    mode: "paint",
-    paintShape: shape,
-    layerTransform: shape.layerTransform,
-});
+export function createPaintStroke(color: string, shape: LayerPaintShape): LayerStroke {
+    return {
+        id: `paint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        points: [],
+        color,
+        size: 0,
+        hardness: 1,
+        opacity: 1,
+        mode: "paint",
+        paintShape: shape,
+        layerTransform: shape.layerTransform,
+    };
+};
 
-const buildLayerTransformFromEffective = (eff: {
-    boundsX?: number;
-    boundsY?: number;
-    rotation?: number;
-    scaleX?: number;
-    scaleY?: number;
-    x?: number;
-    y?: number;
-}): LayerElementTransform => ({
-    position: {
-        x: eff.boundsX ?? eff.x ?? 0,
-        y: eff.boundsY ?? eff.y ?? 0,
-    },
-    rotation: eff.rotation ?? 0,
-    scale: {
-        x: eff.scaleX ?? 1,
-        y: eff.scaleY ?? 1,
-    },
-});
+export function getFillCanvas(width: number, height: number, fillColor: string): {  fillCanvas: HTMLCanvasElement; fillCtx: CanvasRenderingContext2D } {
+
+    const fillCanvas = document.createElement("canvas");
+    fillCanvas.width = Math.max(1, width);
+    fillCanvas.height = Math.max(1, height);
+    const fillCtx = fillCanvas.getContext("2d");
+    if (!fillCtx) return;
+    fillCtx.fillStyle = fillColor;
+    fillCtx.fillRect(
+        0,
+        0,
+        fillCanvas.width,
+        fillCanvas.height
+    );
+
+    return { fillCanvas, fillCtx };
+
+}
+
+export function getPaintShape(fillCanvas: HTMLCanvasElement, fillCtx: CanvasRenderingContext2D, bounds: {x: number, y: number}, fillColor: string, paintLayer: any, paintLayerTransform: LayerElementTransform): LayerPaintShape {
+    console.log('fillCanvas', fillCanvas, 'fillCtx', fillCtx);
+    return {
+        id: `paint-shape-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`,
+        type: "paint",
+        imageSrc: fillCanvas.toDataURL("image/png"),
+        bounds: {
+            x: bounds.x,
+            y: bounds.y,
+            width: fillCanvas.width,
+            height: fillCanvas.height,
+        },
+        fill: fillColor,
+        opacity: 1,
+        transform: {
+            rotation: paintLayer.rotation ?? 0,
+            scaleX: paintLayer.scale?.x ?? 1,
+            scaleY: paintLayer.scale?.y ?? 1,
+        },
+        layerTransform: paintLayerTransform,
+    }
+};
 
 const drawShapesOntoContext = async (
     ctx: CanvasRenderingContext2D,
@@ -431,27 +459,12 @@ export async function floodFillLayer(
 
         const dataUrl = trimmedDataUrl;
         const fillColor = paintColor ?? '#000000';
-        const paintShape: LayerPaintShape = {
-            id: `paint-shape-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            type: "paint",
-            imageSrc: dataUrl,
-            bounds: {
-                x: imageX,
-                y: imageY,
-                width: imageWidth,
-                height: imageHeight,
-            },
-            fill: fillColor,
-            opacity: 1,
-            transform: {
-                rotation: targetLayer.rotation ?? 0,
-                scaleX: targetLayer.scale?.x ?? 1,
-                scaleY: targetLayer.scale?.y ?? 1,
-            },
-            layerTransform,
-        };
-
-        const paintStroke = createPaintStroke(fillColor, paintShape);
+        const _fillCanvas = getFillCanvas(imageWidth, imageHeight, fillColor);
+        const fillCanvas = _fillCanvas.fillCanvas;
+        const fillCtx = _fillCanvas.fillCtx;
+        console.log('floodFill');
+        const paintedShape = getPaintShape(fillCanvas, fillCtx, {x: imageX, y: imageY}, fillColor, targetLayer, layerTransform);
+        const paintStroke = createPaintStroke(fillColor, paintedShape);
         const nextStrokes = [...(targetLayer.strokes ?? []), paintStroke];
         layerControls.updateLayerStrokes?.(targetLayerId, nextStrokes);
 
