@@ -50,7 +50,6 @@ const getActionButtonConfigs = ({
         if (!layerControls.rasterizeLayer || typeof window === 'undefined') {
             return;
         }
-
         const rasterizeEvent = new CustomEvent('rasterize-layer-request', {
             detail: { layerId: layer.id },
         });

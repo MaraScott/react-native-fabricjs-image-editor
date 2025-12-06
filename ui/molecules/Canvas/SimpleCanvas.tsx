@@ -504,19 +504,14 @@ export const SimpleCanvas = ({
     // Handle rasterize requests
     useEffect(() => {
         const handleRasterizeRequest = (event: Event) => {
-            const detail = (event as CustomEvent<{ layerId: string }>)
-                .detail;
-            const layerId = detail?.layerId;
+            const layerId = (event as CustomEvent<{ layerId: string }>).detail?.layerId;
             if (!layerId || !layerControls?.rasterizeLayer) return;
-            const layerDescriptor = layerControls.layers.find(
-                (layer) => layer.id === layerId
-            );
+            const layerDescriptor = layerControls.layers.find((layer) => layer.id === layerId);
             if (!(layerDescriptor?.needsRasterization ?? true)) return;
             const node = layerNodeRefs.current.get(layerId);
             if (!node) return;
             try {
-                let bounds: Bounds | null =
-                    layerDescriptor?.bounds ?? null;
+                let bounds: Bounds | null = layerDescriptor?.bounds ?? null;
                 if (!bounds) {
                     const stage = node.getStage();
                     if (stage) {
@@ -547,6 +542,7 @@ export const SimpleCanvas = ({
                     pixelRatio: 1,
                     backgroundColor: "rgba(0,0,0,0)",
                 });
+                console.log(JSON.stringify({"layerId": layerId, "rasterizeLayer": layerControls?.rasterizeLayer, "needsRasterization": layerDescriptor?.needsRasterization, "node": node, "bounds": bounds, "dataUrl": dataUrl}));
                 layerControls.rasterizeLayer(layerId, dataUrl, { bounds });
             } catch (error) {
                 console.warn("Unable to rasterize layer", error);

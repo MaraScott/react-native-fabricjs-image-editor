@@ -5,7 +5,7 @@ import type { Bounds } from "../types/canvas.types";
 import type { LayerElementTransform, LayerPaintShape, LayerStroke } from "@molecules/Layer/Layer.types";
 import { drawActions } from "@store/CanvasApp/view/draw";
 import { rubberActions } from "@store/CanvasApp/view/rubber";
-import { floodFillLayer, createPaintStroke, getPaintShape } from "@molecules/Canvas/utils/floodFill";
+import { floodFillLayer, createPaintStroke, getPaintShape, getTrimmedDataUrl } from "@molecules/Canvas/utils/floodFill";
 
 type LayerControls = any; // keep loose; you can replace with your real type
 type Dispatch = (action: any) => void;
@@ -249,7 +249,8 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
                     const paintEff = resolveEffectiveLayerTransform(paintLayer);
                     const paintLayerTransform = buildLayerTransformFromEffective(paintEff);
                     console.log('useDrawingTools');
-                    const paintShape = getPaintShape(fillCanvas, fillCtx, {x: 0, y: 0}, fillColor, paintLayer, paintLayerTransform);
+                    const { trimmedDataUrl, imageX, imageY, imageWidth, imageHeight } = getTrimmedDataUrl(fillCanvas, stageWidth, stageHeight);
+                    const paintShape = getPaintShape(fillCanvas, trimmedDataUrl, {x: imageX, y: imageY}, fillColor, paintLayer, paintLayerTransform);
 
                     const paintStroke = createPaintStroke(
                         fillColor,
