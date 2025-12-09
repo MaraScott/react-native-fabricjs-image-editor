@@ -1,3 +1,10 @@
+***
+
+HELP WANTED for that issue [#38](https://github.com/MaraScott/react-native-fabricjs-image-editor/issues/38)
+
+***
+
+
 # Konva Image Editor
 
 This directory contains the simple Konva-based image editor that powers the editing experience. The package is focused on bundling the editor assets (canvas interactions, controls, and styles) that live inside the Fabric Editor.
