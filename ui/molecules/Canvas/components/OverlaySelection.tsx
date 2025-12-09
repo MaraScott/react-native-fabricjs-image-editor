@@ -6,6 +6,16 @@ import type { CSSProperties } from 'react';
  * 
  * Type definition for OverlayBox.
  */
+/**
+ * OverlayBox Type
+ * 
+ * Type definition for OverlayBox.
+ */
+/**
+ * OverlayBox Type
+ * 
+ * Type definition for OverlayBox.
+ */
 export type OverlayBox = {
   x: number;
   y: number;

@@ -41,6 +41,11 @@ export type PayloadAction<P = void, T extends string = string, M = never, E = ne
  * 
  * Type definition for CaseReducer.
  */
+/**
+ * CaseReducer Interface
+ * 
+ * Type definition for CaseReducer.
+ */
 export interface CaseReducer<S = any, A extends Action = AnyAction> {
   (state: S, action: A): S | void;
 }
@@ -380,6 +385,14 @@ export function configureStore<S = any, A extends Action = AnyAction>(
 
 /**
  * Create an action creator
+ */
+/**
+ * createAction
+ * 
+ * Function to create action.
+ * 
+ * @param {T} type - Parameter description
+ * @returns {ActionCreator<P, T>} Return value description
  */
 /**
  * createAction

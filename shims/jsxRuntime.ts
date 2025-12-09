@@ -5,6 +5,11 @@ import React from 'react';
  * 
  * Type definition for Props.
  */
+/**
+ * Props Type
+ * 
+ * Type definition for Props.
+ */
 type Props = Record<string, unknown> & { children?: any };
 
 /**

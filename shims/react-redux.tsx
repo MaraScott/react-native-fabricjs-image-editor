@@ -33,6 +33,12 @@ export function Provider({ store, children }: { store: Store; children: React.Re
  * Custom hook for store.
  * @returns {Store<S, A>} Return value description
  */
+/**
+ * useStore Hook
+ * 
+ * Custom hook for store.
+ * @returns {Store<S, A>} Return value description
+ */
 export function useStore<S = any, A extends Action = Action>(): Store<S, A> {
   /**
    * useContext - Auto-generated summary; refine if additional context is needed.

@@ -15,6 +15,16 @@ import type { PanOffset, PointerPanState, TouchPanState } from '../types/canvas.
  * 
  * Type definition for UsePanControlsProps.
  */
+/**
+ * UsePanControlsProps Interface
+ * 
+ * Type definition for UsePanControlsProps.
+ */
+/**
+ * UsePanControlsProps Interface
+ * 
+ * Type definition for UsePanControlsProps.
+ */
 interface UsePanControlsProps {
   panModeActive?: boolean;
   spacePressed?: boolean;
@@ -43,6 +53,16 @@ interface UsePanControlsResult {
   setPanOffset: (offset: PanOffset) => void;
 }
 
+/**
+ * usePanControls Component
+ * 
+ * Renders the usePanControls component.
+ */
+/**
+ * usePanControls Component
+ * 
+ * Renders the usePanControls component.
+ */
 /**
  * usePanControls Component
  * 

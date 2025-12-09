@@ -1,6 +1,16 @@
 /**
  * Selector: Get the current selection transform (position, size, rotation, scale)
  */
+/**
+ * selectSelectionTransform Component
+ * 
+ * Renders the selectSelectionTransform component.
+ */
+/**
+ * selectSelectionTransform Component
+ * 
+ * Renders the selectSelectionTransform component.
+ */
 export const selectSelectionTransform = (state: RootState) => {
     const viewState = state.view as unknown as import('./types').ViewState;
     return viewState.select.selectionTransform;
@@ -134,6 +144,16 @@ function getElementBounds(element: AnyElement): ElementBounds | null {
  * Derive a screen-space rectangle that encompasses every currently selected
  * element. Components can render this rectangle as a marquee without having to
  * duplicate the math.
+ */
+/**
+ * selectSelectionRect Component
+ * 
+ * Renders the selectSelectionRect component.
+ */
+/**
+ * selectSelectionRect Component
+ * 
+ * Renders the selectSelectionRect component.
  */
 /**
  * selectSelectionRect Component

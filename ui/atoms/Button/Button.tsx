@@ -79,6 +79,16 @@ const getSizeStyles = (size: ButtonSize): CSSProperties => {
  * 
  * Renders the Button component.
  */
+/**
+ * Button Component
+ * 
+ * Renders the Button component.
+ */
+/**
+ * Button Component
+ * 
+ * Renders the Button component.
+ */
 export const Button = ({
   children,
   variant = 'secondary',

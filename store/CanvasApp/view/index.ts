@@ -83,6 +83,16 @@ const initialState: ViewState = {
  * 
  * Renders the viewReducer component.
  */
+/**
+ * viewReducer Component
+ * 
+ * Renders the viewReducer component.
+ */
+/**
+ * viewReducer Component
+ * 
+ * Renders the viewReducer component.
+ */
 export const viewReducer = createReducer(initialState, (builder) => {
     // Active tool management
     builder

@@ -8,6 +8,11 @@
  * 
  * Type definition for Reducer.
  */
+/**
+ * Reducer Type
+ * 
+ * Type definition for Reducer.
+ */
 export type Reducer<S = any, A = any> = (state: S | undefined, action: A) => S;
 
 export interface Action<T = any> {
@@ -154,6 +159,16 @@ export function combineReducers<S>(
 
 /**
  * Create a Redux store
+ */
+/**
+ * createStore
+ * 
+ * Function to create store.
+ * 
+ * @param {Reducer<S, A>} reducer - Parameter description
+ * @param {PreloadedState<S> | StoreEnhancer} preloadedState? - Parameter description
+ * @param {StoreEnhancer} enhancer? - Parameter description
+ * @returns {Store<S, A>} Return value description
  */
 /**
  * createStore

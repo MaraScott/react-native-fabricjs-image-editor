@@ -22,6 +22,16 @@ export type { InitialLayerDefinition } from '@molecules/Layer/Layer.types';
 /**
  * CanvasContainerProps interface - Generated documentation block.
  */
+/**
+ * CanvasContainerProps Interface
+ * 
+ * Type definition for CanvasContainerProps.
+ */
+/**
+ * CanvasContainerProps Interface
+ * 
+ * Type definition for CanvasContainerProps.
+ */
 export interface CanvasContainerProps {
     key?: string;
     width?: number;
@@ -43,6 +53,16 @@ export interface CanvasContainerProps {
 /**
  * CanvasContainer Organism - Main canvas component with full functionality
  * Manages canvas state, zoom, and high-level layer operations for the canvas
+ */
+/**
+ * CanvasContainer Component
+ * 
+ * Renders the CanvasContainer component.
+ */
+/**
+ * CanvasContainer Component
+ * 
+ * Renders the CanvasContainer component.
  */
 export const CanvasContainer = ({
     width = 1024,

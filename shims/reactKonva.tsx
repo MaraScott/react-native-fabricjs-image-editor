@@ -664,6 +664,11 @@ Stage.displayName = 'Stage';
  * 
  * Type definition for LayerProps.
  */
+/**
+ * LayerProps Type
+ * 
+ * Type definition for LayerProps.
+ */
 type LayerProps = PropsWithChildren<Record<string, any>>;
 
 /**
@@ -986,6 +991,11 @@ function createContainerComponent<T extends Konva.Container>(factory: NodeFactor
  * Circle
  * 
  * Function to circle.
+ */
+/**
+ * Rect
+ * 
+ * Function to rect.
  */
 export const Rect = createKonvaComponent(() => new Konva.Rect());
 /**

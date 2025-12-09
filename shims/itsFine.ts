@@ -5,6 +5,11 @@ import * as React from 'react';
  * 
  * Type definition for StartTransitionType.
  */
+/**
+ * StartTransitionType Type
+ * 
+ * Type definition for StartTransitionType.
+ */
 type StartTransitionType = typeof React.startTransition extends undefined
   ? (callback: () => void) => void
   : NonNullable<typeof React.startTransition>;
@@ -383,6 +388,11 @@ function useContextBridgeImpl(...contexts: Array<React.Context<unknown>>): Conte
   );
 }
 
+/**
+ * FiberProvider
+ * 
+ * Function to fiber provider.
+ */
 /**
  * FiberProvider
  * 

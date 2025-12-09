@@ -114,6 +114,16 @@ export const selectReducer = createReducer(initialState, (builder) => {
  * 
  * Function to select actions.
  */
+/**
+ * selectActions
+ * 
+ * Function to select actions.
+ */
+/**
+ * selectActions
+ * 
+ * Function to select actions.
+ */
 export const selectActions = {
     activate: () => ({ type: 'view/select/activate' as const }),
     deactivate: () => ({ type: 'view/select/deactivate' as const }),

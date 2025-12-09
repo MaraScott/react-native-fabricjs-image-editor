@@ -20,6 +20,16 @@ import type { Bounds } from '../types/canvas.types';
  * @param {number} value - The value to check
  * @returns {boolean} True if the value is finite
  */
+/**
+ * isFiniteNumber
+ * 
+ * Function to is finite number.
+ */
+/**
+ * isFiniteNumber
+ * 
+ * Function to is finite number.
+ */
 export const isFiniteNumber = (value: number): boolean => Number.isFinite(value);
 
 export const normaliseBounds = (rect: Bounds | null | undefined): Bounds | null => {
@@ -160,6 +170,16 @@ const computeChildrenBounds = (node: Konva.Node): Bounds | null => {
   };
 };
 
+/**
+ * computeNodeBounds Component
+ * 
+ * Renders the computeNodeBounds component.
+ */
+/**
+ * computeNodeBounds Component
+ * 
+ * Renders the computeNodeBounds component.
+ */
 export const computeNodeBounds = (node: Konva.Node | null): Bounds | null => {
   /**
    * if - Auto-generated summary; refine if additional context is needed.

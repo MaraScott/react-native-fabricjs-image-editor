@@ -38,6 +38,16 @@ const slugify = (value: string) =>
  * 
  * Type definition for CanvasAppProps.
  */
+/**
+ * CanvasAppProps Interface
+ * 
+ * Type definition for CanvasAppProps.
+ */
+/**
+ * CanvasAppProps Interface
+ * 
+ * Type definition for CanvasAppProps.
+ */
 export interface CanvasAppProps {
     id: string;
     width?: number;

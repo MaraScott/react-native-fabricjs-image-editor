@@ -11,6 +11,11 @@ import React, { type ReactNode } from 'react';
  * 
  * Type definition for ErrorBoundaryProps.
  */
+/**
+ * ErrorBoundaryProps Interface
+ * 
+ * Type definition for ErrorBoundaryProps.
+ */
 interface ErrorBoundaryProps {
     fallback: ReactNode;
     children: ReactNode;

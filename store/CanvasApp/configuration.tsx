@@ -2,6 +2,16 @@ import { createReducer } from '@reduxjs/toolkit';
 import type { Language } from '@i18n';
 import { resolveLanguage } from '@i18n';
 
+/**
+ * BootstrapConfiguration Interface
+ * 
+ * Type definition for BootstrapConfiguration.
+ */
+/**
+ * BootstrapConfiguration Interface
+ * 
+ * Type definition for BootstrapConfiguration.
+ */
 export interface BootstrapConfiguration {
     width: number;
     height: number;
@@ -20,6 +30,11 @@ const defaultBootstrap: BootstrapConfiguration = {
     assets_path: './assets/public',
 };
 
+/**
+ * ConfigurationState Interface
+ * 
+ * Type definition for ConfigurationState.
+ */
 interface ConfigurationState {
     logo: string;
     poster: string;
