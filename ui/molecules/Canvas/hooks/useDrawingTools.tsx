@@ -274,11 +274,12 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
                 (Math.abs(eff.scaleX ?? 1) + Math.abs(eff.scaleY ?? 1)) / 2 || 1;
             const layerTransform = buildLayerTransformFromEffective(eff);
 
+            // Transform from stage coordinates to layer-local coordinates
+            // Order matters: translate, then rotate, then scale (inverse of forward transform)
             let localX = stageX - (eff.boundsX ?? 0);
             let localY = stageY - (eff.boundsY ?? 0);
-            localX /= eff.scaleX || 1;
-            localY /= eff.scaleY || 1;
 
+            // Apply inverse rotation FIRST (before scale)
             if ((eff.rotation ?? 0) !== 0) {
                 const rotationRad = (eff.rotation ?? 0) * (Math.PI / 180);
                 const cos = Math.cos(-rotationRad);
@@ -288,6 +289,10 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
                 localX = x0 * cos - y0 * sin;
                 localY = x0 * sin + y0 * cos;
             }
+
+            // Then apply inverse scale
+            localX /= eff.scaleX || 1;
+            localY /= eff.scaleY || 1;
 
             // Eraser
             if (isRubberToolActive) {
@@ -371,9 +376,8 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
             const eff2 = resolveEffectiveLayerTransform(layer);
             let localX = point.x - (eff2.boundsX ?? 0);
             let localY = point.y - (eff2.boundsY ?? 0);
-            localX /= eff2.scaleX || 1;
-            localY /= eff2.scaleY || 1;
 
+            // Apply inverse rotation FIRST (before scale)
             if ((eff2.rotation ?? 0) !== 0) {
                 const r2 = (eff2.rotation ?? 0) * (Math.PI / 180);
                 const cos2 = Math.cos(-r2);
@@ -383,6 +387,10 @@ export function useDrawingTools(options: UseDrawingToolsOptions): UseDrawingTool
                 localX = x0 * cos2 - y0 * sin2;
                 localY = x0 * sin2 + y0 * cos2;
             }
+
+            // Then apply inverse scale
+            localX /= eff2.scaleX || 1;
+            localY /= eff2.scaleY || 1;
 
             setPendingStroke((prev) =>
                 prev && prev.layerId === layer.id

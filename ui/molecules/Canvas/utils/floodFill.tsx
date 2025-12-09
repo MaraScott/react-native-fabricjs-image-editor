@@ -359,15 +359,89 @@ async function getMaskCtx(w: number, h: number, eff?: any, targetLayer?: any, st
 
     // Draw strokes into mask. Opaque pixels will be treated as boundaries.
     const strokes = targetLayer.strokes ?? [];
-    const transformStrokePoints = (points: number[]) => {
+    
+    // IMPORTANT: Strokes are stored in layer-local coordinates at the time they were created.
+    // Each stroke has a layerTransform property that records the layer's transformation state.
+    // When the layer is transformed (rotated/scaled), old strokes need to be transformed
+    // to match the new coordinate space, otherwise they won't align with new strokes.
+    const transformStrokePoints = (points: number[], stroke: LayerStroke) => {
         if (!points || points.length < 2) return points;
 
+        // If stroke has layerTransform info, check if layer has been transformed since creation
+        if (stroke.layerTransform) {
+            const strokeTransform = stroke.layerTransform;
+            const currentTransform = eff;
+
+            const strokeRotation = strokeTransform.rotation ?? 0;
+            const strokeScaleX = strokeTransform.scale?.x ?? 1;
+            const strokeScaleY = strokeTransform.scale?.y ?? 1;
+            
+            const currentRotation = currentTransform.rotation ?? 0;
+            const currentScaleX = currentTransform.scaleX ?? 1;
+            const currentScaleY = currentTransform.scaleY ?? 1;
+
+            // If transforms match, points are already in correct space
+            const transformsMatch = 
+                Math.abs(strokeRotation - currentRotation) < 0.01 &&
+                Math.abs(strokeScaleX - currentScaleX) < 0.01 &&
+                Math.abs(strokeScaleY - currentScaleY) < 0.01;
+            
+            if (transformsMatch) {
+                return points;
+            }
+
+            // Transform points: apply stroke's transform, then inverse of current transform
+            // This converts from stroke's layer-local space to current layer-local space
+            const transformed: number[] = [];
+            for (let i = 0; i < points.length; i += 2) {
+                let x = points[i];
+                let y = points[i + 1];
+
+                // Apply stroke's scale
+                x *= strokeScaleX;
+                y *= strokeScaleY;
+
+                // Apply stroke's rotation
+                if (Math.abs(strokeRotation) > 0.01) {
+                    const rad = (strokeRotation * Math.PI) / 180;
+                    const cos = Math.cos(rad);
+                    const sin = Math.sin(rad);
+                    const x0 = x;
+                    const y0 = y;
+                    x = x0 * cos - y0 * sin;
+                    y = x0 * sin + y0 * cos;
+                }
+
+                // Apply inverse of current rotation
+                if (Math.abs(currentRotation) > 0.01) {
+                    const rad = (currentRotation * Math.PI) / 180;
+                    const cos = Math.cos(-rad);
+                    const sin = Math.sin(-rad);
+                    const x0 = x;
+                    const y0 = y;
+                    x = x0 * cos - y0 * sin;
+                    y = x0 * sin + y0 * cos;
+                }
+
+                // Apply inverse of current scale
+                x /= currentScaleX;
+                y /= currentScaleY;
+
+                transformed.push(x, y);
+            }
+            return transformed;
+        }
+
+        // Legacy: Check if points are in stage coordinates (very large values)
         const maxCoord = Math.max(...points.map((value) => Math.abs(value)));
         const scaleThreshold = Math.max(stageWidth, stageHeight) * 2;
+        
         if (maxCoord <= scaleThreshold) {
+            // Points are in layer-local space, use directly
             return points;
         }
 
+        // Legacy case: Transform from stage coordinates to layer-local coordinates
         const rotationDeg = eff.rotation ?? 0;
         const rotationRad = (rotationDeg * Math.PI) / 180;
         const cos = Math.cos(-rotationRad);
@@ -391,6 +465,7 @@ async function getMaskCtx(w: number, h: number, eff?: any, targetLayer?: any, st
         }
         return normalized;
     };
+    
     for (const s of strokes) {
         if (!s || !s.points || s.points.length < 2) continue;
         maskCtx.save();
@@ -406,7 +481,7 @@ async function getMaskCtx(w: number, h: number, eff?: any, targetLayer?: any, st
         maskCtx.strokeStyle = 'rgba(0,0,0,1)';
         maskCtx.lineWidth = Math.max(1, s.size || 1);
         maskCtx.beginPath();
-        const pts = transformStrokePoints(s.points);
+        const pts = transformStrokePoints(s.points, s);
         maskCtx.moveTo(pts[0] ?? 0, pts[1] ?? 0);
         for (let i = 2; i < pts.length; i += 2) {
             maskCtx.lineTo(pts[i], pts[i + 1]);
@@ -441,6 +516,9 @@ export async function floodFillLayer(
         // Compute target bounds (crop area) so we preserve layer position and avoid moving strokes
         const boundsX = targetLayer.bounds?.x ?? (targetLayer.position?.x ?? 0);
         const boundsY = targetLayer.bounds?.y ?? (targetLayer.position?.y ?? 0);
+        
+        // Use layer bounds for mask canvas dimensions
+        // If bounds are not set, fall back to stage dimensions
         const w = Math.max(1, targetLayer.bounds?.width ?? stageWidth);
         const h = Math.max(1, targetLayer.bounds?.height ?? stageHeight);
 
@@ -456,10 +534,8 @@ export async function floodFillLayer(
         const eff = resolveEffectiveLayerTransform(targetLayer);
         let localX = stageX - (eff.boundsX ?? 0);
         let localY = stageY - (eff.boundsY ?? 0);
-        // Apply inverse scale
-        localX /= (eff.scaleX || 1);
-        localY /= (eff.scaleY || 1);
-        // Apply inverse rotation
+        
+        // Apply inverse rotation FIRST (before scale) - order matters!
         if ((eff.rotation ?? 0) !== 0) {
             const r = (eff.rotation ?? 0) * Math.PI / 180;
             const cos = Math.cos(-r);
@@ -469,6 +545,10 @@ export async function floodFillLayer(
             localX = x0 * cos - y0 * sin;
             localY = x0 * sin + y0 * cos;
         }
+        
+        // Then apply inverse scale
+        localX /= (eff.scaleX || 1);
+        localY /= (eff.scaleY || 1);
         const layerTransform = buildLayerTransformFromEffective(eff);
         const maskCtx = await getMaskCtx(w, h, eff, targetLayer, stageWidth, stageHeight);
         const { canvas: outCanvas, ctx: outCtx } = getPaintedCanvas(w, h, localX, localY, maskCtx, paintColor ?? '#000000');
