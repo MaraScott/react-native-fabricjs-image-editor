@@ -1,6 +1,6 @@
 # Konva Image Editor
 
-This directory contains the simple Konva-based image editor that powers the tiny artist editing experience in the Marascott GenAI WordPress plugin. The package is focused on bundling the editor assets (canvas interactions, controls, and styles) that live inside the Fabric Editor portion of the plugin.
+This directory contains the simple Konva-based image editor that powers the editing experience. The package is focused on bundling the editor assets (canvas interactions, controls, and styles) that live inside the Fabric Editor.
 
 ## Prerequisites
 
@@ -9,7 +9,7 @@ This directory contains the simple Konva-based image editor that powers the tiny
 
 ## Installation
 
-1. Open a terminal in this directory (`wp-content/plugins/marascott-genai/src_expo/tinyartist-editor/assets/fabric-editor/src`).
+1. Open a terminal in this directory.
 2. Run `npm install` to download dependencies (`esbuild` for bundling and `sass` for styles).
 
 ## Available Scripts
@@ -29,10 +29,3 @@ All scripts are executed with `npm run <script>`.
 1. Use `npm run watch` while editing source files so changes are automatically bundled.
 2. Run `npm run build` once you are ready to bundle for deployment.
 3. If you need to refresh documentation, use the `docs:generate*` scripts; they rely on JSDoc annotations, so keep the comments current.
-
-## Deployment Notes
-
-- The generated assets are consumed by the WordPress plugin, so make sure the build output is copied back into the plugin’s public assets if you operate inside a separate build workspace.
-- Because this package is marked as `private`, it is intended to be used locally (within the plugin) and not published to npm.
-
-If you have questions about how this editor fits into the broader plugin, check the parent plugin documentation or ask a teammate familiar with the Marascott GenAI integration.
