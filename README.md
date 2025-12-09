@@ -2,6 +2,8 @@
 
 This directory contains the simple Konva-based image editor that powers the editing experience. The package is focused on bundling the editor assets (canvas interactions, controls, and styles) that live inside the Fabric Editor.
 
+<img width="1431" height="653" alt="image" src="https://github.com/user-attachments/assets/e39b2174-6e35-4134-98e3-a508317af852" />
+
 ## Prerequisites
 
 - Node.js (v16+ tested, but later LTS versions are recommended)
