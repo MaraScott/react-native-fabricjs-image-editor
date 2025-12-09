@@ -10,7 +10,7 @@ Complex UI components composed of molecules and atoms
 
 - [SideBarLeft](#sidebarleft)
 - [HeaderLeft](#headerleft)
-- [ZoomableCanvasContainer](#zoomablecanvascontainer)
+- [Footer](#footer)
 - [CanvasContainer](#canvascontainer)
 
 ---
@@ -31,8 +31,13 @@ import { SideBarLeft } from '@SideBar/SideBarLeft';
 
 | Prop | Type | Default | Required | Description |
 |------|------|---------|----------|-------------|
+| `key` | `string` | - |  |  |
 | `isPanToolActive` | `boolean` | - | ✓ |  |
 | `isSelectToolActive` | `boolean` | - | ✓ |  |
+| `isDrawToolActive` | `boolean` | - | ✓ |  |
+| `isRubberToolActive` | `boolean` | - | ✓ |  |
+| `isTextToolActive` | `boolean` | - | ✓ |  |
+| `isPaintToolActive` | `boolean` | - | ✓ |  |
 
 ### Example
 
@@ -54,8 +59,13 @@ import { HeaderLeft } from '@Header/HeaderLeft';
 
 | Prop | Type | Default | Required | Description |
 |------|------|---------|----------|-------------|
+| `key` | `string` | - |  |  |
 | `width` | `number` | - | ✓ |  |
 | `height` | `number` | - | ✓ |  |
+| `theme` | `enum` | - | ✓ |  |
+| `language` | `i18n.Language` | - | ✓ |  |
+| `onThemeChange` | `(theme: "kid" | "adult") => void` | - |  |  |
+| `onLanguageChange` | `(lang: i18n.Language) => void` | - |  |  |
 
 ### Example
 
@@ -65,43 +75,27 @@ import { HeaderLeft } from '@Header/HeaderLeft';
 
 ---
 
-## ZoomableCanvasContainer
+## Footer
 
 ### Import
 
 ```tsx
-import { ZoomableCanvasContainer } from '@Canvas/ZoomableCanvasContainer';
+import { Footer } from '@Footer/Footer';
 ```
-
-### Props
-
-| Prop | Type | Default | Required | Description |
-|------|------|---------|----------|-------------|
-| `width` | `number` | `1024` |  |  |
-| `height` | `number` | `1024` |  |  |
-| `backgroundColor` | `string` | `#ffffff` |  |  |
-| `containerBackground` | `string` | `#cccccc` |  |  |
-| `zoom` | `number` | - | ✓ |  |
-| `onZoomChange` | `(zoom: number) => void` | - | ✓ |  |
-| `minZoom` | `number` | `-100` |  |  |
-| `maxZoom` | `number` | `-1 * minZoom` |  |  |
-| `zoomStep` | `number` | `10` |  |  |
-| `wheelZoomStep` | `number` | `5` |  |  |
-| `onStageReady` | `(stage: Konva.Stage) => void` | - |  |  |
-| `panModeActive` | `boolean` | `false` |  |  |
 
 ### Example
 
 ```tsx
-<ZoomableCanvasContainer />
+<Footer />
 ```
 
 ---
 
 ## CanvasContainer
 
-CanvasContainer Organism - Main canvas component with full functionality
-Manages canvas state, zoom, and high-level layer operations for the canvas
+CanvasContainer Component
+
+Renders the CanvasContainer component.
 
 ### Import
 
@@ -113,16 +107,20 @@ import { CanvasContainer } from '@Canvas/CanvasContainer';
 
 | Prop | Type | Default | Required | Description |
 |------|------|---------|----------|-------------|
+| `key` | `string` | - |  |  |
 | `width` | `number` | `1024` |  |  |
 | `height` | `number` | `1024` |  |  |
-| `backgroundColor` | `string` | `#ffffff` |  |  |
+| `backgroundColor` | `string` | `#cccccc33` |  |  |
 | `containerBackground` | `string` | `#cccccc` |  |  |
 | `zoom` | `number` | `0` |  |  |
+| `fitRequest` | `number` | `0` |  |  |
 | `onStageReady` | `(stage: Konva.Stage) => void` | - |  |  |
 | `onZoomChange` | `(zoom: number) => void` | - |  |  |
+| `onHistoryChange` | `(handlers: { undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean; revision: number; }) => void` | - |  |  |
 | `panModeActive` | `boolean` | `false` |  |  |
-| `initialLayers` | `CanvasLayerDefinition[]` | - |  |  |
+| `initialLayers` | `InitialLayerDefinition[]` | - |  |  |
 | `selectModeActive` | `boolean` | `false` |  |  |
+| `language` | `Language` | `en` |  |  |
 
 ### Example
 

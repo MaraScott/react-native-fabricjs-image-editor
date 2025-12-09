@@ -26,6 +26,7 @@ import { CanvasLayout } from '@Canvas/CanvasLayout';
 
 | Prop | Type | Default | Required | Description |
 |------|------|---------|----------|-------------|
+| `classNameId` | `string` | `canvas-layout` |  |  |
 | `headerLeft` | `ReactNode` | - |  |  |
 | `headerCenter` | `ReactNode` | - |  |  |
 | `headerRight` | `ReactNode` | - |  |  |

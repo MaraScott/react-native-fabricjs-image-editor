@@ -28,10 +28,14 @@ import { CanvasApp } from '@Canvas/CanvasApp';
 
 | Prop | Type | Default | Required | Description |
 |------|------|---------|----------|-------------|
-| `width` | `number` | `1024` |  |  |
-| `height` | `number` | `1024` |  |  |
-| `backgroundColor` | `string` | `#ffffff` |  |  |
+| `id` | `string` | `tiny-artist-editor` |  |  |
+| `width` | `number` | - |  |  |
+| `height` | `number` | - |  |  |
+| `backgroundColor` | `string` | - |  |  |
 | `containerBackground` | `string` | `#cccccc` |  |  |
+| `theme` | `enum` | - |  |  |
+| `i18n` | `string` | - |  |  |
+| `assets_path` | `string` | - |  |  |
 | `initialZoom` | `number` | `0` |  |  |
 
 ### Example

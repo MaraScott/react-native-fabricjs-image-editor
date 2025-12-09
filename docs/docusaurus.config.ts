@@ -15,10 +15,10 @@ const config: Config = {
   },
 
   // Set the production url of your site here
-  url: 'https://marascott.ai',
+  url: 'http://localhost',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/wp-content/plugins/marascott-genai/src_expo/tinyartist-editor/assets/fabric-editor/src/docs/build/',
+  baseUrl: '/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -44,7 +44,7 @@ const config: Config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/MaraScott/www.marascott.ai/tree/main-canvas/',
+            'https://github.com/MaraScott/react-native-fabricjs-image-editor/tree/main/',
         },
         blog: {
           showReadingTime: true,
@@ -55,7 +55,7 @@ const config: Config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/MaraScott/www.marascott.ai/tree/main-canvas/',
+            'https://github.com/MaraScott/react-native-fabricjs-image-editor/tree/main/',
           // Useful options to enforce blogging best practices
           onInlineTags: 'warn',
           onInlineAuthors: 'warn',
@@ -119,7 +119,7 @@ const config: Config = {
           position: 'right',
         },
         {
-          href: 'https://github.com/MaraScott/www.marascott.ai',
+          href: 'https://github.com/MaraScott/react-native-fabricjs-image-editor',
           label: 'GitHub',
           position: 'right',
         },

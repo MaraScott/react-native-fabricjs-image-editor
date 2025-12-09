@@ -12,6 +12,8 @@ Basic building blocks - the smallest UI components
 - [ResizeHandle](#resizehandle)
 - [Stage](#stage)
 - [Layer](#layer)
+- [Group](#group)
+- [ButtonLayer](#buttonlayer)
 - [Button](#button)
 
 ---
@@ -82,14 +84,6 @@ Wraps Konva Stage with a consistent API
 import { Stage } from '@Canvas/Stage';
 ```
 
-### Props
-
-| Prop | Type | Default | Required | Description |
-|------|------|---------|----------|-------------|
-| `width` | `number` | - | ✓ |  |
-| `height` | `number` | - | ✓ |  |
-| `style` | `CSSProperties` | - |  |  |
-
 ### Example
 
 ```tsx
@@ -113,6 +107,50 @@ import { Layer } from '@Canvas/Layer';
 
 ```tsx
 <Layer />
+```
+
+---
+
+## Group
+
+Group Atom - Container for canvas elements
+Wraps Konva Group with a consistent API
+
+### Import
+
+```tsx
+import { Group } from '@Canvas/Group';
+```
+
+### Example
+
+```tsx
+<Group />
+```
+
+---
+
+## ButtonLayer
+
+### Import
+
+```tsx
+import { ButtonLayer } from '@Button/ButtonLayer';
+```
+
+### Props
+
+| Prop | Type | Default | Required | Description |
+|------|------|---------|----------|-------------|
+| `action` | `string` | `default` |  |  |
+| `id` | `string` | - |  |  |
+| `className` | `string` | - |  |  |
+| `title` | `string` | - |  |  |
+
+### Example
+
+```tsx
+<ButtonLayer />
 ```
 
 ---
